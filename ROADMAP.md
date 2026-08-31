@@ -10,9 +10,9 @@
 | **Fase 1** | ✅ Completada | Diseño visual con StitchMCP |
 | **Fase 2** | ✅ Completada | Script extractor con resolución de relaciones |
 | **Fase 3** | ✅ Completada | Frontend core: tabla, filtros, agrupación, KPIs, glosario |
-| **Fase 3.5** | 🔄 En progreso | Integración Impeccable (auditoría y refinamiento visual) |
-| **Fase 4** | ⏳ Pendiente | Pipeline CI/CD (Worker + GitHub Actions + Trigger Notion) |
-| **Fase 5** | ⏳ Pendiente | Validación E2E y cierre |
+| **Fase 3.5** | ✅ Completada | Integración Impeccable (auditoría y refinamiento visual) |
+| **Fase 4** | ✅ Completada | Pipeline CI/CD (GitHub Actions `deploy.yml` + Cloudflare Worker) |
+| **Fase 5** | ✅ Completada | Validación E2E en GitHub Pages (`https://cazx008.github.io/inventario-dashboard/`) |
 
 ---
 
