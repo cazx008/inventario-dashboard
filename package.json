@@ -1,0 +1,13 @@
+{
+  "name": "inventario-dashboard",
+  "version": "1.0.0",
+  "description": "Dashboard de Inventario — Sanesca Exhibidores. Tablero web de solo lectura para la Gerencia de Operaciones.",
+  "private": true,
+  "scripts": {
+    "fetch": "node scripts/fetch-inventory.js",
+    "build": "node scripts/fetch-inventory.js"
+  },
+  "dependencies": {
+    "@notionhq/client": "^2.2.0"
+  }
+}

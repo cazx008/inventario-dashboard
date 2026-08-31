@@ -1,0 +1,13 @@
+{
+  "name": "sanesca-sync-worker",
+  "version": "1.0.0",
+  "description": "Cloudflare Worker puente entre Notion Webhook y GitHub Actions repository_dispatch",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.127.1"
+  }
+}

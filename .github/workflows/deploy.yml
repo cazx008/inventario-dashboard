@@ -1,0 +1,68 @@
+name: Deploy Inventario Dashboard
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  schedule:
+    # Ejecutar diariamente a las 00:01 UTC-4 (04:01 UTC)
+    - cron: '1 4 * * *'
+  workflow_dispatch:
+    # Permite trigger manual desde la UI de GitHub
+  repository_dispatch:
+    # Permite trigger vía Webhook / Cloudflare Worker (sanesca-sync)
+    types:
+      - notion-sync
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Fetch Notion Data & Generate JSON
+        env:
+          SANESCATOKEN: ${{ secrets.SANESCATOKEN || secrets.NOTION_TOKEN }}
+          NOTION_TOKEN: ${{ secrets.SANESCATOKEN || secrets.NOTION_TOKEN }}
+          NOTION_DASHBOARD_DB_ID: ${{ secrets.NOTION_DASHBOARD_DB_ID || secrets.DASHBOARD_DB_ID || '2b586805-4e27-80fe-b6e8-e4c6dc325696' }}
+        run: npm run build
+
+      - name: Prepare Deployment Directory
+        run: |
+          mkdir -p dist
+          cp index.html dist/
+          cp -r assets dist/ 2>/dev/null || true
+          cp -r data dist/
+
+      - name: Upload GitHub Pages Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './dist'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

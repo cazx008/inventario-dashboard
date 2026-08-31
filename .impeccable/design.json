@@ -1,0 +1,138 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-31T14:57:00Z",
+  "title": "Design System: Dashboard de Inventario Sanesca",
+  "extensions": {
+    "colorMeta": {
+      "page-deep":          { "role": "neutral",  "displayName": "Page Deep",           "canonical": "#0F172A", "tonalRamp": ["#020617", "#0F172A", "#1E293B", "#334155", "#475569", "#64748B", "#94A3B8", "#CBD5E1"] },
+      "surface-slab":       { "role": "neutral",  "displayName": "Surface Slab",        "canonical": "#1E293B", "tonalRamp": ["#0F172A", "#1E293B", "#1C2B3C", "#273647", "#334155", "#475569", "#64748B", "#94A3B8"] },
+      "surface-raised":     { "role": "neutral",  "displayName": "Surface Raised",      "canonical": "#1C2B3C", "tonalRamp": ["#0F172A", "#1C2B3C", "#273647", "#334155", "#475569", "#64748B", "#94A3B8", "#CBD5E1"] },
+      "surface-top":        { "role": "neutral",  "displayName": "Surface Top",         "canonical": "#273647", "tonalRamp": ["#1E293B", "#273647", "#334155", "#475569", "#64748B", "#94A3B8", "#CBD5E1", "#E2E8F0"] },
+      "border-wire":        { "role": "neutral",  "displayName": "Border Wire",         "canonical": "#334155", "tonalRamp": ["#1E293B", "#273647", "#334155", "#475569", "#64748B", "#94A3B8", "#CBD5E1", "#E2E8F0"] },
+      "terminal-green":     { "role": "primary",  "displayName": "Terminal Green",      "canonical": "#4EDEA3", "tonalRamp": ["#022C22", "#064E3B", "#059669", "#10B981", "#34D399", "#4EDEA3", "#6EE7B7", "#A7F3D0"] },
+      "terminal-green-mid": { "role": "primary",  "displayName": "Terminal Green Mid",  "canonical": "#10B981", "tonalRamp": ["#022C22", "#064E3B", "#059669", "#10B981", "#34D399", "#4EDEA3", "#6EE7B7", "#A7F3D0"] },
+      "terminal-green-deep":{ "role": "primary",  "displayName": "Terminal Green Deep", "canonical": "#059669", "tonalRamp": ["#022C22", "#064E3B", "#059669", "#10B981", "#34D399", "#4EDEA3", "#6EE7B7", "#A7F3D0"] },
+      "signal-red":         { "role": "tertiary", "displayName": "Signal Red",          "canonical": "#EF4444", "tonalRamp": ["#450A0A", "#7F1D1D", "#B91C1C", "#DC2626", "#EF4444", "#F87171", "#FCA5A5", "#FECACA"] },
+      "signal-orange":      { "role": "tertiary", "displayName": "Signal Orange",       "canonical": "#F59E0B", "tonalRamp": ["#451A03", "#78350F", "#B45309", "#D97706", "#F59E0B", "#FBBF24", "#FCD34D", "#FDE68A"] },
+      "signal-yellow":      { "role": "tertiary", "displayName": "Signal Yellow",       "canonical": "#EAB308", "tonalRamp": ["#422006", "#713F12", "#A16207", "#CA8A04", "#EAB308", "#FACC15", "#FDE047", "#FEF08A"] },
+      "signal-blue":        { "role": "tertiary", "displayName": "Signal Blue",         "canonical": "#3B82F6", "tonalRamp": ["#1E1B4B", "#1E3A8A", "#1D4ED8", "#2563EB", "#3B82F6", "#60A5FA", "#93C5FD", "#BFDBFE"] },
+      "signal-purple":      { "role": "tertiary", "displayName": "Signal Purple",       "canonical": "#8B5CF6", "tonalRamp": ["#2E1065", "#3B0764", "#6D28D9", "#7C3AED", "#8B5CF6", "#A78BFA", "#C4B5FD", "#DDD6FE"] }
+    },
+    "typographyMeta": {
+      "body": { "displayName": "Body", "purpose": "Standard table cell text and paragraph content." },
+      "label": { "displayName": "Label", "purpose": "Section headers, category labels, toolbar buttons. Always uppercase with wide tracking." },
+      "mono": { "displayName": "Mono", "purpose": "Numeric values, SKU codes, timestamps. Aligns columns visually like a spreadsheet." }
+    },
+    "shadows": [
+      { "name": "logo-plate", "value": "0 0 0 1px rgba(255,255,255,0.15), 0 2px 8px rgba(0,0,0,0.4)", "purpose": "White contrast plate holding the Sanesca logo over dark background." },
+      { "name": "panel-dropdown", "value": "0 10px 25px rgba(0,0,0,0.5)", "purpose": "Floating dropdown menus for filters, sort, column selector. Heavy shadow to clearly separate from table content." }
+    ],
+    "motion": [
+      { "name": "transition-standard", "value": "all 150ms ease", "purpose": "Default CSS transition for hover/focus state changes on buttons and links." },
+      { "name": "collapse-glossary", "value": "300ms ease", "purpose": "Alpine x-transition duration for glossary expand/collapse." },
+      { "name": "pulse-sync", "value": "animate-pulse", "purpose": "Tailwind pulse animation on sync status dot (emerald-400)." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Toolbar Button",
+      "kind": "button",
+      "refersTo": "button-toolbar",
+      "description": "Standard toolbar control button (Vista, Columnas, Filtrar, Ordenar, Agrupar).",
+      "html": "<button class=\"ds-btn-toolbar\">⚙ Columnas</button>",
+      "css": ".ds-btn-toolbar { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; font-size: 12px; font-weight: 500; font-family: 'Geist', 'Inter', sans-serif; background: #0F172A; border: 1px solid #334155; border-radius: 8px; color: #94A3B8; cursor: pointer; transition: all 150ms ease; } .ds-btn-toolbar:hover { color: #F1F5F9; border-color: #64748B; }"
+    },
+    {
+      "name": "Toolbar Button Active",
+      "kind": "button",
+      "refersTo": "button-toolbar-active",
+      "description": "Toolbar button when its feature has active state (filters applied, sort active).",
+      "html": "<button class=\"ds-btn-toolbar ds-btn-toolbar--active\">🔍 Filtrar <span class=\"ds-count-badge\">2</span></button>",
+      "css": ".ds-btn-toolbar--active { border-color: #10B981; color: #4EDEA3; } .ds-count-badge { display: inline-block; background: rgba(16,185,129,0.2); color: #4EDEA3; padding: 0 4px; border-radius: 4px; font-size: 10px; margin-left: 2px; }"
+    },
+    {
+      "name": "Reset Button",
+      "kind": "button",
+      "refersTo": "button-reset",
+      "description": "Reset all filters button. Red-tinted when filters are active, disabled when clean.",
+      "html": "<button class=\"ds-btn-reset\">🔄 Reset</button>",
+      "css": ".ds-btn-reset { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; font-size: 12px; font-weight: 500; font-family: 'Geist', 'Inter', sans-serif; background: #0F172A; border: 1px solid rgba(239,68,68,0.4); border-radius: 8px; color: #F87171; cursor: pointer; transition: all 150ms ease; } .ds-btn-reset:hover { background: rgba(239,68,68,0.1); } .ds-btn-reset:disabled { color: #64748B; border-color: #334155; cursor: not-allowed; }"
+    },
+    {
+      "name": "Status Badge",
+      "kind": "chip",
+      "refersTo": "badge-status",
+      "description": "In-cell status badge for Estado de Stock and Prioridad columns.",
+      "html": "<span class=\"ds-badge ds-badge--red\">Sin Stock</span> <span class=\"ds-badge ds-badge--orange\">Bajo Mín.</span> <span class=\"ds-badge ds-badge--green\">En Stock</span> <span class=\"ds-badge ds-badge--blue\">En Reconteo</span>",
+      "css": ".ds-badge { display: inline-block; padding: 2px 6px; font-size: 10px; font-weight: 500; font-family: 'Geist', sans-serif; border-radius: 4px; } .ds-badge--red { background: rgba(239,68,68,0.15); color: #FCA5A5; } .ds-badge--orange { background: rgba(245,158,11,0.15); color: #FCD34D; } .ds-badge--green { background: rgba(16,185,129,0.15); color: #6EE7B7; } .ds-badge--blue { background: rgba(59,130,246,0.15); color: #93C5FD; } .ds-badge--gray { background: rgba(100,116,139,0.15); color: #CBD5E1; }"
+    },
+    {
+      "name": "Quick Filter Badge",
+      "kind": "chip",
+      "refersTo": "badge-status",
+      "description": "Toggle badge in the quick filter bar. Inactive state has subtle border; active state shows signal color.",
+      "html": "<button class=\"ds-qf-badge ds-qf-badge--inactive\">🔴 Sin Stock</button> <button class=\"ds-qf-badge ds-qf-badge--active-red\">🔴 Sin Stock</button>",
+      "css": ".ds-qf-badge { padding: 2px 8px; font-size: 11px; font-weight: 500; font-family: 'Geist', sans-serif; border-radius: 6px; cursor: pointer; transition: all 150ms ease; border: 1px solid transparent; } .ds-qf-badge--inactive { background: transparent; border-color: #334155; color: #94A3B8; } .ds-qf-badge--inactive:hover { border-color: #64748B; color: #CBD5E1; } .ds-qf-badge--active-red { background: rgba(239,68,68,0.15); border-color: #EF4444; color: #FCA5A5; }"
+    },
+    {
+      "name": "Search Input",
+      "kind": "input",
+      "refersTo": "input-search",
+      "description": "Primary search field in the toolbar with magnifying glass icon.",
+      "html": "<div class=\"ds-search-wrap\"><span class=\"ds-search-icon\">🔍</span><input type=\"text\" class=\"ds-search\" placeholder=\"Buscar por nombre, código...\"></div>",
+      "css": ".ds-search-wrap { position: relative; flex: 1; min-width: 180px; max-width: 384px; } .ds-search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 14px; color: #64748B; pointer-events: none; } .ds-search { width: 100%; padding: 6px 12px 6px 32px; font-size: 14px; font-family: 'Geist', sans-serif; background: #0F172A; border: 1px solid #334155; border-radius: 6px; color: #E2E8F0; transition: border-color 150ms ease; outline: none; } .ds-search::placeholder { color: #64748B; } .ds-search:focus { border-color: #4EDEA3; }"
+    },
+    {
+      "name": "KPI Card",
+      "kind": "card",
+      "refersTo": "kpi-card",
+      "description": "Summary metric card showing a single KPI with color-coded left border.",
+      "html": "<div class=\"ds-kpi ds-kpi--red\"><p class=\"ds-kpi-label\">🔴 Sin Stock</p><p class=\"ds-kpi-value ds-kpi-value--red\">12</p></div>",
+      "css": ".ds-kpi { background: #1E293B; border: 1px solid #334155; border-radius: 8px; padding: 12px; border-left: 4px solid; } .ds-kpi--red { border-left-color: #EF4444; } .ds-kpi--orange { border-left-color: #F59E0B; } .ds-kpi--green { border-left-color: #10B981; } .ds-kpi--blue { border-left-color: #3B82F6; } .ds-kpi--purple { border-left-color: #8B5CF6; } .ds-kpi-label { font-size: 12px; font-weight: 500; color: #94A3B8; margin: 0; } .ds-kpi-value { font-size: 24px; font-weight: 700; margin: 4px 0 0; font-family: 'Geist', sans-serif; } .ds-kpi-value--red { color: #F87171; } .ds-kpi-value--orange { color: #FBBF24; } .ds-kpi-value--green { color: #34D399; } .ds-kpi-value--blue { color: #60A5FA; } .ds-kpi-value--purple { color: #A78BFA; }"
+    },
+    {
+      "name": "Dropdown Panel",
+      "kind": "card",
+      "refersTo": "button-toolbar",
+      "description": "Floating dropdown panel for filter rules, sort levels, column selector.",
+      "html": "<div class=\"ds-panel\"><p class=\"ds-panel-header\">Donde todas las condiciones se cumplen:</p><div class=\"ds-panel-body\"><!-- filter rules here --></div></div>",
+      "css": ".ds-panel { background: #1E293B; border: 1px solid #334155; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); padding: 12px; min-width: 300px; } .ds-panel-header { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: #64748B; font-weight: 600; margin: 0 0 8px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "La Terminal de Almacén",
+    "overview": "Como la pantalla de un depósito: denso, mono, oscuro, operativo. Información a distancia de un vistazo. La interfaz existe para ser consultada, no para ser admirada. Cada píxel tiene un propósito funcional: un número, un estado, una prioridad. Los colores son señales, no decoración.\n\nEl dashboard respira densidad operativa. Es una hoja de cálculo con superpoderes: las mismas 19 columnas que el gerente ya conoce, pero con semáforos, badges y KPIs que Notion no puede mostrar. El tema oscuro no es una elección estética; es la pantalla que el supervisor ve en el almacén bajo luz artificial.",
+    "keyCharacteristics": [
+      "Densidad máxima: más datos visibles por píxel que cualquier alternativa",
+      "Colores semánticos operativos: cada color es una señal, no un adorno",
+      "Monospace para números: legibilidad de hoja de cálculo",
+      "Interacciones industriales: respuesta directa, sin duda, sin delay",
+      "Accesibilidad en condiciones de campo: contraste alto sobre fondo oscuro"
+    ],
+    "rules": [
+      { "name": "The Signal-Only Color Rule", "body": "Fuera de la escala de grises (slate), el color solo aparece para comunicar estado operativo. Rojo = peligro, naranja = precaución, verde = nominal, azul = proceso, púrpura = auditoría.", "section": "colors" },
+      { "name": "The Mono Numbers Rule", "body": "Todo valor numérico y todo código alfanumérico usa font-mono. Sin excepción.", "section": "typography" },
+      { "name": "The Flat-By-Default Rule", "body": "Las superficies son planas en reposo. La shadow solo aparece en elementos que flotan sobre otros.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do usar font-mono para todo valor numérico y código alfanumérico en la tabla.",
+      "Do mantener los colores semánticos exactos de Notion sin variación.",
+      "Do usar uppercase tracking-wider para section headers y labels de categoría.",
+      "Do preservar el layout de tabla en mobile — scroll horizontal, nunca cards.",
+      "Do comunicar estados activos de controles cambiando borde + texto a terminal-green."
+    ],
+    "donts": [
+      "Don't agregar box-shadow a superficies que no flotan.",
+      "Don't usar colores semánticos para decoración.",
+      "Don't poner enlaces a Notion en el footer.",
+      "Don't usar fuentes display ni pesos por debajo de 400.",
+      "Don't agregar gradientes, glassmorphism, o efectos decorativos.",
+      "Don't agregar sidebar, columnas laterales, o split-view."
+    ]
+  }
+}

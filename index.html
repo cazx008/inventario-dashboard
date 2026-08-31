@@ -1,0 +1,1157 @@
+<!DOCTYPE html>
+<html lang="es" x-data="inventarioApp()" x-init="init()" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>📦 Dashboard de Inventario — Sanesca</title>
+  <meta name="description" content="Tablero de inventario de materiales para la Gerencia de Operaciones de Sanesca Exhibidores. Stock, prioridades y estado en tiempo real.">
+
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            page: '#0F172A',
+            surface: '#1E293B',
+            surfaceHigh: '#1C2B3C',
+            surfaceHighest: '#273647',
+            borderSubtle: '#334155',
+            brand: { 400: '#4EDEA3', 500: '#10B981', 600: '#059669' },
+          },
+          fontFamily: {
+            sans: ['Geist', 'Inter', 'system-ui', '-apple-system', 'sans-serif'],
+            mono: ['Geist Mono', 'JetBrains Mono', 'ui-monospace', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Google Fonts: Geist & Inter (Sanesca Design System v1.0.0) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Alpine.js Core -->
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.5/dist/cdn.min.js"></script>
+
+  <style>
+    body { font-family: 'Geist', 'Inter', sans-serif; }
+    code, .font-mono { font-family: 'Geist Mono', monospace; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+    /* Logo contrast plate */
+    .logo-contrast-plate {
+      background: #ffffff;
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15), 0 2px 8px rgba(0, 0, 0, 0.4);
+    }
+
+    /* Custom scrollbars */
+    .custom-scrollbar::-webkit-scrollbar { height: 6px; width: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: #0f172a; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+
+    /* Table zebra stripes */
+    .row-even { background: #0F172A; }
+    .row-odd { background: #131D2E; }
+    .row-danger { background: rgba(239, 68, 68, 0.08); border-left: 3px solid #EF4444; }
+    .row-warning { background: rgba(245, 158, 11, 0.06); border-left: 3px solid #F59E0B; }
+
+    /* Sticky header */
+    .table-header-sticky { position: sticky; top: 0; z-index: 10; background: #1E293B; }
+
+    /* Badge toggle states */
+    .badge-inactive { background: transparent; border: 1px solid #334155; color: #94A3B8; cursor: pointer; }
+    .badge-inactive:hover { border-color: #64748B; color: #CBD5E1; }
+    .badge-active-red { background: rgba(239,68,68,0.15); border: 1px solid #EF4444; color: #FCA5A5; }
+    .badge-active-orange { background: rgba(245,158,11,0.15); border: 1px solid #F59E0B; color: #FCD34D; }
+    .badge-active-green { background: rgba(16,185,129,0.15); border: 1px solid #10B981; color: #6EE7B7; }
+    .badge-active-blue { background: rgba(59,130,246,0.15); border: 1px solid #3B82F6; color: #93C5FD; }
+    .badge-active-gray { background: rgba(100,116,139,0.15); border: 1px solid #64748B; color: #CBD5E1; }
+    .badge-active-yellow { background: rgba(234,179,8,0.15); border: 1px solid #EAB308; color: #FDE047; }
+    .badge-active-purple { background: rgba(139,92,246,0.15); border: 1px solid #8B5CF6; color: #C4B5FD; }
+
+    /* Sort indicator */
+    .sort-asc::after { content: ' ↑'; color: #4EDEA3; }
+    .sort-desc::after { content: ' ↓'; color: #4EDEA3; }
+
+    /* Group header */
+    .group-header { background: #1C2B3C; border-bottom: 1px solid #334155; }
+
+    /* Dropdown/panel */
+    .panel-dropdown {
+      background: #1E293B; border: 1px solid #334155; border-radius: 8px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    }
+
+    /* Mobile: truncate long product names */
+    @media (max-width: 639px) {
+      .mobile-truncate-name { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; }
+      /* Larger touch targets for badges */
+      .badge-inactive, [class*="badge-active-"] { min-height: 32px; display: inline-flex; align-items: center; padding-left: 8px; padding-right: 8px; }
+    }
+  </style>
+</head>
+<body class="bg-page text-slate-100 min-h-screen flex flex-col antialiased">
+
+  <!-- ======================================================================= -->
+  <!-- ZONA 0: HEADER                                                          -->
+  <!-- ======================================================================= -->
+  <header class="bg-surface/95 backdrop-blur border-b border-borderSubtle sticky top-0 z-40">
+    <div class="max-w-[1600px] mx-auto px-4 py-2.5 sm:px-6 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="logo-contrast-plate px-2 py-1 rounded-lg flex items-center justify-center">
+          <img src="assets/logo-sanesca.png" alt="Sanesca" class="h-6 sm:h-7 w-auto object-contain">
+        </div>
+        <div>
+          <h1 class="text-white font-bold text-base sm:text-lg tracking-tight">📦 Dashboard de Inventario</h1>
+          <p class="text-xs text-slate-400 hidden md:block">Gerencia de Operaciones · Sanesca Exhibidores</p>
+        </div>
+      </div>
+
+      <!-- Nav cruzada + Badge sync -->
+      <div class="flex items-center gap-2 sm:gap-3">
+        <a href="https://cazx008.github.io/sanesca-dashboard/"
+           class="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg text-slate-400 hover:text-slate-200 hover:bg-surfaceHigh transition border border-transparent hover:border-borderSubtle">
+          ⚡ Cortes Eléctricos ↗
+        </a>
+        <a href="https://cazx008.github.io/medidas-operativas/"
+           class="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg text-slate-400 hover:text-slate-200 hover:bg-surfaceHigh transition border border-transparent hover:border-borderSubtle">
+          🏭 Medidas Operativas ↗
+        </a>
+        <!-- Sync badge -->
+        <div class="flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono rounded-lg bg-surfaceHigh border border-borderSubtle">
+          <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+          <span class="text-slate-300" x-text="'Sync: ' + lastSyncDisplay"></span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ======================================================================= -->
+  <!-- MAIN CONTENT                                                             -->
+  <!-- ======================================================================= -->
+  <main class="flex-1 max-w-[1600px] mx-auto w-full px-4 sm:px-6 py-4 space-y-4">
+
+    <!-- =================================================================== -->
+    <!-- ZONA 1: KPI CARDS                                                    -->
+    <!-- =================================================================== -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+      <!-- Filtered indicator -->
+      <template x-if="isFiltered">
+        <div class="col-span-2 sm:col-span-3 lg:col-span-5 flex items-center gap-2 text-[10px] text-brand-400 font-medium uppercase tracking-wider">
+          <span class="px-1.5 py-0.5 rounded bg-brand-500/15 border border-brand-500/30">Filtrado</span>
+          <span class="text-slate-500">Mostrando KPIs del subconjunto filtrado</span>
+        </div>
+      </template>
+      <!-- Sin Stock -->
+      <div class="bg-surface border border-borderSubtle rounded-lg p-3 border-l-4 border-l-red-500">
+        <p class="text-xs text-slate-400 font-medium">🔴 Sin Stock</p>
+        <p class="text-2xl font-bold text-red-400 mt-1" x-text="activeKpis.estado.sinStock">0</p>
+      </div>
+      <!-- Bajo Mínimo -->
+      <div class="bg-surface border border-borderSubtle rounded-lg p-3 border-l-4 border-l-orange-500">
+        <p class="text-xs text-slate-400 font-medium">🟠 Bajo Mínimo</p>
+        <p class="text-2xl font-bold text-orange-400 mt-1" x-text="activeKpis.estado.bajoMinimo">0</p>
+      </div>
+      <!-- En Stock -->
+      <div class="bg-surface border border-borderSubtle rounded-lg p-3 border-l-4 border-l-emerald-500">
+        <p class="text-xs text-slate-400 font-medium">🟢 En Stock</p>
+        <p class="text-2xl font-bold text-emerald-400 mt-1" x-text="activeKpis.estado.enStock">0</p>
+      </div>
+      <!-- En Reconteo -->
+      <div class="bg-surface border border-borderSubtle rounded-lg p-3 border-l-4 border-l-blue-500">
+        <p class="text-xs text-slate-400 font-medium">🔵 En Reconteo</p>
+        <p class="text-2xl font-bold text-blue-400 mt-1" x-text="activeKpis.estado.enReconteo">0</p>
+      </div>
+      <!-- Auditados 3D -->
+      <div class="bg-surface border border-borderSubtle rounded-lg p-3 border-l-4 border-l-purple-500 col-span-2 sm:col-span-1">
+        <p class="text-xs text-slate-400 font-medium">📋 Auditados 3D</p>
+        <p class="text-2xl font-bold text-purple-400 mt-1"><span x-text="activeKpis.auditados3DPct">0</span>%</p>
+      </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- ZONA 2: TOOLBAR                                                      -->
+    <!-- =================================================================== -->
+    <div class="bg-surface border border-borderSubtle rounded-lg p-3 space-y-2.5">
+
+
+      <!-- Row 1: Search (always visible) + mobile toolbar toggle -->
+      <div class="flex flex-wrap items-center gap-2">
+        <!-- Search -->
+        <div class="relative flex-1 min-w-[180px] max-w-sm">
+          <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm">🔍</span>
+          <input type="text" x-model="searchQuery" @input="applyFilters()"
+                 id="search-input" name="search"
+                 placeholder="Buscar por nombre, código..."
+                 class="w-full pl-8 pr-3 py-1.5 text-sm bg-page border border-borderSubtle rounded-md text-slate-200 placeholder-slate-500 focus:outline-none focus:border-brand-400 transition">
+        </div>
+
+        <!-- Mobile toolbar toggle (visible only < sm) -->
+        <button @click="toolbarOpen = !toolbarOpen"
+                class="sm:hidden flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-page border border-borderSubtle rounded-md text-slate-300 hover:text-white transition"
+                :class="hasActiveFilters && 'border-brand-500 text-brand-400'">
+          ⚙ Herramientas <span x-show="hasActiveFilters" class="bg-brand-500/20 text-brand-400 px-1 rounded text-[10px]">●</span>
+          <span class="text-slate-500 text-[10px]" x-text="toolbarOpen ? '▲' : '▼'"></span>
+        </button>
+
+        <!-- Tool buttons: visible on sm+, toggle on mobile -->
+        <div class="hidden sm:contents" :class="toolbarOpen ? 'max-sm:!flex max-sm:!flex-wrap max-sm:!gap-2 max-sm:!w-full max-sm:!mt-2' : ''">
+
+        <!-- View selector -->
+        <div class="relative" x-data="{ open: false }">
+          <button @click="open = !open" class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-page border border-borderSubtle rounded-md text-slate-300 hover:text-white hover:border-slate-500 transition">
+            Vista: <span x-text="viewMode === 'compact' ? 'Compacta' : viewMode === 'expanded' ? 'Ampliada' : 'Custom'" class="text-brand-400"></span> ▾
+          </button>
+          <div x-show="open" @click.away="open = false" @keydown.escape.window="open = false" x-transition class="absolute top-full mt-1 left-0 panel-dropdown p-1 min-w-[140px] z-20">
+            <button @click="setViewMode('compact'); open = false" class="w-full text-left px-3 py-1.5 text-xs rounded hover:bg-surfaceHigh text-slate-300" :class="viewMode === 'compact' && 'text-brand-400 font-semibold'">Compacta (6 col)</button>
+            <button @click="setViewMode('expanded'); open = false" class="w-full text-left px-3 py-1.5 text-xs rounded hover:bg-surfaceHigh text-slate-300" :class="viewMode === 'expanded' && 'text-brand-400 font-semibold'">Ampliada (todas)</button>
+          </div>
+        </div>
+
+        <!-- Column selector -->
+        <div class="relative" x-data="{ open: false }">
+          <button @click="open = !open" class="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-page border border-borderSubtle rounded-md text-slate-300 hover:text-white hover:border-slate-500 transition">
+            ⚙ Columnas
+          </button>
+          <div x-show="open" @click.away="open = false" @keydown.escape.window="open = false" x-transition class="absolute top-full mt-1 right-0 sm:left-0 panel-dropdown p-2 min-w-[200px] max-h-[300px] overflow-y-auto custom-scrollbar z-20">
+            <p class="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-1 px-1">Columnas visibles</p>
+            <template x-for="col in allColumns" :key="col.key">
+              <label class="flex items-center gap-2 px-2 py-1 text-xs text-slate-300 hover:bg-surfaceHigh rounded cursor-pointer">
+                <input type="checkbox" :checked="visibleColumns.includes(col.key)" @change="toggleColumn(col.key)" class="rounded bg-page border-borderSubtle text-brand-500 focus:ring-brand-500 focus:ring-offset-0">
+                <span x-text="col.label"></span>
+              </label>
+            </template>
+          </div>
+        </div>
+
+        <!-- Advanced Filter button (Feature 3B) -->
+        <div class="relative" x-data="{ open: false }">
+          <button @click="open = !open" class="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-page border border-borderSubtle rounded-md text-slate-300 hover:text-white hover:border-slate-500 transition" :class="advancedFilters.length > 0 && 'border-brand-500 text-brand-400'">
+            🔍 Filtrar <template x-if="advancedFilters.length > 0"><span class="bg-brand-500/20 text-brand-400 px-1 rounded text-[10px]" x-text="advancedFilters.length"></span></template>
+          </button>
+          <div x-show="open" @click.away="open = false" @keydown.escape.window="open = false" x-transition class="absolute top-full mt-1 right-0 sm:left-0 panel-dropdown p-3 min-w-[420px] max-w-[520px] z-30">
+            <div class="flex items-center justify-between mb-2">
+              <p class="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Donde
+                <select @change="setFilterLogic($event.target.value)" class="ml-1 text-[10px] bg-page border border-borderSubtle rounded px-1 py-0.5 text-brand-400 font-semibold">
+                  <option value="and" :selected="filterLogic === 'and'">todas (AND)</option>
+                  <option value="or" :selected="filterLogic === 'or'">alguna (OR)</option>
+                </select>
+                las condiciones se cumplen:
+              </p>
+            </div>
+            <template x-for="(rule, idx) in advancedFilters" :key="idx">
+              <div class="flex items-center gap-1.5 mb-1.5">
+                <select :value="rule.property" @change="updateFilterProperty(idx, $event.target.value)" class="flex-1 min-w-[100px] text-xs bg-page border border-borderSubtle rounded px-2 py-1 text-slate-300">
+                  <template x-for="col in filterableColumns" :key="col.key">
+                    <option :value="col.key" x-text="col.label" :selected="col.key === rule.property"></option>
+                  </template>
+                </select>
+                <select :value="rule.operator" @change="updateFilterOperator(idx, $event.target.value)" class="min-w-[90px] text-xs bg-page border border-borderSubtle rounded px-2 py-1 text-slate-300">
+                  <template x-for="op in _operatorsFor(rule.property)" :key="op.value">
+                    <option :value="op.value" x-text="op.label" :selected="op.value === rule.operator"></option>
+                  </template>
+                </select>
+                <template x-if="!['is_empty', 'is_not_empty', 'is_true', 'is_false'].includes(rule.operator) && _colType(rule.property) === 'select'">
+                  <select :value="rule.value" @change="updateFilterValue(idx, $event.target.value)" class="flex-1 min-w-[100px] text-xs bg-page border border-borderSubtle rounded px-2 py-1 text-slate-300">
+                    <option value="">— seleccionar —</option>
+                    <template x-for="v in _selectValuesFor(rule.property)" :key="v">
+                      <option :value="v" x-text="v" :selected="v === rule.value"></option>
+                    </template>
+                  </select>
+                </template>
+                <template x-if="!['is_empty', 'is_not_empty', 'is_true', 'is_false'].includes(rule.operator) && _colType(rule.property) !== 'select'">
+                  <input :type="_colType(rule.property) === 'number' ? 'number' : 'text'" :value="rule.value" @input="updateFilterValue(idx, $event.target.value)" class="flex-1 min-w-[80px] text-xs bg-page border border-borderSubtle rounded px-2 py-1 text-slate-300 placeholder-slate-500" placeholder="valor...">
+                </template>
+                <button @click="removeFilterRule(idx)" class="text-red-400 hover:text-red-300 text-xs px-1 shrink-0">✕</button>
+              </div>
+            </template>
+            <button @click="addFilterRule()" class="text-xs text-brand-400 hover:text-brand-300 mt-1">+ Agregar regla de filtro</button>
+          </div>
+        </div>
+
+        <!-- Sort button -->
+        <div class="relative" x-data="{ open: false }">
+          <button @click="open = !open" class="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-page border border-borderSubtle rounded-md text-slate-300 hover:text-white hover:border-slate-500 transition" :class="sortLevels.length > 0 && 'border-brand-500 text-brand-400'">
+            ↕ Ordenar <template x-if="sortLevels.length > 0"><span class="bg-brand-500/20 text-brand-400 px-1 rounded text-[10px]" x-text="sortLevels.length"></span></template>
+          </button>
+          <div x-show="open" @click.away="open = false" @keydown.escape.window="open = false" x-transition class="absolute top-full mt-1 right-0 sm:left-0 panel-dropdown p-3 min-w-[300px] z-20">
+            <p class="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-2">Ordenar por (hasta 3 niveles)</p>
+            <template x-for="(level, idx) in sortLevels" :key="idx">
+              <div class="flex items-center gap-1.5 mb-1.5">
+                <select x-model="level.key" @change="applyFilters()" class="flex-1 text-xs bg-page border border-borderSubtle rounded px-2 py-1 text-slate-300">
+                  <template x-for="col in sortableColumns" :key="col.key">
+                    <option :value="col.key" x-text="col.label"></option>
+                  </template>
+                </select>
+                <select x-model="level.dir" @change="applyFilters()" class="text-xs bg-page border border-borderSubtle rounded px-2 py-1 text-slate-300">
+                  <option value="asc">↑ Asc</option>
+                  <option value="desc">↓ Desc</option>
+                </select>
+                <button @click="removeSortLevel(idx)" class="text-red-400 hover:text-red-300 text-xs px-1">✕</button>
+              </div>
+            </template>
+            <button x-show="sortLevels.length < 3" @click="addSortLevel()" class="text-xs text-brand-400 hover:text-brand-300 mt-1">+ Agregar nivel</button>
+          </div>
+        </div>
+
+        <!-- Group button -->
+        <div class="relative" x-data="{ open: false }">
+          <button @click="open = !open" class="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-page border border-borderSubtle rounded-md text-slate-300 hover:text-white hover:border-slate-500 transition" :class="groupByKey && 'border-brand-500 text-brand-400'">
+            ▤ Agrupar
+          </button>
+          <div x-show="open" @click.away="open = false" @keydown.escape.window="open = false" x-transition class="absolute top-full mt-1 right-0 sm:left-0 panel-dropdown p-2 min-w-[180px] z-20">
+            <button @click="setGroupBy(null); open = false" class="w-full text-left px-3 py-1.5 text-xs rounded hover:bg-surfaceHigh text-slate-300" :class="!groupByKey && 'text-brand-400 font-semibold'">Sin agrupar</button>
+            <template x-for="col in groupableColumns" :key="col.key">
+              <button @click="setGroupBy(col.key); open = false" class="w-full text-left px-3 py-1.5 text-xs rounded hover:bg-surfaceHigh text-slate-300" :class="groupByKey === col.key && 'text-brand-400 font-semibold'" x-text="col.label"></button>
+            </template>
+          </div>
+        </div>
+
+        <!-- Reset -->
+        <button @click="resetAll()" class="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-page border border-borderSubtle rounded-md transition"
+                :class="hasActiveFilters ? 'text-red-400 border-red-500/40 hover:bg-red-500/10' : 'text-slate-500 cursor-not-allowed'" :disabled="!hasActiveFilters">
+          🔄 Reset
+        </button>
+        </div><!-- /tool buttons container -->
+      </div>
+
+      <!-- Row 2: Quick filters -->
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 overflow-x-auto custom-scrollbar pb-0.5">
+        <!-- Estado de Stock badges -->
+        <div class="flex items-center gap-1.5">
+          <span class="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mr-1">Estado:</span>
+          <template x-for="badge in estadoBadges" :key="badge.value">
+            <button @click="toggleQuickFilter('estadoStock', badge.value)"
+                    class="px-2 py-0.5 text-[11px] font-medium rounded-md transition"
+                    :class="quickFilters.estadoStock.includes(badge.value) ? badge.activeClass : 'badge-inactive'"
+                    :aria-pressed="quickFilters.estadoStock.includes(badge.value).toString()"
+                    x-text="badge.label"></button>
+          </template>
+        </div>
+        <!-- Prioridad badges -->
+        <div class="flex items-center gap-1.5">
+          <span class="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mr-1">Prioridad:</span>
+          <template x-for="badge in prioridadBadges" :key="badge.value">
+            <button @click="toggleQuickFilter('prioridad', badge.value)"
+                    class="px-2 py-0.5 text-[11px] font-medium rounded-md transition"
+                    :class="quickFilters.prioridad.includes(badge.value) ? badge.activeClass : 'badge-inactive'"
+                    :aria-pressed="quickFilters.prioridad.includes(badge.value).toString()"
+                    x-text="badge.label"></button>
+          </template>
+        </div>
+      </div>
+
+      <!-- Row 3: Status -->
+      <div class="flex items-center justify-between text-[11px] text-slate-500">
+        <span>Mostrando <span class="text-slate-300 font-medium" x-text="filteredItems.length"></span> de <span x-text="allItems.length"></span> ítems</span>
+      </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- ZONA 3: DATA TABLE                                                   -->
+    <!-- =================================================================== -->
+    <div class="bg-surface border border-borderSubtle rounded-lg overflow-hidden">
+      <div class="overflow-x-auto custom-scrollbar">
+        <table class="w-full text-sm">
+          <!-- Table Header -->
+          <thead class="table-header-sticky">
+            <tr class="border-b border-borderSubtle">
+              <template x-for="col in activeColumns" :key="col.key">
+                <th @click="toggleSort(col.key)" @keydown.enter="toggleSort(col.key)"
+                    role="button" tabindex="0"
+                    class="px-3 py-2 text-left text-[11px] uppercase tracking-wider font-semibold text-slate-400 cursor-pointer hover:text-slate-200 select-none whitespace-nowrap border-r border-borderSubtle last:border-r-0 transition focus:outline-none focus:ring-1 focus:ring-brand-400"
+                    :class="{'sort-asc': sortLevels.length > 0 && sortLevels[0].key === col.key && sortLevels[0].dir === 'asc', 'sort-desc': sortLevels.length > 0 && sortLevels[0].key === col.key && sortLevels[0].dir === 'desc'}">
+                  <span x-text="col.label"></span>
+                </th>
+              </template>
+            </tr>
+          </thead>
+          <!-- Table Body -->
+          <tbody>
+            <template x-for="(row, idx) in displayRows" :key="row._rowKey">
+              <tr :class="row._isGroupHeader
+                    ? 'group-header cursor-pointer'
+                    : (row.stockBase === 0 ? 'row-danger' : (row.semaforo === 'naranja' ? 'row-warning' : (idx % 2 === 0 ? 'row-even' : 'row-odd')))"
+                  @click="row._isGroupHeader && toggleGroupCollapse(row._groupLabel)"
+                  class="border-b border-borderSubtle/50 hover:bg-surfaceHigh/50 transition-colors">
+                <!-- Group header: single spanning cell -->
+                <template x-if="row._isGroupHeader">
+                  <td :colspan="activeColumns.length" class="px-3 py-2">
+                    <div class="flex items-center gap-2">
+                      <span class="text-slate-400 text-xs" x-text="collapsedGroups.includes(row._groupLabel) ? '▶' : '▼'"></span>
+                      <span class="font-semibold text-sm text-slate-200" x-text="row._groupLabel || '(Sin valor)'"></span>
+                      <span class="text-xs text-slate-500 font-mono" x-text="'(' + row._groupCount + ')'"></span>
+                    </div>
+                  </td>
+                </template>
+                <!-- Data row: one cell per visible column, rendered via x-html -->
+                <template x-if="!row._isGroupHeader">
+                  <td class="contents-cell-wrapper" style="display:contents">
+                    <template x-for="col in activeColumns" :key="col.key">
+                      <td class="px-3 py-2 whitespace-nowrap border-r border-borderSubtle/30 last:border-r-0"
+                          :class="col.align === 'right' ? 'text-right font-mono' : ''"
+                          x-html="renderCell(row, col.key)">
+                      </td>
+                    </template>
+                  </td>
+                </template>
+              </tr>
+            </template>
+
+            <!-- Empty state -->
+            <template x-if="displayRows.length === 0 && !loading && !loadError">
+              <tr>
+                <td :colspan="activeColumns.length" class="px-4 py-12 text-center text-slate-500">
+                  <p class="text-lg mb-1">🔍 Sin resultados</p>
+                  <p class="text-xs">Ajusta los filtros o la búsqueda para encontrar ítems.</p>
+                  <button @click="resetAll()" class="mt-3 text-xs text-brand-400 hover:text-brand-300 underline">Resetear todo</button>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Loading state -->
+    <template x-if="loading">
+      <div class="flex items-center justify-center py-12 text-slate-400">
+        <svg class="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+        Cargando inventario…
+      </div>
+    </template>
+
+    <!-- Error state -->
+    <template x-if="loadError && !loading">
+      <div class="flex flex-col items-center justify-center py-12 text-slate-400 bg-surface border border-borderSubtle rounded-lg">
+        <p class="text-lg mb-1 text-red-400">⚠️ No se pudieron cargar los datos</p>
+        <p class="text-xs text-slate-500 mb-4">Verifica tu conexión a internet e intenta de nuevo.</p>
+        <button @click="loadError = false; loading = true; init()" class="px-4 py-2 text-sm font-medium bg-page border border-borderSubtle rounded-md text-brand-400 hover:text-white hover:border-brand-400 transition">
+          🔄 Reintentar
+        </button>
+      </div>
+    </template>
+
+    <!-- =================================================================== -->
+    <!-- ZONA 5: GLOSARIO Y REFERENCIA                                       -->
+    <!-- =================================================================== -->
+    <section class="max-w-[1600px] mx-auto mt-4 mb-2">
+      <div class="bg-surface border border-borderSubtle rounded-lg overflow-hidden">
+        <!-- Toggle header (prominent, full-width, left-aligned) -->
+        <button @click="glossaryOpen = !glossaryOpen"
+                class="w-full flex items-center justify-between px-5 py-3 text-sm text-slate-300 hover:text-white bg-surfaceHigh/40 hover:bg-surfaceHigh transition border-b border-borderSubtle/30">
+          <span class="flex items-center gap-2 font-semibold">
+            📖 Glosario y Referencia
+            <span class="text-[10px] text-slate-500 font-normal ml-1">Columnas · Leyenda · Guía de uso</span>
+          </span>
+          <span class="text-xs text-slate-400 flex items-center gap-1" x-text="glossaryOpen ? '▲ Colapsar' : '▼ Expandir'"></span>
+        </button>
+
+        <!-- Collapsible body -->
+        <h2 class="sr-only">Glosario y Referencia</h2>
+        <div x-show="glossaryOpen" x-transition.duration.300ms>
+          <div class="border-t border-borderSubtle px-4 py-4 space-y-5">
+
+            <!-- Row 1: Columnas + Leyenda (side by side on desktop) -->
+            <div class="grid grid-cols-1 lg:grid-cols-5 gap-4">
+
+              <!-- Bloque 1: Columnas (3/5 width) -->
+              <div class="lg:col-span-3">
+                <h3 class="text-xs uppercase tracking-wider text-slate-500 font-semibold mb-2">Columnas de la Tabla</h3>
+                <div class="overflow-x-auto custom-scrollbar">
+                  <table class="w-full text-[11px]">
+                    <thead>
+                      <tr class="text-slate-500 border-b border-borderSubtle">
+                        <th class="text-left py-1 pr-3 font-medium">Columna</th>
+                        <th class="text-left py-1 pr-2 font-medium">Tipo</th>
+                        <th class="text-center py-1 px-1 font-medium" title="Se puede buscar o filtrar"><span class="block">🔍</span><span class="block text-[8px] text-slate-600 font-normal">Filtrar</span></th>
+                        <th class="text-center py-1 px-1 font-medium" title="Se puede ordenar"><span class="block">↕</span><span class="block text-[8px] text-slate-600 font-normal">Ordenar</span></th>
+                        <th class="text-center py-1 px-1 font-medium" title="Se puede agrupar"><span class="block">▤</span><span class="block text-[8px] text-slate-600 font-normal">Agrupar</span></th>
+                        <th class="text-left py-1 pl-2 font-medium">Descripción</th>
+                      </tr>
+                    </thead>
+                    <tbody class="text-slate-400">
+                      <tr class="border-b border-borderSubtle/50"><td class="py-1 pr-3 text-slate-200 font-medium">Nombre</td><td class="pr-2">Texto</td><td class="text-center"><span class="text-emerald-400">●</span></td><td class="text-center"><span class="text-emerald-400">●</span></td><td class="text-center"><span class="text-slate-600">●</span></td><td class="pl-2">Nombre del producto en inventario</td></tr>
+                      <tr class="border-b border-borderSubtle/50"><td class="py-1 pr-3 text-slate-200 font-medium">Código</td><td class="pr-2">Texto</td><td class="text-center"><span class="text-emerald-400">●</span></td><td class="text-center"><span class="text-emerald-400">●</span></td><td class="text-center"><span class="text-slate-600">●</span></td><td class="pl-2">SKU del producto (ej: SOL-002)</td></tr>
+                      <tr class="border-b border-borderSubtle/50"><td class="py-1 pr-3 text-slate-200 font-medium">Marca</td><td class="pr-2">Texto</td><td class="text-center"><span class="text-emerald-400">●</span></td><td class="text-center"><span class="text-emerald-400">●</span></td><td class="text-center"><span class="text-emerald-400">●</span></td><td class="pl-2">Marca comercial del producto</td></tr>
+                      <tr class="border-b border-borderSubtle/50"><td class="py-1 pr-3 text-slate-200 font-medium">Stock</td><td class="pr-2">Número</td><td class="text-center"><span class="text-emerald-400">●</span></td><td class="text-center"><span class="text-emerald-400">●</span></td><td class="text-center"><span class="text-slate-600">●</span></td><td class="pl-2">Cantidad actual en almacén</td></tr>
+                      <tr class="border-b border-borderSubtle/50"><td class="py-1 pr-3 text-slate-200 font-medium">Stock Mín.</td><td class="pr-2">Número</td><td class="text-center"><span class="text-emerald-400">●</span></td><td class="text-center"><span class="text-emerald-400">●</span></td><td class="text-center"><span class="text-slate-600">●</span></td><td class="pl-2">Cantidad mínima requerida</td></tr>
+                      <tr class="border-b border-borderSubtle/50"><td class="py-1 pr-3 text-slate-200 font-medium">Déficit</td><td class="pr-2 text-slate-500 italic">Calc.</td><td class="text-center"><span class="text-emerald-400">●</span></td><td class="text-center"><span class="text-emerald-400">●</span></td><td class="text-center"><span class="text-slate-600">●</span></td><td class="pl-2">Mínimo − Stock, si hay faltante</td></tr>
+                      <tr class="border-b border-borderSubtle/50"><td class="py-1 pr-3 text-slate-200 font-medium">Estado</td><td class="pr-2">Categoría</td><td class="text-center"><span class="text-emerald-400">●</span></td><td class="text-center"><span class="text-emerald-400">●</span></td><td class="text-center"><span class="text-emerald-400">●</span></td><td class="pl-2">Nivel de stock. Filtro rápido (badge) + avanzado</td></tr>
+                      <tr class="border-b border-borderSubtle/50"><td class="py-1 pr-3 text-slate-200 font-medium">Prioridad</td><td class="pr-2">Categoría</td><td class="text-center"><span class="text-emerald-400">●</span></td><td class="text-center"><span class="text-emerald-400">●</span></td><td class="text-center"><span class="text-emerald-400">●</span></td><td class="pl-2">Urgencia de reposición. Filtro rápido + avanzado</td></tr>
+                      <tr class="border-b border-borderSubtle/50"><td class="py-1 pr-3 text-slate-200 font-medium">Categoría</td><td class="pr-2">Categoría</td><td class="text-center"><span class="text-emerald-400">●</span></td><td class="text-center"><span class="text-emerald-400">●</span></td><td class="text-center"><span class="text-emerald-400">●</span></td><td class="pl-2">Clasificación del material</td></tr>
+                      <tr class="border-b border-borderSubtle/50"><td class="py-1 pr-3 text-slate-200 font-medium">Rol Material</td><td class="pr-2">Categoría</td><td class="text-center"><span class="text-emerald-400">●</span></td><td class="text-center"><span class="text-emerald-400">●</span></td><td class="text-center"><span class="text-emerald-400">●</span></td><td class="pl-2">Función en producción (Consumible, Componente, etc.)</td></tr>
+                      <tr class="border-b border-borderSubtle/50"><td class="py-1 pr-3 text-slate-200 font-medium">Origen Consumo</td><td class="pr-2">Categoría</td><td class="text-center"><span class="text-emerald-400">●</span></td><td class="text-center"><span class="text-emerald-400">●</span></td><td class="text-center"><span class="text-emerald-400">●</span></td><td class="pl-2">Fuente de consumo del material</td></tr>
+                      <tr class="border-b border-borderSubtle/50"><td class="py-1 pr-3 text-slate-200 font-medium">Unidad</td><td class="pr-2">Categoría</td><td class="text-center"><span class="text-emerald-400">●</span></td><td class="text-center"><span class="text-emerald-400">●</span></td><td class="text-center"><span class="text-emerald-400">●</span></td><td class="pl-2">Unidad de medida (Par, Litro, Metro, etc.)</td></tr>
+                      <tr class="border-b border-borderSubtle/50"><td class="py-1 pr-3 text-slate-200 font-medium">Color</td><td class="pr-2">Texto</td><td class="text-center"><span class="text-emerald-400">●</span></td><td class="text-center"><span class="text-emerald-400">●</span></td><td class="text-center"><span class="text-slate-600">●</span></td><td class="pl-2">Color del material (si aplica)</td></tr>
+                      <tr class="border-b border-borderSubtle/50"><td class="py-1 pr-3 text-slate-200 font-medium">Dimensiones</td><td class="pr-2">Texto</td><td class="text-center"><span class="text-slate-600">●</span></td><td class="text-center"><span class="text-slate-600">●</span></td><td class="text-center"><span class="text-slate-600">●</span></td><td class="pl-2">Medidas L × A × E del material <span class="text-slate-500 italic">(solo lectura)</span></td></tr>
+                      <tr class="border-b border-borderSubtle/50"><td class="py-1 pr-3 text-slate-200 font-medium">Grupo Proceso</td><td class="pr-2">Categoría</td><td class="text-center"><span class="text-emerald-400">●</span></td><td class="text-center"><span class="text-emerald-400">●</span></td><td class="text-center"><span class="text-emerald-400">●</span></td><td class="pl-2">Agrupación de procesos productivos</td></tr>
+                      <tr class="border-b border-borderSubtle/50"><td class="py-1 pr-3 text-slate-200 font-medium">Proceso</td><td class="pr-2">Categoría</td><td class="text-center"><span class="text-emerald-400">●</span></td><td class="text-center"><span class="text-emerald-400">●</span></td><td class="text-center"><span class="text-emerald-400">●</span></td><td class="pl-2">Proceso productivo específico</td></tr>
+                      <tr class="border-b border-borderSubtle/50"><td class="py-1 pr-3 text-slate-200 font-medium">Departamento</td><td class="pr-2">Categoría</td><td class="text-center"><span class="text-emerald-400">●</span></td><td class="text-center"><span class="text-emerald-400">●</span></td><td class="text-center"><span class="text-emerald-400">●</span></td><td class="pl-2">Área que consume el material</td></tr>
+                      <tr class="border-b border-borderSubtle/50"><td class="py-1 pr-3 text-slate-200 font-medium">Reconteo 3D</td><td class="pr-2">Sí/No</td><td class="text-center"><span class="text-emerald-400">●</span></td><td class="text-center"><span class="text-emerald-400">●</span></td><td class="text-center"><span class="text-slate-600">●</span></td><td class="pl-2">¿Se auditó con escáner 3D?</td></tr>
+                      <tr><td class="py-1 pr-3 text-slate-200 font-medium">Días Reconteo</td><td class="pr-2">Número</td><td class="text-center"><span class="text-emerald-400">●</span></td><td class="text-center"><span class="text-emerald-400">●</span></td><td class="text-center"><span class="text-slate-600">●</span></td><td class="pl-2">Días desde la última auditoría física</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- Bloque 2: Leyenda (2/5 width) -->
+              <div class="lg:col-span-2 space-y-4">
+                <!-- Estados -->
+                <div>
+                  <h3 class="text-xs uppercase tracking-wider text-slate-500 font-semibold mb-2">Estados de Stock</h3>
+                  <div class="space-y-1.5 text-[11px]">
+                    <div class="flex items-center gap-2"><span class="px-1.5 py-0.5 rounded bg-red-500/15 text-red-400 font-medium">Sin Stock</span><span class="text-slate-400">— 0 unidades en almacén</span></div>
+                    <div class="flex items-center gap-2"><span class="px-1.5 py-0.5 rounded bg-orange-500/15 text-orange-400 font-medium">Bajo Mínimo</span><span class="text-slate-400">— Por debajo del mínimo requerido</span></div>
+                    <div class="flex items-center gap-2"><span class="px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 font-medium">En Stock</span><span class="text-slate-400">— Igual o superior al mínimo</span></div>
+                    <div class="flex items-center gap-2"><span class="px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 font-medium">En Reconteo</span><span class="text-slate-400">— En auditoría física</span></div>
+                    <div class="flex items-center gap-2"><span class="px-1.5 py-0.5 rounded bg-slate-500/15 text-slate-400 font-medium">Descontinuado</span><span class="text-slate-400">— Ya no se repone</span></div>
+                  </div>
+                </div>
+                <!-- Prioridades -->
+                <div>
+                  <h3 class="text-xs uppercase tracking-wider text-slate-500 font-semibold mb-2">Prioridades de Reposición</h3>
+                  <div class="space-y-1.5 text-[11px]">
+                    <div class="flex items-center gap-2"><span class="px-1.5 py-0.5 rounded bg-red-500/15 text-red-400 font-medium">Urgente</span><span class="text-slate-400">— Falta que detiene producción</span></div>
+                    <div class="flex items-center gap-2"><span class="px-1.5 py-0.5 rounded bg-orange-500/15 text-orange-400 font-medium">Alta</span><span class="text-slate-400">— Se agotará pronto</span></div>
+                    <div class="flex items-center gap-2"><span class="px-1.5 py-0.5 rounded bg-yellow-500/15 text-yellow-400 font-medium">Media</span><span class="text-slate-400">— Stock bajo pero no crítico</span></div>
+                    <div class="flex items-center gap-2"><span class="px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 font-medium">Baja</span><span class="text-slate-400">— Reposición programada</span></div>
+                    <div class="flex items-center gap-2"><span class="px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 font-medium">Por Pedido</span><span class="text-slate-400">— Solo se compra por proyecto</span></div>
+                  </div>
+                </div>
+                <!-- Indicadores Visuales en la Tabla -->
+                <div>
+                  <h3 class="text-xs uppercase tracking-wider text-slate-500 font-semibold mb-2">Indicadores Visuales en la Tabla</h3>
+                  <div class="space-y-1.5 text-[11px]">
+                    <div class="flex items-center gap-2"><span class="text-red-400 font-mono font-bold">0</span><span class="text-slate-400">— Texto rojo en Stock cuando hay 0 unidades</span></div>
+                    <div class="flex items-center gap-2"><span class="text-orange-400 font-mono font-bold">-4</span><span class="text-slate-400">— Texto naranja en Déficit cuando hay faltante</span></div>
+                    <div class="flex items-center gap-2"><span class="text-emerald-400">✓ Sí</span><span class="text-slate-400">— Reconteo 3D verificado con escáner</span></div>
+                    <div class="flex items-center gap-2"><span class="text-slate-300 font-mono text-[10px]">2d</span><span class="text-slate-400">— Días transcurridos desde el último reconteo</span></div>
+                    <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-sm bg-red-500/10 border border-red-500/20 inline-block"></span><span class="text-slate-400">— Fondo tenue rojo en filas Sin Stock</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Row 2: Guía de Uso (full width) -->
+            <div>
+              <h3 class="text-xs uppercase tracking-wider text-slate-500 font-semibold mb-2">Guía Rápida de Uso</h3>
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-[11px] text-slate-400">
+                <div class="bg-page rounded-md p-2.5 border border-borderSubtle/50">
+                  <p class="text-slate-300 font-medium mb-1">🔍 Búsqueda</p>
+                  <p>Filtra por <span class="text-slate-300">nombre</span>, <span class="text-slate-300">código</span> o <span class="text-slate-300">marca</span>. Instantánea y acumulativa con otros filtros.</p>
+                </div>
+                <div class="bg-page rounded-md p-2.5 border border-borderSubtle/50">
+                  <p class="text-slate-300 font-medium mb-1">🏷️ Badges (Filtros Rápidos)</p>
+                  <p>Un clic activa, segundo clic desactiva. Varios del mismo grupo = OR. Entre grupos = AND. El badge muestra el <span class="text-slate-300">conteo de ítems</span> en esa categoría.</p>
+                </div>
+                <div class="bg-page rounded-md p-2.5 border border-borderSubtle/50">
+                  <p class="text-slate-300 font-medium mb-1">🔍 Filtrar (Avanzado)</p>
+                  <p>Reglas combinadas: <span class="text-slate-300">propiedad + operador + valor</span>. Múltiples reglas con AND/OR. Se acumulan con badges.</p>
+                </div>
+                <div class="bg-page rounded-md p-2.5 border border-borderSubtle/50">
+                  <p class="text-slate-300 font-medium mb-1">↕ Ordenar</p>
+                  <p>Clic en encabezado (asc → desc → quitar) o botón Ordenar para hasta <span class="text-slate-300">3 niveles</span>. Categorías siguen orden de Notion.</p>
+                </div>
+                <div class="bg-page rounded-md p-2.5 border border-borderSubtle/50">
+                  <p class="text-slate-300 font-medium mb-1">▤ Agrupar</p>
+                  <p>Agrupa por cualquier categoría. Clic en encabezado del grupo para <span class="text-slate-300">colapsar/expandir</span>. Muestra conteo entre paréntesis.</p>
+                </div>
+                <div class="bg-page rounded-md p-2.5 border border-borderSubtle/50">
+                  <p class="text-slate-300 font-medium mb-1">👁 Vistas</p>
+                  <p><span class="text-slate-300">Compacta</span> (3 col) · <span class="text-slate-300">Ampliada</span> (todas) · <span class="text-slate-300">⚙ Columnas</span> para personalizar qué ver.</p>
+                </div>
+                <div class="bg-page rounded-md p-2.5 border border-borderSubtle/50">
+                  <p class="text-slate-300 font-medium mb-1">🔄 Reset</p>
+                  <p>Limpia todo: filtros, ordenamiento, agrupación, vista. Vuelve al estado inicial (compacta, sin filtros).</p>
+                </div>
+                <div class="bg-page rounded-md p-2.5 border border-borderSubtle/50">
+                  <p class="text-slate-300 font-medium mb-1">📊 KPIs</p>
+                  <p>Las tarjetas superiores muestran el resumen: sin stock, bajo mínimo, en stock, en reconteo y % auditado con escáner 3D.</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Row 3: Fuente de datos -->
+            <div class="flex items-center justify-between pt-2 border-t border-borderSubtle/50 text-[10px] text-slate-500">
+              <span>📡 Fuente: <span class="text-slate-400">Base de datos de Notion</span> — Los datos se sincronizan manualmente o por pipeline CI/CD. No son en tiempo real.</span>
+              <span>Última sincronización: <span class="text-slate-400" x-text="lastSyncDisplay"></span></span>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ======================================================================= -->
+  <!-- FOOTER                                                                   -->
+  <!-- ======================================================================= -->
+  <footer class="border-t border-borderSubtle py-3 px-4">
+    <div class="max-w-[1600px] mx-auto flex items-center justify-between text-xs text-slate-500">
+      <span>Sanesca © 2026</span>
+      <span>v1.0.0 · Dashboard de Inventario</span>
+    </div>
+  </footer>
+
+  <!-- ======================================================================= -->
+  <!-- ALPINE.JS APP                                                            -->
+  <!-- ======================================================================= -->
+  <script>
+    function inventarioApp() {
+      return {
+        // --- State ---
+        loading: true,
+        loadError: false,
+        allItems: [],
+        filteredItems: [],
+        kpis: { total: 0, estado: { sinStock: 0, bajoMinimo: 0, enStock: 0, enReconteo: 0, descontinuado: 0 }, prioridad: { urgente: 0, alta: 0, media: 0, baja: 0, porPedido: 0 }, auditados3D: 0, auditados3DPct: 0 },
+        filteredKpis: null,
+        selectOrders: {},
+        lastSyncDisplay: '—',
+        glossaryOpen: false,
+        toolbarOpen: false,
+
+        // View & columns
+        viewMode: 'compact',
+        visibleColumns: ['nombre', 'stockBase', 'stockMinimo', 'deficit', 'estadoStock', 'prioridad'],
+
+        // Search
+        searchQuery: '',
+
+        // Sort
+        sortLevels: [],
+
+        // Quick filters
+        quickFilters: { estadoStock: [], prioridad: [] },
+
+        // Advanced filters (Feature 3B)
+        advancedFilters: [],    // Array of {property, operator, value}
+        filterLogic: 'and',     // 'and' | 'or'
+
+        // Grouping
+        groupByKey: null,
+        collapsedGroups: [],
+
+        // --- Column definitions ---
+        allColumns: [
+          { key: 'nombre', label: 'Nombre', sortable: true, groupable: false, align: 'left' },
+          { key: 'codigo', label: 'Código', sortable: true, groupable: false, align: 'left' },
+          { key: 'marca', label: 'Marca', sortable: true, groupable: true, align: 'left' },
+          { key: 'stockBase', label: 'Stock', sortable: true, groupable: false, align: 'right' },
+          { key: 'stockMinimo', label: 'Stock Mín.', sortable: true, groupable: false, align: 'right' },
+          { key: 'deficit', label: 'Déficit', sortable: true, groupable: false, align: 'right' },
+          { key: 'estadoStock', label: 'Estado', sortable: true, groupable: true, align: 'left' },
+          { key: 'prioridad', label: 'Prioridad', sortable: true, groupable: true, align: 'left' },
+          { key: 'categoriaMaterial', label: 'Categoría', sortable: true, groupable: true, align: 'left' },
+          { key: 'rolMaterial', label: 'Rol Material', sortable: true, groupable: true, align: 'left' },
+          { key: 'origenConsumo', label: 'Origen Consumo', sortable: true, groupable: true, align: 'left' },
+          { key: 'unidad', label: 'Unidad', sortable: true, groupable: true, align: 'left' },
+          { key: 'color', label: 'Color', sortable: true, groupable: false, align: 'left' },
+          { key: 'dimensiones', label: 'Dimensiones', sortable: false, groupable: false, align: 'left' },
+          { key: 'grupoProceso', label: 'Grupo Proceso', sortable: true, groupable: true, align: 'left' },
+          { key: 'proceso', label: 'Proceso', sortable: true, groupable: true, align: 'left' },
+          { key: 'departamento', label: 'Departamento', sortable: true, groupable: true, align: 'left' },
+          { key: 'seReconto3D', label: 'Reconteo 3D', sortable: true, groupable: false, align: 'left' },
+          { key: 'diasDesdeReconteo', label: 'Días Reconteo', sortable: true, groupable: false, align: 'right' },
+        ],
+
+        // Quick filter badge configs
+        estadoBadges: [
+          { value: 'Sin Stock', label: '🔴 Sin Stock', activeClass: 'badge-active-red' },
+          { value: 'Bajo Mínimo', label: '🟠 Bajo Mín.', activeClass: 'badge-active-orange' },
+          { value: 'En Stock', label: '🟢 En Stock', activeClass: 'badge-active-green' },
+          { value: 'En Reconteo', label: '🔵 En Reconteo', activeClass: 'badge-active-blue' },
+          { value: 'Descontinuado', label: '⚫ Descont.', activeClass: 'badge-active-gray' },
+        ],
+        prioridadBadges: [
+          { value: 'Urgente', label: '🔴 Urgente', activeClass: 'badge-active-red' },
+          { value: 'Alta', label: '🟠 Alta', activeClass: 'badge-active-orange' },
+          { value: 'Media', label: '🟡 Media', activeClass: 'badge-active-yellow' },
+          { value: 'Baja', label: '🟢 Baja', activeClass: 'badge-active-green' },
+          { value: 'Por Pedido', label: '🔵 Por Pedido', activeClass: 'badge-active-blue' },
+        ],
+
+        // --- Computed ---
+        get activeColumns() { return this.allColumns.filter(c => this.visibleColumns.includes(c.key)); },
+        get sortableColumns() { return this.allColumns.filter(c => c.sortable); },
+        get groupableColumns() { return this.allColumns.filter(c => c.groupable); },
+        get filterableColumns() { return this.allColumns; },
+        get hasActiveFilters() {
+          return this.searchQuery !== '' ||
+                 this.quickFilters.estadoStock.length > 0 ||
+                 this.quickFilters.prioridad.length > 0 ||
+                 this.advancedFilters.length > 0 ||
+                 this.sortLevels.length > 0 ||
+                 this.groupByKey !== null ||
+                 this.viewMode !== 'compact';
+        },
+        get isFiltered() {
+          return this.searchQuery !== '' ||
+                 this.quickFilters.estadoStock.length > 0 ||
+                 this.quickFilters.prioridad.length > 0 ||
+                 this.advancedFilters.length > 0;
+        },
+        get activeKpis() {
+          return this.isFiltered && this.filteredKpis ? this.filteredKpis : this.kpis;
+        },
+
+        // Operator definitions per column data type
+        _colType(key) {
+          const numCols = ['stockBase', 'stockMinimo', 'deficit', 'diasDesdeReconteo'];
+          const selectCols = ['estadoStock', 'prioridad', 'categoriaMaterial', 'rolMaterial', 'origenConsumo', 'unidad', 'grupoProceso', 'proceso', 'departamento'];
+          const boolCols = ['seReconto3D'];
+          if (numCols.includes(key)) return 'number';
+          if (selectCols.includes(key)) return 'select';
+          if (boolCols.includes(key)) return 'boolean';
+          return 'text';
+        },
+        _operatorsFor(key) {
+          const type = this._colType(key);
+          switch (type) {
+            case 'text':    return [
+              { value: 'contains', label: 'contiene' },
+              { value: 'not_contains', label: 'no contiene' },
+              { value: 'is', label: 'es' },
+              { value: 'is_not', label: 'no es' },
+              { value: 'is_empty', label: 'está vacío' },
+              { value: 'is_not_empty', label: 'no está vacío' },
+            ];
+            case 'number':  return [
+              { value: 'eq', label: '=' },
+              { value: 'neq', label: '≠' },
+              { value: 'gt', label: '>' },
+              { value: 'lt', label: '<' },
+              { value: 'gte', label: '≥' },
+              { value: 'lte', label: '≤' },
+            ];
+            case 'select':  return [
+              { value: 'is', label: 'es' },
+              { value: 'is_not', label: 'no es' },
+              { value: 'is_empty', label: 'está vacío' },
+              { value: 'is_not_empty', label: 'no está vacío' },
+            ];
+            case 'boolean': return [
+              { value: 'is_true', label: 'es ✅' },
+              { value: 'is_false', label: 'es ❌' },
+            ];
+            default: return [];
+          }
+        },
+        _selectValuesFor(key) {
+          // Unique non-null values from allItems for select-type columns
+          const vals = [...new Set(this.allItems.map(i => i[key]).filter(v => v != null && v !== ''))];
+          const order = this.selectOrders[key];
+          if (order) {
+            vals.sort((a, b) => {
+              const ai = order.indexOf(a);
+              const bi = order.indexOf(b);
+              return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+            });
+          } else {
+            vals.sort((a, b) => String(a).localeCompare(String(b), 'es'));
+          }
+          return vals;
+        },
+
+        // --- Init ---
+        async init() {
+          try {
+            const [invRes, metaRes] = await Promise.all([
+              fetch('data/inventory.json'),
+              fetch('data/meta.json'),
+            ]);
+            const invData = await invRes.json();
+            const metaData = await metaRes.json();
+
+            this.allItems = invData.items || [];
+            this.kpis = invData.kpis || this.kpis;
+            this.selectOrders = invData.selectOrders || {};
+
+            // Format last sync
+            if (metaData.lastSyncLocal) {
+              this.lastSyncDisplay = metaData.lastSyncLocal;
+            } else if (metaData.lastSync) {
+              this.lastSyncDisplay = new Date(metaData.lastSync).toLocaleString('es-VE');
+            }
+
+            // Default sort: Prioridad (Notion order) → Déficit descending
+            this.sortLevels = [
+              { key: 'prioridad', dir: 'asc' },
+              { key: 'deficit', dir: 'desc' },
+            ];
+
+            this.applyFilters();
+          } catch (err) {
+            console.error('Error cargando datos:', err);
+            this.loadError = true;
+            this.lastSyncDisplay = 'Error';
+          } finally {
+            this.loading = false;
+          }
+        },
+
+        // --- View Modes ---
+        setViewMode(mode) {
+          this.viewMode = mode;
+          if (mode === 'compact') {
+            this.visibleColumns = ['nombre', 'stockBase', 'stockMinimo', 'deficit', 'estadoStock', 'prioridad'];
+          } else if (mode === 'expanded') {
+            this.visibleColumns = this.allColumns.map(c => c.key);
+          }
+        },
+
+        toggleColumn(key) {
+          const idx = this.visibleColumns.indexOf(key);
+          if (idx >= 0) {
+            this.visibleColumns.splice(idx, 1);
+          } else {
+            // Insert in original column order
+            const order = this.allColumns.map(c => c.key);
+            this.visibleColumns.push(key);
+            this.visibleColumns.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+          }
+          this.viewMode = 'custom';
+        },
+
+        // --- Quick Filters ---
+        toggleQuickFilter(group, value) {
+          const arr = this.quickFilters[group];
+          const idx = arr.indexOf(value);
+          if (idx >= 0) { arr.splice(idx, 1); }
+          else { arr.push(value); }
+          this.applyFilters();
+        },
+
+        // --- Advanced Filters ---
+        addFilterRule() {
+          const firstCol = this.allColumns[0];
+          const ops = this._operatorsFor(firstCol.key);
+          this.advancedFilters.push({
+            property: firstCol.key,
+            operator: ops[0]?.value || 'is',
+            value: '',
+          });
+        },
+        removeFilterRule(idx) {
+          this.advancedFilters.splice(idx, 1);
+          this.applyFilters();
+        },
+        updateFilterProperty(idx, newKey) {
+          const rule = this.advancedFilters[idx];
+          rule.property = newKey;
+          const ops = this._operatorsFor(newKey);
+          rule.operator = ops[0]?.value || 'is';
+          rule.value = '';
+          this.applyFilters();
+        },
+        updateFilterOperator(idx, newOp) {
+          this.advancedFilters[idx].operator = newOp;
+          this.applyFilters();
+        },
+        updateFilterValue(idx, newVal) {
+          this.advancedFilters[idx].value = newVal;
+          this.applyFilters();
+        },
+        setFilterLogic(logic) {
+          this.filterLogic = logic;
+          this.applyFilters();
+        },
+        _evaluateRule(item, rule) {
+          const val = item[rule.property];
+          const rv = rule.value;
+          switch (rule.operator) {
+            // Text
+            case 'contains':     return val != null && String(val).toLowerCase().includes(String(rv).toLowerCase());
+            case 'not_contains': return val == null || !String(val).toLowerCase().includes(String(rv).toLowerCase());
+            case 'is':           return String(val || '') === String(rv);
+            case 'is_not':       return String(val || '') !== String(rv);
+            case 'is_empty':     return val == null || val === '';
+            case 'is_not_empty': return val != null && val !== '';
+            // Number
+            case 'eq':  return Number(val) === Number(rv);
+            case 'neq': return Number(val) !== Number(rv);
+            case 'gt':  return Number(val) > Number(rv);
+            case 'lt':  return Number(val) < Number(rv);
+            case 'gte': return Number(val) >= Number(rv);
+            case 'lte': return Number(val) <= Number(rv);
+            // Boolean
+            case 'is_true':  return val === true;
+            case 'is_false': return val === false || val == null;
+            default: return true;
+          }
+        },
+
+        // --- Sort ---
+        toggleSort(key) {
+          const col = this.allColumns.find(c => c.key === key);
+          if (!col || !col.sortable) return;
+
+          if (this.sortLevels.length > 0 && this.sortLevels[0].key === key) {
+            // Cycle: asc → desc → remove
+            if (this.sortLevels[0].dir === 'asc') { this.sortLevels[0].dir = 'desc'; }
+            else { this.sortLevels.splice(0, 1); }
+          } else {
+            // New primary sort
+            this.sortLevels = [{ key, dir: 'asc' }, ...this.sortLevels.filter(l => l.key !== key)].slice(0, 3);
+          }
+          this.applyFilters();
+        },
+
+        addSortLevel() {
+          if (this.sortLevels.length < 3) {
+            const used = this.sortLevels.map(l => l.key);
+            const next = this.sortableColumns.find(c => !used.includes(c.key));
+            if (next) {
+              this.sortLevels.push({ key: next.key, dir: 'asc' });
+              this.applyFilters();
+            }
+          }
+        },
+
+        removeSortLevel(idx) {
+          this.sortLevels.splice(idx, 1);
+          this.applyFilters();
+        },
+
+        // --- Grouping ---
+        setGroupBy(key) {
+          this.groupByKey = key;
+          this.collapsedGroups = [];
+          this.applyFilters();
+        },
+
+        toggleGroupCollapse(label) {
+          const idx = this.collapsedGroups.indexOf(label);
+          if (idx >= 0) { this.collapsedGroups.splice(idx, 1); }
+          else { this.collapsedGroups.push(label); }
+        },
+
+        // --- Reset ---
+        resetAll() {
+          this.searchQuery = '';
+          this.sortLevels = [];
+          this.quickFilters = { estadoStock: [], prioridad: [] };
+          this.advancedFilters = [];
+          this.filterLogic = 'and';
+          this.groupByKey = null;
+          this.collapsedGroups = [];
+          this.setViewMode('compact');
+          this.applyFilters();
+        },
+
+        // --- Core filter/sort/group engine ---
+        applyFilters() {
+          let items = [...this.allItems];
+
+          // 1. Text search
+          if (this.searchQuery.trim()) {
+            const q = this.searchQuery.toLowerCase().trim();
+            items = items.filter(i =>
+              (i.nombre && i.nombre.toLowerCase().includes(q)) ||
+              (i.codigo && i.codigo.toLowerCase().includes(q)) ||
+              (i.marca && i.marca.toLowerCase().includes(q))
+            );
+          }
+
+          // 2. Quick filters (Estado)
+          if (this.quickFilters.estadoStock.length > 0) {
+            items = items.filter(i => this.quickFilters.estadoStock.includes(i.estadoStock));
+          }
+
+          // 3. Quick filters (Prioridad)
+          if (this.quickFilters.prioridad.length > 0) {
+            items = items.filter(i => this.quickFilters.prioridad.includes(i.prioridad));
+          }
+
+          // 4. Advanced filters (AND with quick filters, AND/OR between rules)
+          if (this.advancedFilters.length > 0) {
+            const activeRules = this.advancedFilters.filter(r =>
+              r.value !== '' || ['is_empty', 'is_not_empty', 'is_true', 'is_false'].includes(r.operator)
+            );
+            if (activeRules.length > 0) {
+              items = items.filter(item => {
+                if (this.filterLogic === 'and') {
+                  return activeRules.every(r => this._evaluateRule(item, r));
+                } else {
+                  return activeRules.some(r => this._evaluateRule(item, r));
+                }
+              });
+            }
+          }
+
+          // 5. Multi-level sort
+          if (this.sortLevels.length > 0) {
+            items.sort((a, b) => {
+              for (const level of this.sortLevels) {
+                const cmp = this.compareValues(a[level.key], b[level.key], level.key);
+                if (cmp !== 0) return level.dir === 'asc' ? cmp : -cmp;
+              }
+              return 0;
+            });
+          }
+
+          this.filteredItems = items;
+
+          // Recompute KPIs from filtered data
+          if (this.isFiltered) {
+            const fk = { total: items.length, estado: { sinStock: 0, bajoMinimo: 0, enStock: 0, enReconteo: 0, descontinuado: 0 }, auditados3D: 0, auditados3DPct: 0 };
+            for (const item of items) {
+              if (item.estadoStock === 'Sin Stock') fk.estado.sinStock++;
+              else if (item.estadoStock === 'Bajo Mínimo') fk.estado.bajoMinimo++;
+              else if (item.estadoStock === 'En Stock') fk.estado.enStock++;
+              else if (item.estadoStock === 'En Reconteo') fk.estado.enReconteo++;
+              else if (item.estadoStock === 'Descontinuado') fk.estado.descontinuado++;
+              if (item.seReconto3D) fk.auditados3D++;
+            }
+            fk.auditados3DPct = items.length > 0 ? Math.round((fk.auditados3D / items.length) * 100) : 0;
+            this.filteredKpis = fk;
+          } else {
+            this.filteredKpis = null;
+          }
+        },
+
+        compareValues(a, b, key) {
+          // Use select orders if available
+          const order = this.selectOrders[key];
+          if (order) {
+            const ai = order.indexOf(a);
+            const bi = order.indexOf(b);
+            return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+          }
+
+          // Nulls last
+          if (a == null && b == null) return 0;
+          if (a == null) return 1;
+          if (b == null) return -1;
+
+          // Numbers
+          if (typeof a === 'number' && typeof b === 'number') return a - b;
+
+          // Booleans
+          if (typeof a === 'boolean' && typeof b === 'boolean') return (a === b) ? 0 : a ? -1 : 1;
+
+          // Strings
+          return String(a).localeCompare(String(b), 'es');
+        },
+
+        // --- Build flat display rows (handles both grouped and ungrouped) ---
+        get displayRows() {
+          if (!this.groupByKey) {
+            // Ungrouped: just the filtered items with row keys
+            return this.filteredItems.map((item, i) => ({
+              ...item,
+              _rowKey: item.id,
+              _isGroupHeader: false,
+            }));
+          }
+
+          // Grouped: build flat array with group headers + items
+          const map = new Map();
+          for (const item of this.filteredItems) {
+            const val = item[this.groupByKey] || null;
+            const label = val || '(Sin valor)';
+            if (!map.has(label)) map.set(label, []);
+            map.get(label).push(item);
+          }
+
+          // Sort groups by select order
+          const order = this.selectOrders[this.groupByKey];
+          const entries = [...map.entries()];
+          if (order) {
+            entries.sort((a, b) => {
+              const ai = order.indexOf(a[0]);
+              const bi = order.indexOf(b[0]);
+              return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+            });
+          }
+
+          const rows = [];
+          for (const [label, items] of entries) {
+            // Group header
+            rows.push({
+              _rowKey: 'gh_' + label,
+              _isGroupHeader: true,
+              _groupLabel: label,
+              _groupCount: items.length,
+            });
+            // Items (skip if collapsed)
+            if (!this.collapsedGroups.includes(label)) {
+              for (const item of items) {
+                rows.push({ ...item, _rowKey: item.id, _isGroupHeader: false });
+              }
+            }
+          }
+          return rows;
+        },
+
+        // --- Render cell HTML (used by x-html for rich rendering) ---
+        renderCell(row, key) {
+          const val = row[key];
+          const esc = (v) => v == null ? '—' : String(v).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+          switch (key) {
+            case 'nombre': {
+              let html = `<span class="text-slate-200">${esc(row.nombre)}</span>`;
+              if (this.viewMode === 'compact' && row.codigo) {
+                html += ` <span class="text-[10px] text-slate-500 font-mono ml-1.5">${esc(row.codigo)}</span>`;
+              }
+              return html;
+            }
+            case 'codigo': return `<span class="font-mono text-slate-400 text-xs">${esc(val)}</span>`;
+            case 'marca': return `<span class="text-slate-300">${esc(val)}</span>`;
+            case 'stockBase': {
+              const cls = row.stockBase === 0 ? 'text-red-400 font-bold' : 'text-slate-200';
+              return `<span class="font-mono ${cls}">${row.stockBase}</span>`;
+            }
+            case 'stockMinimo': return `<span class="font-mono text-slate-400">${row.stockMinimo}</span>`;
+            case 'deficit': {
+              if (row.deficit > 0) return `<span class="font-mono text-orange-400">-${row.deficit}</span>`;
+              return `<span class="font-mono text-slate-500">—</span>`;
+            }
+            case 'estadoStock': return this._renderBadge(row.estadoStock, row.estadoStockColor);
+            case 'prioridad': return this._renderBadge(row.prioridad, row.prioridadColor);
+            case 'categoriaMaterial': return `<span class="text-slate-300 text-xs">${esc(val)}</span>`;
+            case 'rolMaterial': return `<span class="text-slate-300 text-xs">${esc(val)}</span>`;
+            case 'origenConsumo': return `<span class="text-slate-300 text-xs">${esc(val)}</span>`;
+            case 'unidad': return `<span class="text-slate-400 text-xs">${esc(val)}</span>`;
+            case 'color': return `<span class="text-slate-400 text-xs">${esc(val)}</span>`;
+            case 'dimensiones': return `<span class="text-slate-400 text-xs font-mono">${esc(val)}</span>`;
+            case 'grupoProceso': return `<span class="text-slate-300 text-xs">${esc(val)}</span>`;
+            case 'departamento': return `<span class="text-slate-300 text-xs">${esc(val)}</span>`;
+            case 'proceso': return `<span class="text-slate-300 text-xs">${esc(val)}</span>`;
+            case 'seReconto3D': {
+              if (val) return `<span class="text-emerald-400">✓ Sí</span>`;
+              return `<span class="text-slate-500">—</span>`;
+            }
+            case 'diasDesdeReconteo': {
+              if (val !== null && val !== undefined) return `<span class="font-mono text-slate-400 text-xs">${val}d</span>`;
+              return `<span class="text-slate-500">—</span>`;
+            }
+            default: return esc(val);
+          }
+        },
+
+        _renderBadge(name, color) {
+          if (!name) return '—';
+          const colorMap = {
+            red: 'bg-red-500/15 text-red-400',
+            orange: 'bg-orange-500/15 text-orange-400',
+            yellow: 'bg-yellow-500/15 text-yellow-400',
+            green: 'bg-green-500/15 text-green-400',
+            blue: 'bg-blue-500/15 text-blue-400',
+            gray: 'bg-slate-500/15 text-slate-400',
+          };
+          const cls = colorMap[color] || 'bg-slate-500/15 text-slate-400';
+          return `<span class="px-1.5 py-0.5 text-[10px] font-medium rounded ${cls}">${name}</span>`;
+        },
+      };
+    }
+  </script>
+</body>
+</html>

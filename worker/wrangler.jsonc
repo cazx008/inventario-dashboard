@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "sanesca-sync",
+  "main": "src/index.js",
+  "compatibility_date": "2024-09-23",
+  "account_id": "98ee9f66220ad7147392ace5bb911953",
+  "vars": {
+    "GITHUB_REPO": "cazx008/inventario-dashboard"
+  },
+  "observability": {
+    "enabled": true
+  }
+}
