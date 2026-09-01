@@ -91,4 +91,4 @@
 | `.github/workflows/deploy.yml` | Pipeline CI/CD GitHub Actions |
 | `PRODUCT.md` | Contexto de producto y directrices de diseño |
 | `DESIGN.md` | Sistema de diseño "La Terminal de Almacén" |
-| `assets/logo-sanesca.svg` | Logo corporativo Sanesca |
+| `assets/logo-sanesca.png` | Logo corporativo Sanesca |

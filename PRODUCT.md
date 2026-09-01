@@ -34,7 +34,7 @@ El gerente abre el dashboard al inicio de la jornada y durante reuniones de coor
 
 **Funcionalidades confirmadas:**
 - 19 columnas de datos con filtrado avanzado (propiedad + operador + valor, AND/OR), búsqueda instantánea, ordenamiento multi-nivel (3 niveles), agrupación por categoría
-- Vistas compacta (3 columnas) y ampliada (todas), selector de columnas personalizable
+- Vistas compacta (6 columnas: nombre, stock, stock mín., déficit, estado, prioridad) y ampliada (todas), selector de columnas personalizable
 - Quick filters via badges de Estado y Prioridad
 - KPI cards: Sin Stock, Bajo Mínimo, En Stock, En Reconteo, % Auditados 3D
 - Glosario y referencia colapsable con definiciones de columnas, leyenda de estados/prioridades, indicadores visuales y guía de uso
@@ -50,7 +50,7 @@ El gerente abre el dashboard al inicio de la jornada y durante reuniones de coor
 
 ## Brand Commitments
 
-- Logo de Sanesca Exhibidores presente en el header (asset existente: `assets/logo-sanesca.svg`)
+- Logo de Sanesca Exhibidores presente en el header (asset existente: `assets/logo-sanesca.png`)
 - Identidad visual industrial/operativa: tema oscuro, paleta funcional con semántica de estado (rojo = sin stock, naranja = bajo mínimo, verde = en stock, azul = en reconteo, púrpura = auditado 3D)
 
 ## Evidence on Hand
