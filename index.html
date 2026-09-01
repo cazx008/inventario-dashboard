@@ -762,9 +762,10 @@
         // --- Init ---
         async init() {
           try {
+            const ts = Date.now();
             const [invRes, metaRes] = await Promise.all([
-              fetch('data/inventory.json'),
-              fetch('data/meta.json'),
+              fetch(`data/inventory.json?t=${ts}`),
+              fetch(`data/meta.json?t=${ts}`),
             ]);
             const invData = await invRes.json();
             const metaData = await metaRes.json();

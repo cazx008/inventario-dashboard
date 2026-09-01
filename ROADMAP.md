@@ -35,50 +35,46 @@
 
 ---
 
-## Fase 3.5 — Integración Impeccable (En progreso)
+## Fase 3.5 — Integración Impeccable (✅ Completada)
 
-Ver plan detallado en artefacto `implementation_plan.md` de la sesión actual.
+- **Fase I:** `PRODUCT.md`, `DESIGN.md`, `.impeccable/config.json`, `.impeccable/design.json` configurados.
+- **Fase II:** Auditoría dual (heurísticas Nielsen + detector automatizado).
+- **Fase III:** Refinamiento visual y de usabilidad:
+  - Vista compacta ampliada a 6 columnas con pre-orden por Prioridad/Déficit.
+  - Estado de error con botón de reintento.
+  - KPIs reactivos filtrados (`activeKpis` + badge `FILTRADO`).
+  - Barra de herramientas colapsable en mobile (`⚙ Herramientas`) con soporte táctil.
+  - Navegación por teclado completa (accesibilidad WCAG).
+- **Fase IV:** Verificación visual responsive (Desktop 1440px / Mobile 390px).
 
 ---
 
-## Fase 4 — Pipeline CI/CD (Pendiente)
+## Fase 4 — Pipeline CI/CD (✅ Completada)
 
-### Componentes
+### Componentes desplegados
 1. **Cloudflare Worker `sanesca-sync`:**
-   - Endpoint que ejecuta el fetch desde Notion API
-   - Transforma y genera `inventory.json` + `meta.json`
-   - Hace commit al repositorio via GitHub API
+   - URL: `https://sanesca-sync.sanesca-sync-worker.workers.dev`
+   - Función: Recibe webhook POST/GET y dispara `repository_dispatch` hacia GitHub API (`cazx008/inventario-dashboard`).
+   - Secret configurado: `GITHUB_TOKEN`.
 
-2. **GitHub Actions workflow `.github/workflows/sync-inventory.yml`:**
-   - Trigger: `workflow_dispatch` (manual) + `repository_dispatch` (desde Worker)
-   - Steps: checkout → ejecutar fetch-inventory.js → commit/push data/ → deploy Pages
+2. **GitHub Actions Workflow `.github/workflows/deploy.yml`:**
+   - Triggers: `push` a `main`, `workflow_dispatch`, `repository_dispatch` (event: `notion-sync`), `schedule` (cron diario).
+   - Steps: Checkout → Setup Node.js → `npm ci` → `npm run build` (`fetch-inventory.js`) → Deploy GitHub Pages.
 
-3. **GitHub Secrets requeridos:**
-   - `SANESCATOKEN` (Notion API token)
-   - `CF_ACCOUNT_ID` (Cloudflare)
-
-4. **Trigger desde Notion:**
-   - Botón/automatización en Notion que invoca el Worker
-   - **Restricción del usuario:** El disparador NO debe estar en la web visible al gerente
-
-### Credenciales disponibles
-- Cloudflare Account ID: `98ee9f66220ad7147392ace5bb911953`
-- SANESCATOKEN: Configurado como variable de entorno
-- BD Dashboard ID: `2b586805-4e27-80fe-b6e8-e4c6dc325696`
-
-### Pendiente
-- Verificar permiso `actions:write` en el PAT de GitHub existente
+3. **Trigger en Notion:**
+   - Botón nativo configurado en la página **"Central de Operaciones"** (`3bf86805-4e27-80bf-8fc7-f1b1eee3c1de`).
+   - Acción: **Enviar webhook** a la URL del Worker.
+   - Botón complementario: **Abrir Dashboard** (`https://cazx008.github.io/inventario-dashboard/`).
 
 ---
 
-## Fase 5 — Validación E2E y Cierre (Pendiente)
+## Fase 5 — Validación E2E y Cierre (✅ Completada)
 
-1. Desplegar a GitHub Pages
-2. Verificación HTTP con Chrome DevTools MCP
-3. Captura de pantalla del sitio desplegado (PVVN del PDICL)
-4. Test de navegación cruzada (links a Cortes Eléctricos y Medidas Operativas)
-5. Test de sincronización manual end-to-end
-6. Walkthrough final documentado
+1. **GitHub Pages en Vivo:** `https://cazx008.github.io/inventario-dashboard/` (HTTP 200, 131 ítems).
+2. **Ciclo de Sincronización Verificado:** Clic en botón de Notion → Cloudflare Worker → GitHub Actions dispatch → Fetch Notion → Build & Deploy Pages (~30s).
+3. **Mapeo de Campos Validado:** `Stock (base)` y `Stock mínimo` alineados exactamente con Notion.
+4. **Cache-Busting Frontend:** Query parameter de timestamp en llamadas `fetch` para evitar caché obsoleto del CDN en navegadores cliente.
+5. **Navegación Cruzada:** Enlaces funcionales hacia Dashboards hermanos (*Cortes Eléctricos* y *Medidas Operativas*).
 
 ---
 
@@ -86,9 +82,13 @@ Ver plan detallado en artefacto `implementation_plan.md` de la sesión actual.
 
 | Archivo | Descripción |
 |:--------|:------------|
-| `index.html` | Dashboard principal (~1078 líneas) |
-| `scripts/fetch-inventory.js` | Extractor Notion → JSON (~465 líneas) |
-| `data/inventory.json` | Datos de inventario (131 ítems) |
-| `data/meta.json` | Metadata de sincronización |
-| `PRODUCT.md` | Contexto de producto (Impeccable init) |
-| `assets/logo-sanesca.svg` | Logo corporativo |
+| `index.html` | Dashboard interactivo Alpine.js + Tailwind CSS (~1160 líneas) |
+| `scripts/fetch-inventory.js` | Extractor Notion API con resolución de relaciones (~465 líneas) |
+| `data/inventory.json` | Datos de inventario procesados |
+| `data/meta.json` | Metadata y timestamp de sincronización |
+| `worker/src/index.js` | Cloudflare Worker (Webhook bridge) |
+| `worker/wrangler.jsonc` | Configuración de despliegue Wrangler |
+| `.github/workflows/deploy.yml` | Pipeline CI/CD GitHub Actions |
+| `PRODUCT.md` | Contexto de producto y directrices de diseño |
+| `DESIGN.md` | Sistema de diseño "La Terminal de Almacén" |
+| `assets/logo-sanesca.svg` | Logo corporativo Sanesca |
