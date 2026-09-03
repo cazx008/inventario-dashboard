@@ -27,10 +27,10 @@
       "proceso": "Soldadura",
       "grupoProceso": "Soldadura",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -60,10 +60,10 @@
       "proceso": "Soldadura",
       "grupoProceso": "Soldadura",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -71,10 +71,10 @@
       "nombre": "Alambre Mig 1.2mm Weldtech 70s-6",
       "codigo": "SOL-004",
       "marca": "Weldtech",
-      "stockBase": 2,
+      "stockBase": 1,
       "stockMinimo": 6,
-      "deficit": 4,
-      "coberturaPct": 33,
+      "deficit": 5,
+      "coberturaPct": 17,
       "semaforo": "naranja",
       "estadoStock": "Bajo Mínimo",
       "estadoStockColor": "orange",
@@ -93,15 +93,48 @@
       "proceso": "Soldadura",
       "grupoProceso": "Soldadura",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
       "id": "38f86805-4e27-81d1-a0f7-fd81db25c068",
       "nombre": "Bisagra 3x3 con Rolinera",
+      "codigo": "HER-001",
+      "marca": "",
+      "stockBase": 3,
+      "stockMinimo": 0,
+      "deficit": 0,
+      "coberturaPct": 999,
+      "semaforo": "verde",
+      "estadoStock": "En Stock",
+      "estadoStockColor": "green",
+      "prioridad": "Por Pedido",
+      "prioridadColor": "blue",
+      "origenConsumo": "Proyecto (Presupuestado)",
+      "origenConsumoColor": "blue",
+      "categoriaMaterial": "Herrajes y Accesorios",
+      "categoriaMaterialColor": "red",
+      "rolMaterial": "Componente",
+      "rolMaterialColor": "green",
+      "unidad": "Par",
+      "color": "",
+      "dimensiones": "3\" × 3\"",
+      "departamento": "Carpintería",
+      "proceso": "Almacenaje",
+      "grupoProceso": "Logística",
+      "grupoProcesoColor": "default",
+      "seReconto3D": false,
+      "seRecontoHoy": false,
+      "ultimaFechaReconteo": "2026-08-29",
+      "diasDesdeReconteo": 5,
+      "necesitaReconteo": false
+    },
+    {
+      "id": "3c186805-4e27-8099-9f78-d2f7eeed2855",
+      "nombre": "Bisagra 3x3 con Rolinera Acero inoxidable",
       "codigo": "HER-001",
       "marca": "",
       "stockBase": 2,
@@ -126,43 +159,10 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
-      "necesitaReconteo": false
-    },
-    {
-      "id": "3c186805-4e27-8099-9f78-d2f7eeed2855",
-      "nombre": "Bisagra 3x3 con Rolinera Acero inoxidable",
-      "codigo": "HER-001",
-      "marca": "",
-      "stockBase": 1,
-      "stockMinimo": 0,
-      "deficit": 0,
-      "coberturaPct": 999,
-      "semaforo": "verde",
-      "estadoStock": "En Stock",
-      "estadoStockColor": "green",
-      "prioridad": "Por Pedido",
-      "prioridadColor": "blue",
-      "origenConsumo": "Proyecto (Presupuestado)",
-      "origenConsumoColor": "blue",
-      "categoriaMaterial": "Herrajes y Accesorios",
-      "categoriaMaterialColor": "red",
-      "rolMaterial": "Componente",
-      "rolMaterialColor": "green",
-      "unidad": "Par",
-      "color": "",
-      "dimensiones": "3\" × 3\"",
-      "departamento": "Carpintería",
-      "proceso": "Almacenaje",
-      "grupoProceso": "Logística",
-      "grupoProcesoColor": "default",
-      "seReconto3D": true,
-      "seRecontoHoy": false,
-      "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -192,10 +192,10 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -203,10 +203,10 @@
       "nombre": "Bolsa Negra de Basura",
       "codigo": "LIM-001",
       "marca": "",
-      "stockBase": 16,
+      "stockBase": 6,
       "stockMinimo": 6,
       "deficit": 0,
-      "coberturaPct": 267,
+      "coberturaPct": 100,
       "semaforo": "verde",
       "estadoStock": "En Stock",
       "estadoStockColor": "green",
@@ -227,8 +227,8 @@
       "grupoProcesoColor": "default",
       "seReconto3D": true,
       "seRecontoHoy": false,
-      "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "ultimaFechaReconteo": "2026-09-02",
+      "diasDesdeReconteo": 1,
       "necesitaReconteo": false
     },
     {
@@ -258,10 +258,10 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -269,10 +269,10 @@
       "nombre": "Cinta Adhesiva de Embalaje Transparente Diesel tools",
       "codigo": "EMB-001",
       "marca": "Diesel Tools",
-      "stockBase": 16,
+      "stockBase": 14,
       "stockMinimo": 12,
       "deficit": 0,
-      "coberturaPct": 133,
+      "coberturaPct": 117,
       "semaforo": "verde",
       "estadoStock": "En Stock",
       "estadoStockColor": "green",
@@ -291,10 +291,10 @@
       "proceso": "Embalado",
       "grupoProceso": "Embalaje",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -324,10 +324,10 @@
       "proceso": "Carpinteria Esamble",
       "grupoProceso": "Carpintería",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -357,10 +357,10 @@
       "proceso": "Carpinteria Esamble",
       "grupoProceso": "Carpintería",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -390,10 +390,10 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -423,10 +423,10 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -456,10 +456,10 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -489,10 +489,10 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -522,10 +522,10 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -533,10 +533,10 @@
       "nombre": "Disco de corte 4-1/2″x3/64x7/8",
       "codigo": "DIS-001",
       "marca": "",
-      "stockBase": 45,
+      "stockBase": 34,
       "stockMinimo": 6,
       "deficit": 0,
-      "coberturaPct": 750,
+      "coberturaPct": 567,
       "semaforo": "verde",
       "estadoStock": "En Stock",
       "estadoStockColor": "green",
@@ -557,8 +557,41 @@
       "grupoProcesoColor": "default",
       "seReconto3D": true,
       "seRecontoHoy": false,
-      "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "ultimaFechaReconteo": "2026-09-02",
+      "diasDesdeReconteo": 1,
+      "necesitaReconteo": false
+    },
+    {
+      "id": "3cf86805-4e27-817f-8a4d-fb454c96d29e",
+      "nombre": "Disco de desbaste para metal 4-1/2\" Total TAC2231151",
+      "codigo": "DIS-008",
+      "marca": "Total",
+      "stockBase": 1,
+      "stockMinimo": 5,
+      "deficit": 4,
+      "coberturaPct": 20,
+      "semaforo": "naranja",
+      "estadoStock": "Sin Stock",
+      "estadoStockColor": "red",
+      "prioridad": "Por Pedido",
+      "prioridadColor": "blue",
+      "origenConsumo": "Stock General",
+      "origenConsumoColor": "green",
+      "categoriaMaterial": "Herramientas y Abrasivos",
+      "categoriaMaterialColor": "red",
+      "rolMaterial": "Consumible",
+      "rolMaterialColor": "orange",
+      "unidad": "Unidad",
+      "color": "",
+      "dimensiones": "22 mm (7/8\") × 115 mm (4-1/2\") × 6.0 mm (1/4\")",
+      "departamento": "Taller",
+      "proceso": "Esmerilado",
+      "grupoProceso": "Desbaste y Preparación",
+      "grupoProcesoColor": "default",
+      "seReconto3D": true,
+      "seRecontoHoy": false,
+      "ultimaFechaReconteo": "2026-09-02",
+      "diasDesdeReconteo": 1,
       "necesitaReconteo": false
     },
     {
@@ -566,13 +599,13 @@
       "nombre": "Disco Flap de Circonia 4-1/2″ / 115x22mm Grano P40",
       "codigo": "DIS-007",
       "marca": "",
-      "stockBase": 20,
+      "stockBase": 0,
       "stockMinimo": 25,
-      "deficit": 5,
-      "coberturaPct": 80,
-      "semaforo": "naranja",
-      "estadoStock": "En Stock",
-      "estadoStockColor": "green",
+      "deficit": 25,
+      "coberturaPct": 0,
+      "semaforo": "rojo",
+      "estadoStock": "Sin Stock",
+      "estadoStockColor": "red",
       "prioridad": "Urgente",
       "prioridadColor": "red",
       "origenConsumo": "Proyecto (No Presupuestado)",
@@ -590,8 +623,8 @@
       "grupoProcesoColor": "default",
       "seReconto3D": true,
       "seRecontoHoy": false,
-      "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "ultimaFechaReconteo": "2026-09-02",
+      "diasDesdeReconteo": 1,
       "necesitaReconteo": false
     },
     {
@@ -621,10 +654,10 @@
       "proceso": "Esmerilado",
       "grupoProceso": "Desbaste y Preparación",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -654,10 +687,10 @@
       "proceso": "Esmerilado",
       "grupoProceso": "Desbaste y Preparación",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -687,10 +720,10 @@
       "proceso": "Esmerilado",
       "grupoProceso": "Desbaste y Preparación",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -720,10 +753,10 @@
       "proceso": "Esmerilado",
       "grupoProceso": "Desbaste y Preparación",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -753,10 +786,10 @@
       "proceso": "Soldadura",
       "grupoProceso": "Soldadura",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -786,10 +819,10 @@
       "proceso": "Soldadura",
       "grupoProceso": "Soldadura",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -819,10 +852,10 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -852,10 +885,10 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -863,13 +896,13 @@
       "nombre": "Guantes de puntos PVC",
       "codigo": "EPP-003",
       "marca": "",
-      "stockBase": 3,
+      "stockBase": 0,
       "stockMinimo": 12,
-      "deficit": 9,
-      "coberturaPct": 25,
-      "semaforo": "naranja",
-      "estadoStock": "En Stock",
-      "estadoStockColor": "green",
+      "deficit": 12,
+      "coberturaPct": 0,
+      "semaforo": "rojo",
+      "estadoStock": "Sin Stock",
+      "estadoStockColor": "red",
       "prioridad": "Urgente",
       "prioridadColor": "red",
       "origenConsumo": "Proyecto (No Presupuestado)",
@@ -887,8 +920,8 @@
       "grupoProcesoColor": "default",
       "seReconto3D": true,
       "seRecontoHoy": false,
-      "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "ultimaFechaReconteo": "2026-09-02",
+      "diasDesdeReconteo": 1,
       "necesitaReconteo": false
     },
     {
@@ -918,10 +951,10 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -953,7 +986,7 @@
       "grupoProcesoColor": "default",
       "seReconto3D": true,
       "seRecontoHoy": false,
-      "ultimaFechaReconteo": "2026-08-29",
+      "ultimaFechaReconteo": "2026-09-01",
       "diasDesdeReconteo": 2,
       "necesitaReconteo": false
     },
@@ -984,10 +1017,10 @@
       "proceso": "Esmerilado",
       "grupoProceso": "Desbaste y Preparación",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -1017,10 +1050,10 @@
       "proceso": "Esmerilado",
       "grupoProceso": "Desbaste y Preparación",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -1050,10 +1083,10 @@
       "proceso": "Esmerilado",
       "grupoProceso": "Desbaste y Preparación",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -1083,10 +1116,10 @@
       "proceso": "Esmerilado",
       "grupoProceso": "Desbaste y Preparación",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -1116,10 +1149,10 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -1149,10 +1182,10 @@
       "proceso": "Cortar Laminas",
       "grupoProceso": "Corte y Mecanizado",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -1182,10 +1215,10 @@
       "proceso": "Cortar Laminas",
       "grupoProceso": "Corte y Mecanizado",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -1193,13 +1226,13 @@
       "nombre": "Lámina de hierro de 1,00mm (1,20m x 2,40m)",
       "codigo": "LMT-010",
       "marca": "",
-      "stockBase": 1,
+      "stockBase": 0,
       "stockMinimo": 0,
       "deficit": 0,
-      "coberturaPct": 999,
-      "semaforo": "verde",
-      "estadoStock": "En Stock",
-      "estadoStockColor": "green",
+      "coberturaPct": 0,
+      "semaforo": "rojo",
+      "estadoStock": "Sin Stock",
+      "estadoStockColor": "red",
       "prioridad": "Por Pedido",
       "prioridadColor": "blue",
       "origenConsumo": "Proyecto (Presupuestado)",
@@ -1215,10 +1248,10 @@
       "proceso": "Cortar Laminas",
       "grupoProceso": "Corte y Mecanizado",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -1226,7 +1259,7 @@
       "nombre": "Lámina de hierro de 1,10mm (1,20m x 2,40m)",
       "codigo": "LMT-005",
       "marca": "",
-      "stockBase": 10,
+      "stockBase": 9,
       "stockMinimo": 0,
       "deficit": 0,
       "coberturaPct": 999,
@@ -1248,10 +1281,10 @@
       "proceso": "Cortar Laminas",
       "grupoProceso": "Corte y Mecanizado",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -1281,10 +1314,10 @@
       "proceso": "Cortar Laminas",
       "grupoProceso": "Corte y Mecanizado",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -1292,7 +1325,7 @@
       "nombre": "Lámina de hierro de 1,50mm (1,20m x 2,40m)",
       "codigo": "LMT-008",
       "marca": "",
-      "stockBase": 17,
+      "stockBase": 16,
       "stockMinimo": 0,
       "deficit": 0,
       "coberturaPct": 999,
@@ -1314,10 +1347,10 @@
       "proceso": "Cortar Laminas",
       "grupoProceso": "Corte y Mecanizado",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -1347,10 +1380,10 @@
       "proceso": "Cortar Laminas",
       "grupoProceso": "Corte y Mecanizado",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -1358,7 +1391,7 @@
       "nombre": "Lámina de hierro de 2,00mm (1,20m x 2,40m)",
       "codigo": "LMT-007",
       "marca": "",
-      "stockBase": 3,
+      "stockBase": 2,
       "stockMinimo": 0,
       "deficit": 0,
       "coberturaPct": 999,
@@ -1380,10 +1413,10 @@
       "proceso": "Cortar Laminas",
       "grupoProceso": "Corte y Mecanizado",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -1413,10 +1446,10 @@
       "proceso": "Cortar Laminas",
       "grupoProceso": "Corte y Mecanizado",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -1424,7 +1457,7 @@
       "nombre": "Lámina de hierro de 3,00mm (1,20m x 2,40m)",
       "codigo": "LMT-006",
       "marca": "",
-      "stockBase": 2,
+      "stockBase": 3,
       "stockMinimo": 0,
       "deficit": 0,
       "coberturaPct": 999,
@@ -1446,10 +1479,10 @@
       "proceso": "Cortar Laminas",
       "grupoProceso": "Corte y Mecanizado",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -1479,10 +1512,10 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -1490,10 +1523,10 @@
       "nombre": "Lentes de Seguridad transparentes",
       "codigo": "EPP-005",
       "marca": "",
-      "stockBase": 11,
+      "stockBase": 10,
       "stockMinimo": 6,
       "deficit": 0,
-      "coberturaPct": 183,
+      "coberturaPct": 167,
       "semaforo": "verde",
       "estadoStock": "En Stock",
       "estadoStockColor": "green",
@@ -1512,10 +1545,10 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -1545,10 +1578,10 @@
       "proceso": "Esmerilado",
       "grupoProceso": "Desbaste y Preparación",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -1578,10 +1611,10 @@
       "proceso": "Esmerilado",
       "grupoProceso": "Desbaste y Preparación",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -1611,10 +1644,10 @@
       "proceso": "Instalación",
       "grupoProceso": "Instalación",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -1644,10 +1677,10 @@
       "proceso": "Instalación",
       "grupoProceso": "Instalación",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -1677,10 +1710,10 @@
       "proceso": "Instalación",
       "grupoProceso": "Instalación",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -1688,15 +1721,15 @@
       "nombre": "Nivelador de plástico 3/8”",
       "codigo": "DES-003",
       "marca": "",
-      "stockBase": 101,
+      "stockBase": 13,
       "stockMinimo": 100,
-      "deficit": 0,
-      "coberturaPct": 101,
-      "semaforo": "verde",
+      "deficit": 87,
+      "coberturaPct": 13,
+      "semaforo": "naranja",
       "estadoStock": "En Stock",
       "estadoStockColor": "green",
-      "prioridad": "Alta",
-      "prioridadColor": "orange",
+      "prioridad": "Urgente",
+      "prioridadColor": "red",
       "origenConsumo": "Proyecto (Presupuestado)",
       "origenConsumoColor": "blue",
       "categoriaMaterial": "Herrajes y Accesorios",
@@ -1712,8 +1745,8 @@
       "grupoProcesoColor": "default",
       "seReconto3D": true,
       "seRecontoHoy": false,
-      "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "ultimaFechaReconteo": "2026-08-31",
+      "diasDesdeReconteo": 3,
       "necesitaReconteo": false
     },
     {
@@ -1743,10 +1776,10 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -1776,10 +1809,10 @@
       "proceso": "Carpinteria Esamble",
       "grupoProceso": "Carpintería",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -1809,10 +1842,10 @@
       "proceso": "Carpinteria Esamble",
       "grupoProceso": "Carpintería",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -1842,10 +1875,10 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -1875,10 +1908,10 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -1908,10 +1941,10 @@
       "proceso": "Soldadura",
       "grupoProceso": "Soldadura",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -1919,13 +1952,13 @@
       "nombre": "Platina de 1-1/2\" x 1/4\" X 6mts",
       "codigo": "PLA-002",
       "marca": "",
-      "stockBase": 3,
+      "stockBase": 0,
       "stockMinimo": 0,
       "deficit": 0,
-      "coberturaPct": 999,
-      "semaforo": "verde",
-      "estadoStock": "En Stock",
-      "estadoStockColor": "green",
+      "coberturaPct": 0,
+      "semaforo": "rojo",
+      "estadoStock": "Sin Stock",
+      "estadoStockColor": "red",
       "prioridad": "Por Pedido",
       "prioridadColor": "blue",
       "origenConsumo": "Proyecto (Presupuestado)",
@@ -1944,7 +1977,7 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-19",
-      "diasDesdeReconteo": 12,
+      "diasDesdeReconteo": 15,
       "necesitaReconteo": true
     },
     {
@@ -1974,10 +2007,10 @@
       "proceso": "Soldadura",
       "grupoProceso": "Soldadura",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -2007,10 +2040,10 @@
       "proceso": "Soldadura",
       "grupoProceso": "Soldadura",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -2040,10 +2073,10 @@
       "proceso": "Instalación",
       "grupoProceso": "Instalación",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -2073,10 +2106,10 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -2106,10 +2139,10 @@
       "proceso": "Instalación",
       "grupoProceso": "Instalación",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -2141,7 +2174,7 @@
       "grupoProcesoColor": "default",
       "seReconto3D": true,
       "seRecontoHoy": false,
-      "ultimaFechaReconteo": "2026-08-29",
+      "ultimaFechaReconteo": "2026-09-01",
       "diasDesdeReconteo": 2,
       "necesitaReconteo": false
     },
@@ -2172,10 +2205,10 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -2205,10 +2238,10 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -2216,10 +2249,10 @@
       "nombre": "Regatón Rectangular 1x1\" de Plástico",
       "codigo": "DES-005",
       "marca": "",
-      "stockBase": 14,
+      "stockBase": 31,
       "stockMinimo": 50,
-      "deficit": 36,
-      "coberturaPct": 28,
+      "deficit": 19,
+      "coberturaPct": 62,
       "semaforo": "naranja",
       "estadoStock": "En Stock",
       "estadoStockColor": "green",
@@ -2238,10 +2271,10 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -2249,10 +2282,10 @@
       "nombre": "Regatón Rectangular 2x1\" de Plástico",
       "codigo": "DES-006",
       "marca": "",
-      "stockBase": 53,
+      "stockBase": 71,
       "stockMinimo": 50,
       "deficit": 0,
-      "coberturaPct": 106,
+      "coberturaPct": 142,
       "semaforo": "verde",
       "estadoStock": "En Stock",
       "estadoStockColor": "green",
@@ -2271,10 +2304,10 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -2304,10 +2337,10 @@
       "proceso": "Embalado",
       "grupoProceso": "Embalaje",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -2337,10 +2370,10 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -2370,10 +2403,10 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -2403,10 +2436,10 @@
       "proceso": "Pintura",
       "grupoProceso": "Pintura",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -2436,10 +2469,10 @@
       "proceso": "Pintura",
       "grupoProceso": "Pintura",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -2469,10 +2502,10 @@
       "proceso": "Pintura",
       "grupoProceso": "Pintura",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -2480,10 +2513,10 @@
       "nombre": "Spray de pintura negro mate",
       "codigo": "PIN-004",
       "marca": "",
-      "stockBase": 7,
+      "stockBase": 6,
       "stockMinimo": 2,
       "deficit": 0,
-      "coberturaPct": 350,
+      "coberturaPct": 300,
       "semaforo": "verde",
       "estadoStock": "En Stock",
       "estadoStockColor": "green",
@@ -2502,10 +2535,10 @@
       "proceso": "Pintura",
       "grupoProceso": "Pintura",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -2513,10 +2546,10 @@
       "nombre": "Tapa boca",
       "codigo": "EPP-006",
       "marca": "",
-      "stockBase": 7,
+      "stockBase": 6,
       "stockMinimo": 12,
-      "deficit": 5,
-      "coberturaPct": 58,
+      "deficit": 6,
+      "coberturaPct": 50,
       "semaforo": "naranja",
       "estadoStock": "En Stock",
       "estadoStockColor": "green",
@@ -2537,8 +2570,8 @@
       "grupoProcesoColor": "default",
       "seReconto3D": true,
       "seRecontoHoy": false,
-      "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "ultimaFechaReconteo": "2026-08-31",
+      "diasDesdeReconteo": 3,
       "necesitaReconteo": false
     },
     {
@@ -2568,10 +2601,10 @@
       "proceso": "Pintura",
       "grupoProceso": "Pintura",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -2601,10 +2634,10 @@
       "proceso": "Soldadura",
       "grupoProceso": "Soldadura",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -2634,10 +2667,10 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -2652,8 +2685,8 @@
       "semaforo": "rojo",
       "estadoStock": "Sin Stock",
       "estadoStockColor": "red",
-      "prioridad": "Media",
-      "prioridadColor": "yellow",
+      "prioridad": "Urgente",
+      "prioridadColor": "red",
       "origenConsumo": "Proyecto (No Presupuestado)",
       "origenConsumoColor": "red",
       "categoriaMaterial": "Herramientas y Abrasivos",
@@ -2667,10 +2700,10 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -2700,10 +2733,10 @@
       "proceso": "Soldadura",
       "grupoProceso": "Soldadura",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -2733,10 +2766,10 @@
       "proceso": "Soldadura",
       "grupoProceso": "Soldadura",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -2768,7 +2801,7 @@
       "grupoProcesoColor": "default",
       "seReconto3D": true,
       "seRecontoHoy": false,
-      "ultimaFechaReconteo": "2026-08-29",
+      "ultimaFechaReconteo": "2026-09-01",
       "diasDesdeReconteo": 2,
       "necesitaReconteo": false
     },
@@ -2799,10 +2832,10 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -2835,7 +2868,7 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-19",
-      "diasDesdeReconteo": 12,
+      "diasDesdeReconteo": 15,
       "necesitaReconteo": true
     },
     {
@@ -2865,10 +2898,10 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -2901,7 +2934,7 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-19",
-      "diasDesdeReconteo": 12,
+      "diasDesdeReconteo": 15,
       "necesitaReconteo": true
     },
     {
@@ -2931,10 +2964,10 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -2967,7 +3000,7 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-19",
-      "diasDesdeReconteo": 12,
+      "diasDesdeReconteo": 15,
       "necesitaReconteo": true
     },
     {
@@ -3000,7 +3033,7 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-19",
-      "diasDesdeReconteo": 12,
+      "diasDesdeReconteo": 15,
       "necesitaReconteo": true
     },
     {
@@ -3030,10 +3063,10 @@
       "proceso": "Instalación",
       "grupoProceso": "Instalación",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -3066,7 +3099,7 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-19",
-      "diasDesdeReconteo": 12,
+      "diasDesdeReconteo": 15,
       "necesitaReconteo": true
     },
     {
@@ -3099,7 +3132,7 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-19",
-      "diasDesdeReconteo": 12,
+      "diasDesdeReconteo": 15,
       "necesitaReconteo": true
     },
     {
@@ -3129,10 +3162,10 @@
       "proceso": "Instalación",
       "grupoProceso": "Instalación",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -3140,13 +3173,13 @@
       "nombre": "Tornillos autotaladrante 1\"",
       "codigo": "TOR-001",
       "marca": "",
-      "stockBase": 72,
+      "stockBase": 0,
       "stockMinimo": 500,
-      "deficit": 428,
-      "coberturaPct": 14,
-      "semaforo": "naranja",
-      "estadoStock": "En Stock",
-      "estadoStockColor": "green",
+      "deficit": 500,
+      "coberturaPct": 0,
+      "semaforo": "rojo",
+      "estadoStock": "Sin Stock",
+      "estadoStockColor": "red",
       "prioridad": "Baja",
       "prioridadColor": "green",
       "origenConsumo": "Proyecto (Presupuestado)",
@@ -3162,10 +3195,10 @@
       "proceso": "Instalación",
       "grupoProceso": "Instalación",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -3173,13 +3206,13 @@
       "nombre": "Tornillos autotaladrante 1/2\"",
       "codigo": "TOR-004",
       "marca": "",
-      "stockBase": 30,
+      "stockBase": 0,
       "stockMinimo": 200,
-      "deficit": 170,
-      "coberturaPct": 15,
-      "semaforo": "naranja",
-      "estadoStock": "En Stock",
-      "estadoStockColor": "green",
+      "deficit": 200,
+      "coberturaPct": 0,
+      "semaforo": "rojo",
+      "estadoStock": "Sin Stock",
+      "estadoStockColor": "red",
       "prioridad": "Baja",
       "prioridadColor": "green",
       "origenConsumo": "Proyecto (Presupuestado)",
@@ -3195,10 +3228,10 @@
       "proceso": "Instalación",
       "grupoProceso": "Instalación",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -3228,10 +3261,10 @@
       "proceso": "Instalación",
       "grupoProceso": "Instalación",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -3264,7 +3297,7 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-19",
-      "diasDesdeReconteo": 12,
+      "diasDesdeReconteo": 15,
       "necesitaReconteo": true
     },
     {
@@ -3294,10 +3327,10 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -3327,10 +3360,10 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -3363,7 +3396,7 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-19",
-      "diasDesdeReconteo": 12,
+      "diasDesdeReconteo": 15,
       "necesitaReconteo": true
     },
     {
@@ -3396,7 +3429,7 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-19",
-      "diasDesdeReconteo": 12,
+      "diasDesdeReconteo": 15,
       "necesitaReconteo": true
     },
     {
@@ -3426,10 +3459,10 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -3462,7 +3495,7 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-19",
-      "diasDesdeReconteo": 12,
+      "diasDesdeReconteo": 15,
       "necesitaReconteo": true
     },
     {
@@ -3470,13 +3503,13 @@
       "nombre": "Tornillos para Ramplús mariposa 2-1/2”",
       "codigo": "TOR-021",
       "marca": "",
-      "stockBase": 109,
+      "stockBase": 0,
       "stockMinimo": 200,
-      "deficit": 91,
-      "coberturaPct": 55,
-      "semaforo": "naranja",
-      "estadoStock": "Bajo Mínimo",
-      "estadoStockColor": "orange",
+      "deficit": 200,
+      "coberturaPct": 0,
+      "semaforo": "rojo",
+      "estadoStock": "Sin Stock",
+      "estadoStockColor": "red",
       "prioridad": "Urgente",
       "prioridadColor": "red",
       "origenConsumo": "Proyecto (Presupuestado)",
@@ -3495,8 +3528,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-25",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 9,
+      "necesitaReconteo": true
     },
     {
       "id": "34186805-4e27-806c-8ca5-c6585b93184b",
@@ -3528,7 +3561,7 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-19",
-      "diasDesdeReconteo": 12,
+      "diasDesdeReconteo": 15,
       "necesitaReconteo": true
     },
     {
@@ -3558,10 +3591,10 @@
       "proceso": "Instalación",
       "grupoProceso": "Instalación",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -3594,7 +3627,7 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-19",
-      "diasDesdeReconteo": 12,
+      "diasDesdeReconteo": 15,
       "necesitaReconteo": true
     },
     {
@@ -3602,11 +3635,11 @@
       "nombre": "Trapos absorbente tela de algodón franelas chemises y tela de mono",
       "codigo": "LIM-009",
       "marca": "",
-      "stockBase": 0,
+      "stockBase": 100,
       "stockMinimo": 1,
-      "deficit": 1,
-      "coberturaPct": 0,
-      "semaforo": "rojo",
+      "deficit": 0,
+      "coberturaPct": 10000,
+      "semaforo": "verde",
       "estadoStock": "Sin Stock",
       "estadoStockColor": "red",
       "prioridad": "Urgente",
@@ -3627,7 +3660,7 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-19",
-      "diasDesdeReconteo": 12,
+      "diasDesdeReconteo": 15,
       "necesitaReconteo": true
     },
     {
@@ -3635,13 +3668,13 @@
       "nombre": "Tubo de 1-1/2\" x 1-1/2\" X 6mts",
       "codigo": "TUB-016",
       "marca": "",
-      "stockBase": 3,
+      "stockBase": 0,
       "stockMinimo": 0,
       "deficit": 0,
-      "coberturaPct": 999,
-      "semaforo": "verde",
-      "estadoStock": "En Stock",
-      "estadoStockColor": "green",
+      "coberturaPct": 0,
+      "semaforo": "rojo",
+      "estadoStock": "Sin Stock",
+      "estadoStockColor": "red",
       "prioridad": "Por Pedido",
       "prioridadColor": "blue",
       "origenConsumo": "Proyecto (Presupuestado)",
@@ -3657,10 +3690,10 @@
       "proceso": "Cortar Tubos",
       "grupoProceso": "Corte y Mecanizado",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -3690,10 +3723,10 @@
       "proceso": "Cortar Tubos",
       "grupoProceso": "Corte y Mecanizado",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -3723,10 +3756,10 @@
       "proceso": "Cortar Tubos",
       "grupoProceso": "Corte y Mecanizado",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -3734,7 +3767,7 @@
       "nombre": "Tubo de 1-1/2”x1/2\" En 1.10mm X 6mts",
       "codigo": "TUB-003",
       "marca": "",
-      "stockBase": 177,
+      "stockBase": 184,
       "stockMinimo": 0,
       "deficit": 0,
       "coberturaPct": 999,
@@ -3756,10 +3789,10 @@
       "proceso": "Cortar Tubos",
       "grupoProceso": "Corte y Mecanizado",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -3767,7 +3800,7 @@
       "nombre": "Tubo de 1”x1” En 1.10mm X 6mts",
       "codigo": "TUB-004",
       "marca": "",
-      "stockBase": 116,
+      "stockBase": 119,
       "stockMinimo": 0,
       "deficit": 0,
       "coberturaPct": 999,
@@ -3789,10 +3822,10 @@
       "proceso": "Cortar Tubos",
       "grupoProceso": "Corte y Mecanizado",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -3822,10 +3855,10 @@
       "proceso": "Cortar Tubos",
       "grupoProceso": "Corte y Mecanizado",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -3833,7 +3866,7 @@
       "nombre": "Tubo de 1/2\" x 1/2\" X 6mts",
       "codigo": "TUB-012",
       "marca": "",
-      "stockBase": 13,
+      "stockBase": 14,
       "stockMinimo": 0,
       "deficit": 0,
       "coberturaPct": 999,
@@ -3855,10 +3888,10 @@
       "proceso": "Cortar Tubos",
       "grupoProceso": "Corte y Mecanizado",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -3888,10 +3921,10 @@
       "proceso": "Cortar Tubos",
       "grupoProceso": "Corte y Mecanizado",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -3921,10 +3954,10 @@
       "proceso": "Cortar Tubos",
       "grupoProceso": "Corte y Mecanizado",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -3932,7 +3965,7 @@
       "nombre": "Tubo de 2”x2” En 0.90mm X 6mts",
       "codigo": "TUB-005",
       "marca": "",
-      "stockBase": 31,
+      "stockBase": 28,
       "stockMinimo": 0,
       "deficit": 0,
       "coberturaPct": 999,
@@ -3954,10 +3987,10 @@
       "proceso": "Cortar Tubos",
       "grupoProceso": "Corte y Mecanizado",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -3987,10 +4020,10 @@
       "proceso": "Cortar Tubos",
       "grupoProceso": "Corte y Mecanizado",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -4020,10 +4053,10 @@
       "proceso": "Cortar Tubos",
       "grupoProceso": "Corte y Mecanizado",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -4053,10 +4086,10 @@
       "proceso": "Cortar Tubos",
       "grupoProceso": "Corte y Mecanizado",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -4086,10 +4119,10 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -4119,10 +4152,10 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -4155,7 +4188,7 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-19",
-      "diasDesdeReconteo": 12,
+      "diasDesdeReconteo": 15,
       "necesitaReconteo": true
     },
     {
@@ -4185,10 +4218,10 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -4221,7 +4254,7 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-19",
-      "diasDesdeReconteo": 12,
+      "diasDesdeReconteo": 15,
       "necesitaReconteo": true
     },
     {
@@ -4251,10 +4284,10 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -4284,10 +4317,10 @@
       "proceso": "Soldadura",
       "grupoProceso": "Soldadura",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -4317,31 +4350,31 @@
       "proceso": "Soldadura",
       "grupoProceso": "Soldadura",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-08-29",
-      "diasDesdeReconteo": 2,
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     }
   ],
   "kpis": {
-    "total": 131,
+    "total": 132,
     "estado": {
-      "sinStock": 33,
-      "bajoMinimo": 8,
-      "enStock": 89,
+      "sinStock": 42,
+      "bajoMinimo": 7,
+      "enStock": 82,
       "enReconteo": 0,
       "descontinuado": 1
     },
     "prioridad": {
-      "urgente": 13,
-      "alta": 16,
-      "media": 6,
+      "urgente": 15,
+      "alta": 15,
+      "media": 5,
       "baja": 31,
-      "porPedido": 65
+      "porPedido": 66
     },
-    "auditados3D": 114,
-    "auditados3DPct": 87
+    "auditados3D": 10,
+    "auditados3DPct": 8
   },
   "selectOrders": {
     "estadoStock": [
