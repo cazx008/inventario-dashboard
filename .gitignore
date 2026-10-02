@@ -3,3 +3,7 @@ node_modules/
 .DS_Store
 Thumbs.db
 worker/.wrangler/
+.wrangler/
+dist/
+.dev.vars
+*.bak

@@ -13,6 +13,11 @@
 | **Fase 3.5** | ✅ Completada | Integración Impeccable (auditoría y refinamiento visual) |
 | **Fase 4** | ✅ Completada | Pipeline CI/CD (GitHub Actions `deploy.yml` + Cloudflare Worker) |
 | **Fase 5** | ✅ Completada | Validación E2E en GitHub Pages (`https://cazx008.github.io/inventario-dashboard/`) |
+| **Fase 6** | ✅ Completada | Sistema Integral OAB: Abastecimiento, Compras, Recepción en Rampa, Kardex y Migración Vite+React |
+| **Fase 7** | ✅ Completada | Segunda Pasada de Industrialización: SWR, Puente Papel-Digital, Rampa Offline e Inteligencia de Empaques |
+| **Fase 8** | ✅ Completada | Consolidación Industrial: Visor Kardex & Cursor (8A), Almacenamiento R2 (8B), Costo Reposición Dual (8C), Alertas Telegram (8D) — Desplegada en vivo en Cloudflare Pages (`https://sanesca-inventario.pages.dev/`) |
+| **Fase 9** | ⏳ Planificada | Consumo en Taller (9A), Mermas BOM (9B), Guardián Telegram Cron (9C), Cierre Factura SENIAT & Hardening (9D) |
+| **Fase 10** | ✅ Completada | Identidad WebApp con HMAC-SHA256, RBAC en Notion, 2FA Telegram, Anti-Fuerza Bruta y Auditoría Forense Dual — Desplegada en vivo en Cloudflare Pages (`https://sanesca-inventario.pages.dev/`) |
 
 ---
 
@@ -78,17 +83,143 @@
 
 ---
 
+## Fase 6 — Sistema OAB, Compras, Recepción en Rampa y Migración a Vite+React (✅ Completada)
+
+- **6A. Arquitectura & Stack Unificado:** Migrado exitosamente a Vite + React 18 + TypeScript + Tailwind CSS, compartiendo stack y tokens con `kits-dashboard`. Despliegue en Cloudflare Pages con proxy seguro `functions/api/notion/[[path]].js`.
+- **6B. Reabastecimiento Automático:** Detección de déficit en tiempo real, redondeo comercial e integración de `OrderSearchModal.tsx` para vinculación de obras industriales del ERP (D42).
+- **6C. Hoja Viajera de Abastecimiento (`OAB-YYYYMMDD-##`):** Componente `PrintSheetOAB.tsx` con motor de impresión `@media print`, código QR transaccional, totales bimonetarios ($ USD / Bs BCV) y cuadrícula de casillas manuscritas para Magaly, Compras y Rampa.
+- **6D. Terminal Táctil de Recepción en Rampa:** Componente `ReceptionTerminalModal.tsx` con conteo físico, botones táctiles `Todo/0`, división automática de backorders, tolerancia de indivisibles y notas de discrepancia.
+- **6E. Libro Mayor (Kardex):** Formalizada `BD_Kardex_Movimientos` (ID: `26286805-4e27-803b-91ce-ef8f121d622d`) con 6 movimientos canónicos, cabecera `BD_Ordenes_Abastecimiento` (ID: `3eb86805-4e27-81f9-860a-c51fc794ebb0`) y endpoints atómicos `functions/api/oab/create.js` y `functions/api/oab/receive.js`.
+
+---
+
+## Fase 7 — Segunda Pasada de Industrialización Operativa (✅ Completada)
+
+- **7A. Consistencia Viva de Datos & SWR:**
+  - Endpoint `functions/api/inventory/sync.js` para cálculo dinámico en tiempo real de insumos en tránsito desde `Solicitudes de Insumos`.
+  - Revalidación asíncrona SWR (`revalidateInventoryLive`) en `inventoryService.ts` (arranque ultrarrápido desde snapshot + revalidación en segundo plano).
+  - Actualización optimista en React con badge pulsante (`isOptimisticSync`) en `Header.tsx`.
+  - Doble barrera de idempotencia en `functions/api/oab/receive.js` mediante verificación unívoca en `BD_Kardex_Movimientos` (Folio OAB + N° Nota de Entrega).
+- **7B. Puente Papel-Digital (Aprobación Magaly & Cotización Compras):**
+  - Modal `OABReviewModal.tsx` accesible desde la cabecera industrial ("Revisión OAB").
+  - Selector y filtro reactivo de órdenes en estado `Solicitado`.
+  - Transcripción manuscrita asistida línea por línea ("Todo", "0/Tachado", "Ajustado").
+  - Registro de datos comerciales de Compras: Proveedor Adjudicado, N° Cotización/Factura, Fecha Estimada y Observaciones.
+  - Endpoints serverless `functions/api/oab/details.js` y `functions/api/oab/review.js` para transicionar a `En Compra`.
+- **7C. Rampa Resiliente (IndexedDB Offline y Fotografía Real):**
+  - Servicio durable `offlineReceptionStorage.ts` en IndexedDB (`sanesca_inventario_rampa_db`) con auto-drenado reactivo ante evento `window.addEventListener('online')`.
+  - Selector reactivo de OABs en camino en `ReceptionTerminalModal.tsx`.
+  - Captura fotográfica física nativa con `<input type="file" capture="environment">`, previsualización y eliminación.
+- **7D. Inteligencia de Empaques y Tolerancias Comerciales:**
+  - Algoritmo `computePackagingSuggestion` en `src/types/oab.ts` (tornillería, perfiles 6m, químicos).
+  - Conmutador táctil `[Empaque (X)]` / `[Neto (Y)]` en `SupplyOrderModal.tsx`.
+  - Reflejo de empaque comercial en `PrintSheetOAB.tsx`.
+  - Casilla de admisión de tolerancias por excedente indivisible en `ReceptionTerminalModal.tsx`.
+
+---
+
+## Fase 8 — Detalle (Completada)
+
+- **8A. Paginación por Cursor en Sync & Visor de Auditoría de Kardex:**
+  - Paginación recursiva con cursor (`start_cursor`) en `functions/api/inventory/sync.js` (cota defensiva de 500 registros y pausa de 80ms contra rate-limit de Notion).
+  - Endpoint serverless `functions/api/kardex/list.js` con filtros por material (`dashboardId`), folio OAB y tipo de movimiento.
+  - Servicio `src/services/kardexService.ts` con reconstrucción matemática de saldos históricos hacia atrás (`saldo_anterior`).
+  - Modal denso `src/components/KardexViewerModal.tsx` con acceso dual (botón en cabecera y botón por fila en tabla), filtros, búsqueda reactiva y lightbox de comprobantes.
+- **8B. Almacenamiento Pericial en Cloudflare R2 y Resiliencia Offline:**
+  - Compresión pericial en cliente (`src/utils/imageCompressor.ts`: máx 1600px, JPEG 80%, reducción ~85% del peso).
+  - Endpoint serverless `functions/api/storage/upload.js` conectado al bucket Cloudflare R2 `sanesca-evidencias` con clave canónica `evidencias/oab/{folioOAB}/{cleanNota}.jpg`.
+  - Propiedad de tipo `files` (`Comprobante`) en `BD_Kardex_Movimientos` de Notion para enlazar la URL pública inmutable de R2.
+  - Sincronizador offline `src/services/offlineReceptionStorage.ts` en 2 pasos: primero sube foto a R2, luego registra en Notion y purga inmediatamente el Base64 de IndexedDB.
+- **8C. Valuación por Costo de Reposición Dual y Alerta de Sobrecosto:**
+  - Modelo contable de Costo de Reposición (última compra conforme) que actualiza atómicamente `Costo_Unitario_Base_USD` en `BD_Materiales_Insumos`.
+  - Denominación bimonetaria sincronizada (USD Neto + Bs a Tasa BCV del día) en `src/components/ReceptionTerminalModal.tsx`.
+  - Detección de sobrecosto (>5% vs cotizado por Magaly en OAB) con badge ámbar visual y estampa pericial `[⚠️ SOBRECOSTO +X%]` en `Detalle (ext)` de Kardex sin bloquear la rampa de descarga.
+- **8D. Alertas Automatizadas por Telegram Bot en Operaciones:**
+  - Helper serverless `functions/api/telegram/notify.js` con timeout defensivo `AbortController` (3.5s) y parse mode HTML.
+  - Disparo bimonetario ante emisión de OAB en `functions/api/oab/create.js` hacia el canal oficial de planta (`-1003139956223`).
+  - Disparo condicional ante incidencias operativas en rampa (rechazos, faltantes y sobrecostos) en `functions/api/oab/receive.js` con deep-links interactivos al visor de Kardex.
+  - Certificación en vivo con mensaje real `#294`.
+
+---
+
+## Fase 10 — Detalle (✅ Completada y Desplegada en Producción)
+
+- **10A. RBAC Descentralizado en Notion (Cero Código):**
+  - Matriz de permisos anclada en `Puestos de trabajo` (`2b7f9d6e`) mediante la propiedad `Permisos_App` (`Revisar_OAB`, `Recepcion_Rampa`, `Auditoria_Kardex`, `Emitir_OAB`, `Superadmin`).
+  - Mikel Itriago configurado como único `Superadmin`. Unión aditiva de permisos para colaboradores con múltiples cargos.
+  - Propiedad `PIN_App` en `DB_Lista de empleados` (`18a86805`) para terminales de PC.
+- **10B. Backend Serverless de Autenticación Criptográfica:**
+  - `functions/api/auth/telegram-verify.js`: Validación de firma HMAC-SHA256 con Web Crypto nativo y ventana anti-replay de 24h.
+  - `functions/api/auth/pin-verify.js`: Validación segura de credenciales para PC con emisión de JWT HS256 y bloqueo de fuerza bruta (3 fallos = 10 min).
+  - `functions/api/auth/employees.js`: Directorio de colaboradores con filtro estricto por `Areas` vinculadas.
+  - `functions/api/auth/_utils.js`: Helpers de firmado y verificación criptográfica JWT y HMAC.
+- **10C. Frontend React & Guardián Zero Trust:**
+  - Hook `src/hooks/useTelegramAuth.ts` con detección de entorno Telegram Mini App vs navegador de PC.
+  - Modal `PinLoginModal.tsx` con combobox de autocompletado en tiempo real, keypad táctil, soporte de teclado físico y temporizador regresivo de bloqueo.
+  - Modal `AccessDeniedModal.tsx` con botón interactivo de contacto a Sistemas (`@cazx008`).
+  - Protección de rutas para modales restringidos (`OABReviewModal`, `ReceptionTerminalModal`, `KardexViewerModal`).
+- **10D. Botonera Dual y Despliegue en Vivo:**
+  - Integración de botones interactivos duales en alertas de Telegram (`web_app` para Telegram, enlace HTTP para navegadores).
+  - Desplegado y verificado en producción en Cloudflare Pages (`https://sanesca-inventario.pages.dev/`).
+- **10E. Protocolo 2FA Interactivo por Telegram para PIN y Sesión Temporal (✅ Desplegado):**
+  - Cero modificación/asignación de PIN en frontend sin confirmación previa del Superadmin.
+  - Botón contextual en PC que despacha ticket efímero a Upstash Redis y alerta interactiva al chat privado de Mikel (`1143226405`).
+  - Botones inline remotos: `[ ✅ Aprobar modificar PIN ]`, `[ 🔑 Aprobar introducir PIN ]`, `[ ⏱️ Aprobar sesión temporal ]` y `[ ❌ Rechazar ]`.
+  - Nonce criptográfico `oneTimeToken` con destrucción inmediata (*burn-after-reading*) consumido por `functions/api/auth/pin-update.js`.
+- **10F. Sistema de Auditoría Forense, Telemetría Avanzada y Anti-Fuerza Bruta (✅ Desplegado):**
+  - Arquitectura híbrida: Buffer caliente en Upstash Redis (<20ms) y persistencia permanente asíncrona (`ctx.waitUntil`) en `BD_Auditoria_Accesos_Logs` (`3ec86805`) de Notion.
+  - Telemetría avanzada: captura de IP (`CF-Connecting-IP`), Ciudad/País Cloudflare, CF-Ray, User-Agent, contador de intentos en 24h y bandera `⚠️ HORARIO_INUSUAL`.
+  - Bloqueo temporal de 10 min al 3er fallo consecutivo de PIN con alerta push de emergencia a Mikel y botón inline `[ 🔓 Desbloquear Inmediatamente ]`.
+  - Modal denso integrado en Dashboard `AccessAuditModal.tsx` exclusivo para Superadmin con KPIs, filtros por categoría, búsqueda en vivo y exportación CSV.
+
+---
+
 ## Archivos del proyecto
 
-| Archivo | Descripción |
-|:--------|:------------|
-| `index.html` | Dashboard interactivo Alpine.js + Tailwind CSS (~1160 líneas) |
-| `scripts/fetch-inventory.js` | Extractor Notion API con resolución de relaciones (~465 líneas) |
-| `data/inventory.json` | Datos de inventario procesados |
-| `data/meta.json` | Metadata y timestamp de sincronización |
-| `worker/src/index.js` | Cloudflare Worker (Webhook bridge) |
-| `worker/wrangler.jsonc` | Configuración de despliegue Wrangler |
-| `.github/workflows/deploy.yml` | Pipeline CI/CD GitHub Actions |
-| `PRODUCT.md` | Contexto de producto y directrices de diseño |
+| Archivo / Carpeta | Descripción |
+|:------------------|:------------|
+| `src/App.tsx` | Componente raíz: orquestador de estado, KPIs dinámicos, ordenamiento y modales |
+| `src/components/Header.tsx` | Cabecera industrial con logo contrast plate, tasa BCV, sync badge, botón de auditoría y hubs de acción |
+| `src/components/KpiCards.tsx` | 5 tarjetas de KPI semáforo con filtrado reactivo e indicador lateral de 4px |
+| `src/components/FilterBar.tsx` | Búsqueda, vistas, selector de columnas, orden multi-nivel y chips de estado |
+| `src/components/InventoryTable.tsx` | Tabla densa con 21 columnas, monospace para números, zebra stripes y señales |
+| `src/components/GlossaryModal.tsx` | Glosario operativo colapsable con definiciones, leyenda y guía de uso |
+| `src/components/SupplyOrderModal.tsx` | Modal de emisión de OAB con precarga de déficit, empaque comercial y selector ERP |
+| `src/components/OrderSearchModal.tsx` | Buscador modal de órdenes/obras de Notion ERP (D42) |
+| `src/components/OABReviewModal.tsx` | Modal de revisión de OAB: transcripción manuscrita de Magaly y cotización de Compras |
+| `src/components/PrintSheetOAB.tsx` | Plantilla formal imprimible con QR y cuadrantes de visto bueno manuscrito |
+| `src/components/ReceptionTerminalModal.tsx` | Terminal táctil de rampa para conteo físico, fotos de guía, backorders, Tasa BCV y Kardex |
+| `src/components/KardexViewerModal.tsx` | Visor denso de auditoría de Kardex con reconstrucción histórica y lightbox de comprobantes R2 |
+| `src/components/PinLoginModal.tsx` | Modal de acceso para terminales de PC con combobox autocompletado en tiempo real, keypad táctil y flujo 2FA |
+| `src/components/AccessDeniedModal.tsx` | Pantalla de bloqueo Zero Trust con botón de contacto interactivo a Sistemas (Mikel) |
+| `src/components/AccessAuditModal.tsx` | Visor denso de auditoría de accesos y telemetría para Superadmin con KPIs y exportación |
+| `src/hooks/useTelegramAuth.ts` | Hook de autenticación híbrida: Telegram WebApp HMAC + PIN sesión PC |
+| `src/types/auth.ts` | Contratos TypeScript de identidad, sesión, permisos y respuestas de autenticación |
+| `src/services/inventoryService.ts` | Servicio de carga de inventario, enriquecimiento SWR en vivo y tasa BCV |
+| `src/services/oabService.ts` | Servicio cliente de emisión de OAB, transcripción gerencial y recepciones |
+| `src/services/kardexService.ts` | Servicio cliente de consulta de Kardex y retro-cálculo matemático de saldos |
+| `src/services/offlineReceptionStorage.ts` | Servicio de persistencia local IndexedDB para recepciones offline en rampa con drenador R2 |
+| `src/utils/imageCompressor.ts` | Utilidad Canvas para compresión pericial de fotografías en cliente (máx 1600px, JPEG 80%) |
+| `functions/api/auth/telegram-verify.js` | Cloudflare Pages Function: validación criptográfica HMAC-SHA256 de initData y RBAC Notion |
+| `functions/api/auth/pin-verify.js` | Cloudflare Pages Function: validación de PIN operativo en PC, rate limiting y emisión de sesión JWT |
+| `functions/api/auth/pin-request.js` | Cloudflare Pages Function: generación de tickets 2FA y despacho de alertas interactivas a Mikel |
+| `functions/api/auth/pin-request-status.js` | Cloudflare Pages Function: consulta de polling suave (2s) sobre estado de ticket 2FA en Redis |
+| `functions/api/auth/pin-update.js` | Cloudflare Pages Function: persistencia atómica de nuevo PIN en Notion con nonce burn-after-reading |
+| `functions/api/auth/employees.js` | Cloudflare Pages Function: consulta de empleados filtrados por Areas y departamentos |
+| `functions/api/auth/_utils.js` | Utilidades criptográficas: firmado y verificación HS256 JWT y verificación HMAC Telegram |
+| `functions/api/auth/_audit.js` | Módulo serverless de telemetría y auditoría: Redis buffer + ctx.waitUntil hacia Notion |
+| `functions/api/auth/audit-logs.js` | Cloudflare Pages Function: consulta paginada de logs de auditoría y métricas de seguridad |
+| `functions/api/notion/[[path]].js` | Cloudflare Pages Function: proxy seguro Notion API con secretos de entorno |
+| `functions/api/inventory/sync.js` | Cloudflare Pages Function: cálculo dinámico en vivo de insumos en tránsito con paginación cursor |
+| `functions/api/kardex/list.js` | Cloudflare Pages Function: consulta paginada y filtrada del histórico de Kardex |
+| `functions/api/storage/upload.js` | Cloudflare Pages Function: subida pericial de imágenes a Cloudflare R2 (`sanesca-evidencias`) |
+| `functions/api/telegram/notify.js` | Cloudflare Pages Function: despachador de alertas a Telegram Bot con timeout y deep-links |
+| `functions/api/oab/create.js` | Cloudflare Pages Function: creación atómica de OAB, líneas en Notion y alerta Telegram |
+| `functions/api/oab/details.js` | Cloudflare Pages Function: consulta de detalle y líneas de una OAB para revisión |
+| `functions/api/oab/review.js` | Cloudflare Pages Function: asentamiento de aprobación gerencial y cotización |
+| `functions/api/oab/receive.js` | Cloudflare Pages Function: asiento atómico de recepción, Kardex, Costo Reposición y alerta |
+| `functions/api/bcv/rate.js` | Cloudflare Pages Function: consulta y caché de tasa oficial BCV |
+| `index.html` | Entry point HTML para Vite con tipografías Geist y Geist Mono |
+| `index.html.vanilla.bak` | Respaldo del prototipo vanilla original |
 | `DESIGN.md` | Sistema de diseño "La Terminal de Almacén" |
-| `assets/logo-sanesca.png` | Logo corporativo Sanesca |
+| `PRODUCT.md` | Contexto de producto y directrices de diseño |

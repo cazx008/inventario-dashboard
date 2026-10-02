@@ -1,74 +1,82 @@
-# Product
+# Product Context — Dashboard de Inventario & Sistema OAB Sanesca PRO
 
-<!-- impeccable:product-schema 1 -->
+<!-- Fabricación e Inventario Industrial -->
 
 ## Platform
 
-web
+Web Application (Desktop 1440px+, Tablet 768px-1024px y Mobile 390px+). Desplegado en Cloudflare Pages con backend serverless en Cloudflare Pages Functions.
 
-## Users
+## Users & Personas
 
-**Primary — Gerente de Operaciones de Sanesca Exhibidores.** Consulta el dashboard diariamente desde PC de escritorio en oficina durante la jornada laboral. Necesita una vista instantánea del estado de inventario de materiales sin navegar la base de datos de Notion. Toma decisiones de reposición basándose en los KPIs de stock, estado y prioridad.
-
-**Secondary — Supervisores, Compras y Almacenistas.** También consultan desde móvil o tablet en planta/almacén para verificar existencias puntuales y prioridades de compra. No deben acceder ni editar la base de datos fuente.
+1. **Gerencia General (Magaly):** Evalúa financieramente las solicitudes de abastecimiento en la Hoja Viajera física impresa (`OAB-YYYYMMDD-##`), aprueba/ajusta cantidades renglón por renglón con bolígrafo y firma en físico.
+2. **Encargado de Inventario / Almacén:** Monitorea KPIs de stock, detecta déficits operativos, asocia proyectos del ERP (`OrderSearchModal`), ajusta empaques comerciales e imprime la Hoja Viajera formal.
+3. **Encargada de Compras:** Recibe la hoja física aprobada por Magaly, cotiza con proveedores, transcribe las cotizaciones y autorizaciones en `OABReviewModal` (transición a `En Compra`) y entrega la hoja a rampa como guía de espera.
+4. **Operador / Custodio de Rampa:** Recibe camiones y fleteros en el muelle de carga mediante `ReceptionTerminalModal` táctil (PC/Tablet), cuenta físicamente, captura fotos de la Nota de Entrega, tolera excedentes indivisibles y genera backorders automáticos en modo offline-resiliente.
 
 ## Product Purpose
 
-Ofrecer una interfaz de consulta rápida, visual y de solo lectura del inventario de materiales de producción de Sanesca Exhibidores. El dashboard permite identificar inmediatamente qué materiales están sin stock, bajo mínimo o requieren reposición urgente, sin requerir cuenta de Notion, conocimiento de la base de datos, ni permisos de edición.
+Cerrar el ciclo físico-digital completo de **abastecimiento de insumos, autorización gerencial de compras, recepción en rampa y libro mayor de inventario (Kardex)** en la planta de Sanesca Exhibidores C.A.
 
-El éxito se mide en: reducción del tiempo de decisión de reposición, visibilidad instantánea de estados críticos para el gerente, y acceso controlado para roles operativos.
+El sistema erradica la compra reactiva a ciegas y la manipulación estática del stock, implementando un flujo de partida doble inspirado en las mejores prácticas de **Odoo ERP**, adaptado a la soberanía operativa de planta.
 
-## Positioning
+## Capabilities & Workflows
 
-A diferencia de consultar Notion directamente, este dashboard proporciona:
-- Indicadores visuales semánticos (KPIs, badges de estado y prioridad con colores de severidad) que no existen en la vista de tabla de Notion
-- Control de qué columnas y datos son visibles según el contexto gerencial
-- Acceso de solo lectura para personas que no deben ver ni editar la base de datos completa
-- Filtros avanzados, agrupación y búsqueda diseñados para el flujo de trabajo de reposición
+### 1. Monitoreo y Diagnóstico en Tiempo Real
+- 21 columnas operativas con vistas compacta y ampliada, selector personalizado, ordenamiento multi-nivel (3 niveles) y agrupación flexible.
+- KPIs semáforo reactivos (Sin Stock, Bajo Mínimo, En Stock, En Reconteo, % Auditados 3D).
+- Stock proyectado en vivo con revalidación asíncrona SWR (`functions/api/inventory/sync.js`).
 
-## Operating Context
+### 2. Emisión de Abastecimiento (OAB)
+- Detección automática de déficit y algoritmo de sugerencia por empaque comercial (`computePackagingSuggestion`).
+- Conmutador táctil entre cantidades netas y empaques cerrados.
+- Buscador reactivo de obras industriales de Notion ERP (`OrderSearchModal`).
+- Generación de Hoja Viajera (`OAB-YYYYMMDD-##`) con formato formal `@media print` de alta resolución, QR transaccional, montos bimonetarios ($ USD / Bs BCV) y cuadrícula manuscrita.
 
-El gerente abre el dashboard al inicio de la jornada y durante reuniones de coordinación. Los datos se sincronizan desde la BD de Notion mediante un script Node.js que extrae y transforma los registros a JSON estático. La sincronización no es en tiempo real; se ejecuta manualmente o por pipeline CI/CD. Los materiales están categorizados por proceso productivo, departamento, grupo de proceso y origen de consumo. El inventario incluye ~131 productos activos con 19 propiedades visibles.
+### 3. Puente Papel-Digital (Revisión y Cotización)
+- Modal asistido `OABReviewModal` para transcripción rápida de autorizaciones de Magaly ("Todo", "0/Tachado", "Ajustado").
+- Carga de cotizaciones de compras: proveedor, cotización/factura, fecha y observaciones.
+- Transición formal de líneas de insumos a estado `En Compra` (En Tránsito).
 
-## Capabilities and Constraints
+### 4. Recepción Táctil en Rampa y Resiliencia Offline
+- Terminal táctil en `ReceptionTerminalModal` con selector reactivo de OABs en tránsito.
+- Conteo físico renglón por renglón con botones rápidos `Todo/0`.
+- Partición automática de *Backorders* cuando la entrega es parcial.
+- Captura fotográfica con compresión Canvas en cliente (máx 1600px, JPEG 80%, reducción ~85% del peso).
+- Almacenamiento pericial directo e inmutable en Cloudflare R2 (`sanesca-evidencias`) bajo la clave canónica `evidencias/oab/{folioOAB}/{cleanNota}.jpg`.
+- Cola offline durable en `IndexedDB` (`offlineReceptionStorage.ts`) con drenador en dos pasos (subida a R2 + registro en Notion) y purga atómica de Base64.
 
-**Funcionalidades confirmadas:**
-- 19 columnas de datos con filtrado avanzado (propiedad + operador + valor, AND/OR), búsqueda instantánea, ordenamiento multi-nivel (3 niveles), agrupación por categoría
-- Vistas compacta (6 columnas: nombre, stock, stock mín., déficit, estado, prioridad) y ampliada (todas), selector de columnas personalizable
-- Quick filters via badges de Estado y Prioridad
-- KPI cards: Sin Stock, Bajo Mínimo, En Stock, En Reconteo, % Auditados 3D
-- Glosario y referencia colapsable con definiciones de columnas, leyenda de estados/prioridades, indicadores visuales y guía de uso
-- Navegación cruzada entre dashboards de la empresa (Cortes Eléctricos, Medidas Operativas)
+### 5. Valuación por Costo de Reposición Dual y Alerta de Sobrecosto
+- Modelo contable de Costo de Reposición (última compra conforme) que actualiza atómicamente `Costo_Unitario_Base_USD` en `BD_Materiales_Insumos` para blindar los márgenes de BOM frente a la inflación en Bolívares.
+- Denominación dual sincronizada en tiempo real (USD Neto + Bs a Tasa BCV del día).
+- Detección reactiva de sobrecostos (>5% vs cotizado por Magaly en la OAB) con badge ámbar semántico en rampa y estampa pericial de auditoría `[⚠️ SOBRECOSTO +X%]` en Kardex sin bloquear la descarga física del camión.
 
-**Restricciones de diseño confirmadas por el usuario:**
-- Sin panel lateral (sidebar) — todo en flujo vertical
-- Las tablas NO pasan a tarjetas en mobile — se mantienen como tabla con scroll horizontal
-- El footer no debe contener enlaces a fuentes de Notion
-- El disparador de sincronización no debe estar en la web visible al gerente
+### 6. Libro Mayor de Inventario (Kardex Inmutable) y Visor de Auditoría
+- Transacción atómica serverless en `functions/api/oab/receive.js`.
+- Asiento inmutable en `BD_Kardex_Movimientos` (10 columnas canónicas con emojis) enlazando el comprobante fotográfico inmutable en Cloudflare R2 en la propiedad `Comprobante` (files).
+- Doble barrera de idempotencia para prevenir dobles asientos por caídas de red o reintentos en rampa.
+- Incremento atómico directo de `Stock (base)` en la base de datos de planta de Notion.
+- Visor de auditoría denso en frontend (`KardexViewerModal.tsx`) con acceso dual (cabecera y filas), búsqueda reactiva, retro-cálculo matemático de saldos históricos hacia atrás y lightbox de comprobantes.
 
-**Stack:** HTML estático, Alpine.js (CDN), Tailwind CSS (CDN). Sin framework, sin build step. Servido estáticamente.
+### 7. Alertas Automatizadas por Telegram Bot en Operaciones
+- Notificaciones serverless desacopladas vía `@sanesca_produccion_bot` hacia el canal oficial de planta (`-1003139956223`).
+- Alerta bimonetaria instantánea ante emisión de OAB con desglose de ítems, montos totales y botón interactivo al dashboard.
+- Alerta pericial de rampa ante incidencias operativas (rechazos, faltantes y sobrecostos detectados) con deep-link directo al visor de Kardex.
+- Resiliencia serverless con timeout defensivo `AbortController` (3.5s).
 
-## Brand Commitments
+## Stack Tecnológico
 
-- Logo de Sanesca Exhibidores presente en el header (asset existente: `assets/logo-sanesca.png`)
-- Identidad visual industrial/operativa: tema oscuro, paleta funcional con semántica de estado (rojo = sin stock, naranja = bajo mínimo, verde = en stock, azul = en reconteo, púrpura = auditado 3D)
-
-## Evidence on Hand
-
-- Base de datos de Notion con ~131 productos activos (BD Dashboard ID: `2b586805-4e27-80fe-b6e8-e4c6dc325696`)
-- Script extractor funcional (`scripts/fetch-inventory.js`) que resuelve relaciones y rollups
-- JSON de inventario con datos reales en `data/inventory.json`
-- Dashboards hermanos ya desplegados: `sanesca-dashboard` (cortes eléctricos), `medidas-operativas`
-- No hay testimonios, case studies ni material de marketing — es una herramienta interna operativa
+- **Frontend:** React 18, TypeScript, Vite, Tailwind CSS, Lucide React.
+- **Persistencia Local / Offline:** IndexedDB (`sanesca_inventario_rampa_db`) y LocalStorage.
+- **Almacenamiento de Evidencias (Object Storage):** Cloudflare R2 (`sanesca-evidencias`).
+- **Canal de Notificaciones Operativas:** Telegram Bot API (`@sanesca_produccion_bot`).
+- **Backend Serverless:** Cloudflare Pages Functions (`/api/notion/*`, `/api/inventory/*`, `/api/oab/*`, `/api/kardex/*`, `/api/storage/*`, `/api/telegram/*`, `/api/bcv/*`).
+- **Base de Datos Core:** Notion API v1 (`BD_Materiales_Insumos`, `BD_Ordenes_Abastecimiento`, `Solicitudes de Insumos`, `Dashboard`, `BD_Kardex_Movimientos`, `BD_Pedidos`).
+- **Despliegue y CDN:** Cloudflare Pages.
 
 ## Product Principles
 
-1. **Visibilidad inmediata:** Un vistazo a los KPIs debe revelar el estado del inventario sin hacer clic ni filtrar.
-2. **Densidad operativa:** Mostrar la máxima información útil en el mínimo espacio, como una hoja de cálculo experta, no como una aplicación de consumo.
-3. **Acceso sin fricción:** Cualquier persona autorizada puede consultar sin cuenta, login ni conocimiento técnico.
-4. **Fidelidad a la fuente:** Los datos reflejan exactamente lo que está en Notion, sin interpretaciones ni cálculos inventados (excepto Déficit = Mín − Stock).
-5. **Separación de lectura y escritura:** El dashboard es de solo lectura; las modificaciones se hacen exclusivamente en Notion.
-
-## Accessibility & Inclusion
-
-Los usuarios en planta/almacén pueden consultar en condiciones de iluminación variable (oficina con pantalla, almacén con móvil bajo luz artificial). El tema oscuro debe mantener contraste WCAG AA (≥4.5:1 para texto body, ≥3:1 para texto grande). Las acciones de filtrado y navegación deben ser operables con teclado.
+1. **Visibilidad Inmediata:** Los semáforos, badges y KPIs revelan el estado crítico del inventario en menos de 2 segundos.
+2. **Densidad Operativa:** Hoja de cálculo de grado industrial; máxima cantidad de información útil por píxel sin distracciones decorativas.
+3. **Respeto a la Soberanía Física (Puente Papel-Digital):** La tecnología acompaña y agiliza el flujo humano real (la firma de Magaly y la cotización de Compras), nunca lo bloquea.
+4. **Tolerancia Cero a la Pérdida de Datos en Rampa:** Resiliencia offline absoluta; una mala señal Wi-Fi en el portón de planta jamás impide recibir un camión ni extravía una foto.
+5. **Inmutabilidad y Partida Doble:** Cada tuerca que entra a planta queda registrada con su responsable, fecha, folio OAB, comprobante en R2 y costo de reposición en el Kardex.

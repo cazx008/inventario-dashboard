@@ -1,0 +1,114 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: 'Geist', 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: #0F172A;
+  color: #F1F5F9;
+}
+
+code, .font-mono {
+  font-family: 'Geist Mono', 'JetBrains Mono', ui-monospace, monospace;
+}
+
+/* Custom scrollbars */
+.custom-scrollbar::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+}
+
+/* Logo contrast plate */
+.logo-contrast-plate {
+  background: #ffffff;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15), 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* Table zebra stripes & signals */
+.row-even {
+  background-color: #0F172A;
+}
+.row-odd {
+  background-color: #131D2E;
+}
+.row-danger {
+  background-color: rgba(239, 68, 68, 0.08);
+  border-left: 3px solid #EF4444;
+}
+.row-warning {
+  background-color: rgba(245, 158, 11, 0.06);
+  border-left: 3px solid #F59E0B;
+}
+
+/* Dropdown/panel shadow */
+.panel-dropdown {
+  background-color: #1E293B;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+}
+
+/* Badges */
+.badge-inactive {
+  background-color: transparent;
+  border: 1px solid #334155;
+  color: #94A3B8;
+  cursor: pointer;
+}
+.badge-inactive:hover {
+  border-color: #64748B;
+  color: #CBD5E1;
+}
+.badge-active-red {
+  background-color: rgba(239, 68, 68, 0.15);
+  border: 1px solid #EF4444;
+  color: #FCA5A5;
+}
+.badge-active-orange {
+  background-color: rgba(245, 158, 11, 0.15);
+  border: 1px solid #F59E0B;
+  color: #FCD34D;
+}
+.badge-active-green {
+  background-color: rgba(16, 185, 129, 0.15);
+  border: 1px solid #10B981;
+  color: #6EE7B7;
+}
+.badge-active-blue {
+  background-color: rgba(59, 130, 246, 0.15);
+  border: 1px solid #3B82F6;
+  color: #93C5FD;
+}
+.badge-active-gray {
+  background-color: rgba(100, 116, 139, 0.15);
+  border: 1px solid #64748B;
+  color: #CBD5E1;
+}
+.badge-active-yellow {
+  background-color: rgba(234, 179, 8, 0.15);
+  border: 1px solid #EAB308;
+  color: #FDE047;
+}
+.badge-active-purple {
+  background-color: rgba(139, 92, 246, 0.15);
+  border: 1px solid #8B5CF6;
+  color: #C4B5FD;
+}
+
+/* Print styling */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+}

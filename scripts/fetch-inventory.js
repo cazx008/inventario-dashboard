@@ -1,35 +1,38 @@
 /**
- * fetch-inventory.js
- * Extrae datos de la BD Dashboard de Notion y genera data/inventory.json + data/meta.json
+ * fetch-inventory.js — Extractor Autónomo de Inventario Sanesca (ESM)
  * 
- * Arquitectura simplificada: 1 sola query al Dashboard.
- * Las propiedades de BSD (Marca, Código, Unidad, Medidas, Color, Categoría, Rol)
- * llegan como rollups vía la relación Producto.
+ * Extrae datos en caliente de la BD Dashboard de Notion y genera:
+ *  - data/inventory.json y data/meta.json
+ *  - public/data/inventory.json y public/data/meta.json
+ * 
+ * Utiliza native fetch (Node 18+) sin dependencias externas de npm.
  * 
  * Filtro base: Contando = true (solo publica ítems marcados para la web)
- * 
- * @see specs_frontend.md — Catálogo de 17 columnas
- * @see pre_fase1_propiedades_interfaz.md — Inventario de propiedades
  */
 
-const { Client } = require('@notionhq/client');
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // --- Configuration ---
-const NOTION_TOKEN = process.env.SANESCATOKEN || process.env.NOTION_TOKEN;
+const NOTION_TOKEN = process.env.SANESCATOKEN || process.env.NOTION_TOKEN || '';
 const DASHBOARD_DB_ID = process.env.NOTION_DASHBOARD_DB_ID || '2b586805-4e27-80fe-b6e8-e4c6dc325696';
-const OUTPUT_DIR = path.join(__dirname, '..', 'data');
 
-let notion = null;
-if (NOTION_TOKEN) {
-  notion = new Client({ auth: NOTION_TOKEN });
-} else {
-  console.error('❌ ERROR: Variable SANESCATOKEN o NOTION_TOKEN no definida.');
-  process.exit(1);
-}
+const OUTPUT_DIRS = [
+  path.join(__dirname, '..', 'data'),
+  path.join(__dirname, '..', 'public', 'data'),
+];
 
-// --- Notion Property Extractors (reutilizados de fetch-notion.js) ---
+const NOTION_HEADERS = {
+  'Authorization': `Bearer ${NOTION_TOKEN}`,
+  'Notion-Version': '2022-06-28',
+  'Content-Type': 'application/json',
+};
+
+// --- Notion Property Extractors ---
 
 function extractProperty(prop) {
   if (!prop) return null;
@@ -82,27 +85,21 @@ function extractRollupValue(rollup) {
     case 'date': return rollup.date?.start || null;
     case 'array': {
       const items = rollup.array?.map(item => {
-        // Handle relation items specially (they contain IDs, not extractable values)
         if (item.type === 'relation') {
           return item.relation?.map(r => r.id) || [];
         }
-        // Handle date items in arrays (rollup of date fields)
         if (item.type === 'date') {
           return item.date?.start || null;
         }
         return extractProperty(item);
       }) || [];
-      // Si el array tiene 1 solo elemento, devolver el valor directo (patrón show_original)
       if (items.length === 1) return items[0];
-      // Si tiene múltiples, devolver el array
       if (items.length > 1) return items;
       return null;
     }
     default: return null;
   }
 }
-
-// --- Extractor de Color de Select/Status ---
 
 function extractSelectWithColor(prop) {
   if (!prop) return null;
@@ -114,8 +111,6 @@ function extractSelectWithColor(prop) {
   }
   return null;
 }
-
-// --- Rollup que preserva color del select original ---
 
 function extractRollupSelect(prop) {
   if (!prop || prop.type !== 'rollup') return null;
@@ -133,15 +128,21 @@ function extractRollupSelect(prop) {
   return null;
 }
 
-// --- Batch page title resolver (for relation → name) ---
+// --- Page Title Resolver Cache ---
 
 const _pageTitleCache = new Map();
 
 async function resolvePageTitle(pageId) {
   if (_pageTitleCache.has(pageId)) return _pageTitleCache.get(pageId);
   try {
-    const page = await notion.pages.retrieve({ page_id: pageId });
-    // Find the title property (could be "Nombre", "Name", etc.)
+    const res = await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
+      headers: NOTION_HEADERS
+    });
+    if (!res.ok) {
+      _pageTitleCache.set(pageId, null);
+      return null;
+    }
+    const page = await res.json();
     let title = null;
     for (const [, v] of Object.entries(page.properties)) {
       if (v.type === 'title' && v.title?.length > 0) {
@@ -159,7 +160,6 @@ async function resolvePageTitle(pageId) {
 
 async function resolveRelationIds(ids) {
   if (!ids || !Array.isArray(ids) || ids.length === 0) return null;
-  // Flatten nested arrays (rollup of relation returns [[id1], [id2]])
   const flatIds = ids.flat().filter(id => typeof id === 'string');
   if (flatIds.length === 0) return null;
   const names = await Promise.all(flatIds.map(id => resolvePageTitle(id)));
@@ -173,30 +173,68 @@ async function queryDashboard() {
   const allPages = [];
   let cursor = undefined;
 
-  console.log('📡 Consultando BD Dashboard (filter: Contando = true)...');
+  console.log('📡 Consultando BD Dashboard en Notion (filtro: Contando = true)...');
 
   do {
-    const response = await notion.databases.query({
-      database_id: DASHBOARD_DB_ID,
-      start_cursor: cursor,
-      page_size: 100,
-      filter: {
-        property: 'Contando',
-        checkbox: {
-          equals: true,
+    const res = await fetch(`https://api.notion.com/v1/databases/${DASHBOARD_DB_ID}/query`, {
+      method: 'POST',
+      headers: NOTION_HEADERS,
+      body: JSON.stringify({
+        start_cursor: cursor,
+        page_size: 100,
+        filter: {
+          property: 'Contando',
+          checkbox: {
+            equals: true,
+          },
         },
-      },
-      sorts: [
-        { property: 'Nombre', direction: 'ascending' },
-      ],
+        sorts: [
+          { property: 'Nombre', direction: 'ascending' },
+        ],
+      })
     });
 
-    allPages.push(...response.results);
-    cursor = response.has_more ? response.next_cursor : undefined;
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Error en query Notion Dashboard (${res.status}): ${errText}`);
+    }
+
+    const data = await res.json();
+    allPages.push(...data.results);
+    cursor = data.has_more ? data.next_cursor : undefined;
+    if (cursor) {
+      await new Promise(r => setTimeout(r, 80)); // Pausa defensiva rate limit
+    }
   } while (cursor);
 
-  console.log(`  ✅ ${allPages.length} ítems con Contando=true`);
+  console.log(`  ✅ ${allPages.length} ítems activos con Contando=true recuperados de Notion.`);
   return allPages;
+}
+
+// --- Helper: Format dimensions (L × A × E) ---
+
+function parseDimension(val) {
+  if (val === null || val === undefined) return null;
+  if (typeof val === 'number') return String(val);
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+  if (Array.isArray(val) && val.length > 0) return parseDimension(val[0]);
+  return null;
+}
+
+function formatDimensiones(largo, ancho, espesor) {
+  const parts = [];
+  const l = parseDimension(largo);
+  const a = parseDimension(ancho);
+  const e = parseDimension(espesor);
+
+  if (l) parts.push(l);
+  if (a) parts.push(a);
+  if (e) parts.push(e);
+
+  return parts.length > 0 ? parts.join(' × ') : null;
 }
 
 // --- Transform a Notion page into a normalized inventory item ---
@@ -232,11 +270,11 @@ async function transformItem(page) {
   const fechaReconteo = extractProperty(p['Fecha de Reconteo']);
 
   // --- Relations that need title resolution ---
-  const departamentoIds = extractProperty(p['Departamentos']); // rollup of relation → IDs
+  const departamentoIds = extractProperty(p['Departamentos']);
   const departamento = await resolveRelationIds(
     Array.isArray(departamentoIds) ? departamentoIds : (departamentoIds ? [departamentoIds] : [])
   );
-  const procesoIds = extractProperty(p['Proceso']); // relation → IDs
+  const procesoIds = extractProperty(p['Proceso']);
   const proceso = await resolveRelationIds(
     Array.isArray(procesoIds) ? procesoIds : (procesoIds ? [procesoIds] : [])
   );
@@ -245,20 +283,18 @@ async function transformItem(page) {
   const deficit = Math.max(0, stockMinimo - stockBase);
   const coberturaPct = stockMinimo > 0 ? Math.round((stockBase / stockMinimo) * 100) : (stockBase > 0 ? 999 : 0);
 
-  // Semáforo calculado (redundante con Estado de Stock, pero útil para lógica frontend)
+  // Semáforo calculado
   let semaforo;
   if (stockBase === 0) semaforo = 'rojo';
   else if (stockBase < stockMinimo) semaforo = 'naranja';
   else semaforo = 'verde';
 
-  // Dimensiones formateadas
   const dimensionesFmt = formatDimensiones(largo, ancho, espesor);
 
   // Días desde último reconteo
   let diasDesdeReconteo = null;
   let ultimaFechaReconteo = null;
   if (Array.isArray(fechaReconteo) && fechaReconteo.length > 0) {
-    // Obtener la fecha más reciente del array
     const fechas = fechaReconteo
       .filter(f => f != null)
       .map(f => new Date(f))
@@ -309,44 +345,6 @@ async function transformItem(page) {
   };
 }
 
-// --- Helper: Format dimensions (L × A × E) ---
-
-function formatDimensiones(largo, ancho, espesor) {
-  const parts = [];
-  const l = parseDimension(largo);
-  const a = parseDimension(ancho);
-  const e = parseDimension(espesor);
-
-  if (l) parts.push(l);
-  if (a) parts.push(a);
-  if (e) parts.push(e);
-
-  return parts.length > 0 ? parts.join(' × ') : null;
-}
-
-function parseDimension(val) {
-  if (val === null || val === undefined) return null;
-  if (typeof val === 'number') return String(val);
-  if (typeof val === 'string') {
-    const trimmed = val.trim();
-    return trimmed.length > 0 ? trimmed : null;
-  }
-  if (Array.isArray(val) && val.length > 0) return parseDimension(val[0]);
-  return null;
-}
-
-// --- Helper: Format departamento (can be array or string from rollup) ---
-
-function formatDepartamento(val) {
-  if (val === null || val === undefined) return null;
-  if (typeof val === 'string') return val;
-  if (Array.isArray(val)) {
-    const names = val.filter(v => v != null && v !== '').map(v => typeof v === 'string' ? v : String(v));
-    return names.length > 0 ? names.join(', ') : null;
-  }
-  return null;
-}
-
 // --- Compute KPIs from items ---
 
 function computeKPIs(items) {
@@ -375,8 +373,6 @@ function computeKPIs(items) {
   };
 }
 
-// --- Compute select option orders for frontend sorting ---
-
 function getSelectOrders() {
   return {
     estadoStock: ['Sin Stock', 'Descontinuado', 'Bajo Mínimo', 'En Reconteo', 'En Stock'],
@@ -389,37 +385,30 @@ function getSelectOrders() {
 // --- Main ---
 
 async function main() {
-  console.log('🏭 Sanesca — Dashboard de Inventario — Extractor v1.0.0');
+  console.log('🏭 Sanesca — Dashboard de Inventario — Extractor Autónomo v2.0.0 (ESM)');
   console.log('─'.repeat(60));
 
   const startTime = Date.now();
 
-  // Query Dashboard
   const pages = await queryDashboard();
 
-  // Transform items (async — resolves relation IDs to names)
-  console.log('🔄 Transformando datos (resolviendo relaciones)...');
+  console.log('🔄 Transformando datos y resolviendo relaciones...');
   const items = [];
-  // Process in batches to avoid API rate limits
   const BATCH_SIZE = 10;
   for (let i = 0; i < pages.length; i += BATCH_SIZE) {
     const batch = pages.slice(i, i + BATCH_SIZE);
     const batchItems = await Promise.all(batch.map(p => transformItem(p)));
     items.push(...batchItems);
-    if (i + BATCH_SIZE < pages.length) {
-      process.stdout.write(`  📦 ${items.length}/${pages.length} procesados...\r`);
-    }
+    process.stdout.write(`  📦 ${items.length}/${pages.length} procesados...\r`);
+    await new Promise(r => setTimeout(r, 40));
   }
-  console.log(`  ✅ ${items.length} ítems transformados (${_pageTitleCache.size} páginas resueltas)`);
+  console.log(`\n  ✅ ${items.length} ítems transformados (${_pageTitleCache.size} relaciones resueltas)`);
 
-  // Compute KPIs
   const kpis = computeKPIs(items);
   console.log(`  📊 KPIs: ${kpis.estado.sinStock} sin stock, ${kpis.estado.bajoMinimo} bajo mínimo, ${kpis.estado.enStock} en stock`);
 
-  // Select orders for frontend
   const selectOrders = getSelectOrders();
 
-  // Build output
   const inventory = {
     items,
     kpis,
@@ -431,36 +420,27 @@ async function main() {
     lastSyncLocal: new Date().toLocaleString('es-VE', { timeZone: 'America/Caracas' }),
     itemCount: items.length,
     buildStatus: 'success',
-    version: '1.0.0',
+    version: '2.0.0',
     durationMs: Date.now() - startTime,
   };
 
-  // Write output files
-  if (!fs.existsSync(OUTPUT_DIR)) {
-    fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+  for (const dir of OUTPUT_DIRS) {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(path.join(dir, 'inventory.json'), JSON.stringify(inventory, null, 2), 'utf-8');
+    fs.writeFileSync(path.join(dir, 'meta.json'), JSON.stringify(meta, null, 2), 'utf-8');
+    console.log(`  💾 Guardado en: ${dir}`);
   }
 
-  fs.writeFileSync(
-    path.join(OUTPUT_DIR, 'inventory.json'),
-    JSON.stringify(inventory, null, 2),
-    'utf-8'
-  );
-
-  fs.writeFileSync(
-    path.join(OUTPUT_DIR, 'meta.json'),
-    JSON.stringify(meta, null, 2),
-    'utf-8'
-  );
-
   console.log('─'.repeat(60));
-  console.log(`✅ Datos generados exitosamente:`);
-  console.log(`   📁 data/inventory.json (${items.length} ítems)`);
-  console.log(`   📁 data/meta.json`);
-  console.log(`   ⏱️  ${meta.durationMs}ms`);
-  console.log(`   🕐 ${meta.lastSyncLocal}`);
+  console.log(`✅ Snapshot 100% sincronizado con Notion:`);
+  console.log(`   📦 Total ítems: ${items.length}`);
+  console.log(`   ⏱️  Duración: ${meta.durationMs}ms`);
+  console.log(`   🕐 Timestamp: ${meta.lastSyncLocal}`);
 }
 
 main().catch(err => {
-  console.error('❌ Error fatal:', err.message);
+  console.error('❌ Error fatal:', err);
   process.exit(1);
 });
