@@ -34,6 +34,9 @@ export interface RegisterReceptionPayload {
   items: ReceptionItemPayload[];
   comprobanteUrl?: string;
   comprobanteFile?: string; // Base64 temporal en caso de captura offline
+  numeroFacturaFiscal?: string; // SENIAT Factura Legal (Opcional)
+  numeroControlFiscal?: string; // SENIAT Número de Control (Opcional)
+  fotoPendienteSync?: boolean; // Bandera de resiliencia R2
 }
 
 function getAuthHeader(): Record<string, string> {

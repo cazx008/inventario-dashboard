@@ -1,4 +1,4 @@
-import { ShoppingCart, Truck, ExternalLink, RefreshCw, ClipboardCheck, BookOpen, User, LogOut, ShieldCheck, KeyRound, ShieldAlert, Clock } from 'lucide-react';
+import { ShoppingCart, Truck, ExternalLink, RefreshCw, ClipboardCheck, BookOpen, User, LogOut, ShieldCheck, KeyRound, ShieldAlert, Clock, ArrowUpRight, Scale } from 'lucide-react';
 import { UserProfile } from '../types/auth';
 
 interface HeaderProps {
@@ -7,6 +7,8 @@ interface HeaderProps {
   onOpenSupplyModal: () => void;
   onOpenReviewModal: () => void;
   onOpenReceptionModal: () => void;
+  onOpenDispatchModal?: () => void;
+  onOpenBOMAuditModal?: () => void;
   onOpenKardexModal: () => void;
   onOpenAuditModal?: () => void;
   onRefresh: () => void;
@@ -24,6 +26,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenSupplyModal,
   onOpenReviewModal,
   onOpenReceptionModal,
+  onOpenDispatchModal,
+  onOpenBOMAuditModal,
   onOpenKardexModal,
   onOpenAuditModal,
   onRefresh,
@@ -87,6 +91,30 @@ export const Header: React.FC<HeaderProps> = ({
             <Truck className="w-3.5 h-3.5 text-signal-blue" />
             <span>Recepción en Rampa</span>
           </button>
+
+          {/* Action: Despacho a Taller (Fase 9A) */}
+          {onOpenDispatchModal && (
+            <button
+              onClick={onOpenDispatchModal}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 hover:border-rose-500/60 transition active:scale-95 shadow-sm"
+              title="Terminal de Despacho físico de materiales a Taller con trazabilidad en 3 niveles"
+            >
+              <ArrowUpRight className="w-3.5 h-3.5 text-rose-400" />
+              <span>Despacho a Taller</span>
+            </button>
+          )}
+
+          {/* Action: Auditoría BOM Ex-Post de Insumos (Fase 9B) */}
+          {onOpenBOMAuditModal && (
+            <button
+              onClick={onOpenBOMAuditModal}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 hover:border-indigo-500/60 transition active:scale-95 shadow-sm"
+              title="Auditoría Ex-Post de Insumos: BOM Teórico vs Despachado Real por Tienda/Pedido"
+            >
+              <Scale className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Auditoría BOM</span>
+            </button>
+          )}
 
           {/* Action: Libro Mayor Kardex */}
           <button

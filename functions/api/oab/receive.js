@@ -70,7 +70,10 @@ export async function onRequest(context) {
       fechaRecepcion,
       tasaBCV,
       items,
-      comprobanteUrl
+      comprobanteUrl,
+      numeroFacturaFiscal,
+      numeroControlFiscal,
+      fotoPendienteSync
     } = payload;
 
     if (!folioOAB || !items || !Array.isArray(items) || items.length === 0) {
@@ -198,9 +201,19 @@ export async function onRequest(context) {
           }
         };
 
+        const extraDetails = [];
         if (isOvercost) {
+          extraDetails.push(`ALERTA DE AUDITORÍA: Costo recibido $${unitCost.toFixed(2)} excede en +${overcostPct.toFixed(1)}% el costo aprobado en OAB ($${approvedCost.toFixed(2)}).`);
+        }
+        if (numeroFacturaFiscal) {
+          extraDetails.push(`[SENIAT: FAC ${numeroFacturaFiscal.trim()}${numeroControlFiscal ? ` | CTRL ${numeroControlFiscal.trim()}` : ''}]`);
+        }
+        if (fotoPendienteSync) {
+          extraDetails.push(`[FOTO_PENDIENTE_R2]`);
+        }
+        if (extraDetails.length > 0) {
           kardexProps['Detalle (ext)'] = {
-            rich_text: [{ text: { content: `ALERTA DE AUDITORÍA: Costo recibido $${unitCost.toFixed(2)} excede en +${overcostPct.toFixed(1)}% el costo aprobado en OAB ($${approvedCost.toFixed(2)}).` } }]
+            rich_text: [{ text: { content: extraDetails.join(' · ') } }]
           };
         }
 
@@ -382,6 +395,12 @@ export async function onRequest(context) {
 
         oabUpdateProps['Comprobante Firmado'] = {
           files: [...existingFiles, newFile]
+        };
+      }
+
+      if (numeroFacturaFiscal) {
+        oabUpdateProps['Notas'] = {
+          rich_text: [{ text: { content: `[SENIAT: FAC ${numeroFacturaFiscal.trim()}${numeroControlFiscal ? ` | CTRL ${numeroControlFiscal.trim()}` : ''}]` } }]
         };
       }
 

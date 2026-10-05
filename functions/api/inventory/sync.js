@@ -148,18 +148,22 @@ export async function onRequest(context) {
       }
     }
 
+    const isOverflow = Boolean(hasMore && pageCount >= MAX_PAGES);
+
     return new Response(JSON.stringify({
       status: 'synced',
       enTransitoByDashboardId,
       enTransitoByName,
       activeOrdersCount,
+      overflow: isOverflow,
       timestamp: Date.now()
     }), {
       status: 200,
       headers: {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*',
-        'Cache-Control': 'no-cache, no-store, must-revalidate'
+        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=30',
+        'X-Sync-Overflow': isOverflow ? 'true' : 'false'
       }
     });
 

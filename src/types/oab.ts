@@ -173,6 +173,6 @@ export interface OrderReference {
   codigo: string;
   cliente: string;
   proyecto: string;
-  tipo: 'PED' | 'PRS' | 'FAC' | 'OBRA';
+  tipo: 'PED' | 'PRS' | 'FAC' | 'OBRA' | 'OE' | string;
   fecha?: string;
 }

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronRight, ChevronDown, PlusCircle, BookOpen } from 'lucide-react';
+import { ChevronRight, ChevronDown, PlusCircle, BookOpen, ArrowUpRight } from 'lucide-react';
 import { InventoryItem, ColumnDef, SortLevel } from '../types/inventory';
 
 interface InventoryTableProps {
@@ -12,6 +12,7 @@ interface InventoryTableProps {
   selectOrders?: Record<string, string[]>;
   onAddToDraft?: (item: InventoryItem) => void;
   onOpenKardexItem?: (item: InventoryItem) => void;
+  onOpenDispatchItem?: (item: InventoryItem) => void;
   loading?: boolean;
   loadError?: boolean;
   onRetry?: () => void;
@@ -28,6 +29,7 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({
   selectOrders = {},
   onAddToDraft,
   onOpenKardexItem,
+  onOpenDispatchItem,
   loading = false,
   loadError = false,
   onRetry,
@@ -73,6 +75,18 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({
               </span>
             )}
             <div className="flex items-center gap-1 ml-auto opacity-0 group-hover:opacity-100 transition">
+              {onOpenDispatchItem && (row.stockBase || 0) > 0 && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenDispatchItem(row);
+                  }}
+                  className="text-rose-400 hover:text-rose-300 transition text-[11px] p-0.5 rounded hover:bg-surfaceHigh"
+                  title={`Despachar ${row.nombre} a taller`}
+                >
+                  <ArrowUpRight className="w-3.5 h-3.5" />
+                </button>
+              )}
               {onOpenKardexItem && (
                 <button
                   onClick={(e) => {

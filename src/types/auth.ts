@@ -3,6 +3,7 @@ export type PermissionKey =
   | 'Revisar_OAB' 
   | 'Recepcion_Rampa' 
   | 'Auditoria_Kardex' 
+  | 'Despacho_Taller'
   | 'Superadmin';
 
 export interface UserProfile {

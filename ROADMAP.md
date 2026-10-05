@@ -16,7 +16,8 @@
 | **Fase 6** | ✅ Completada | Sistema Integral OAB: Abastecimiento, Compras, Recepción en Rampa, Kardex y Migración Vite+React |
 | **Fase 7** | ✅ Completada | Segunda Pasada de Industrialización: SWR, Puente Papel-Digital, Rampa Offline e Inteligencia de Empaques |
 | **Fase 8** | ✅ Completada | Consolidación Industrial: Visor Kardex & Cursor (8A), Almacenamiento R2 (8B), Costo Reposición Dual (8C), Alertas Telegram (8D) — Desplegada en vivo en Cloudflare Pages (`https://sanesca-inventario.pages.dev/`) |
-| **Fase 9** | ⏳ Planificada | Consumo en Taller (9A), Mermas BOM (9B), Guardián Telegram Cron (9C), Cierre Factura SENIAT & Hardening (9D) |
+| **Fase 9A** | ✅ Completada | Terminal de Despacho Físico a Taller: Salidas a Producción, Cruce de Tienda, Desglose BOM y Asiento Kardex — Desplegada en vivo (`https://sanesca-inventario.pages.dev/`) |
+| **Fase 9B-9D** | ✅ Completada | Auditoría Ex-Post de Mermas BOM (9B), Alertas Reactivas Supervisadas (9C), Resiliencia R2 Backoff y Factura SENIAT (9D) — Desplegada y Certificada en vivo (`https://sanesca-inventario.pages.dev/`) |
 | **Fase 10** | ✅ Completada | Identidad WebApp con HMAC-SHA256, RBAC en Notion, 2FA Telegram, Anti-Fuerza Bruta y Auditoría Forense Dual — Desplegada en vivo en Cloudflare Pages (`https://sanesca-inventario.pages.dev/`) |
 
 ---
@@ -138,7 +139,27 @@
   - Helper serverless `functions/api/telegram/notify.js` con timeout defensivo `AbortController` (3.5s) y parse mode HTML.
   - Disparo bimonetario ante emisión de OAB en `functions/api/oab/create.js` hacia el canal oficial de planta (`-1003139956223`).
   - Disparo condicional ante incidencias operativas en rampa (rechazos, faltantes y sobrecostos) en `functions/api/oab/receive.js` con deep-links interactivos al visor de Kardex.
-  - Certificación en vivo con mensaje real `#294`.
+---
+
+## Fase 9 — Detalle: Consumo en Taller, Mermas BOM, Guardián y Hardening
+
+### Sub-fase 9A: Terminal de Despacho Físico a Taller (✅ Completada y Desplegada en Producción)
+- **Estandarización Canónica Notion ↔ Odoo 18:** Actualización de 22 bases de datos en Notion API con nomenclatura unificada (`BD_*`), descripciones técnicas en el esquema y desacoplamiento estricto entre catálogo maestro (`BD_Catalogo_Insumos`), existencias físicas (`BD_Control_Stock_Existencias`) y libro mayor (`BD_Kardex_Movimientos`).
+- **Hotfix de Ingesta y Buscador de Pedidos:** Eliminación definitiva de clones `ORD-000` mediante endpoint serverless `/api/orders/active.js` con hidratación concurrente de relaciones de Notion (`BD_Clientes`, `BD_Proyectos`), resolviendo nombres reales de tienda (ej: `GARMIN-BELLO-CAMPO`, `EPA-4049205-T04`).
+- **Terminal de Despacho Físico a Taller (`MaterialDispatchModal.tsx`):**
+  - Acceso dual desde botón industrial en cabecera ("Despacho a Taller") y botón directo por fila en `InventoryTable.tsx`.
+  - Imputación en 3 niveles de ingeniería industrial: General Planta (MTS), Tienda / Obra (MTO con selector obligatorio Presupuestado vs No Presupuestado), y Mobiliario Específico (BOM MTO).
+  - Desglose de piezas de mobiliario en tiempo real vía `/api/orders/lines.js`.
+- **Backend Transaccional Serverless (`/api/kardex/dispatch.js`):**
+  - Decremento atómico del `Stock (base)` en `BD_Control_Stock_Existencias`.
+  - Creación de asiento inmutable `🔴 Salida a Producción` en `BD_Kardex_Movimientos` con vinculación nativa a la orden en `BD_Pedidos`.
+  - Alerta instantánea en Telegram (`@sanesca_produccion_bot`) reportando salida, operario receptor, destino y motivo.
+- **Validación E2E y PVVN:** Despliegue en Cloudflare Pages (`https://sanesca-inventario.pages.dev/`), pruebas E2E con `chrome-devtools-mcp` y capturas periciales archivadas en `07_Evidencias_Visuales/`.
+
+### Sub-fases 9B, 9C y 9D (⏳ Planificadas / Backlog)
+- **9B. Conciliador de Mermas BOM:** Comparación matemática entre materiales retirados y recetas en `BD_Materiales_Requeridos` (`3df86805`), con alertas de desviación >5% y asiento pericial `⚠️ Merma Extraordinaria`.
+- **9C. Guardián Autónomo Telegram (Cron):** Cloudflare Cron Trigger (07:00 AM VET) con briefing matutino proactivo de insumos bajo punto de reorden sin OAB activa.
+- **9D. Cierre Fiscal SENIAT & Resiliencia:** Modal de cierre de Factura Fiscal y retenciones de IVA/ISLR, filtro `Estado != 'Recibido'` en `sync.js`, cursor en `KardexViewerModal.tsx`, backoff exponencial en `offlineReceptionStorage.ts` y hardening estricto de secretos.
 
 ---
 
@@ -189,6 +210,8 @@
 | `src/components/OABReviewModal.tsx` | Modal de revisión de OAB: transcripción manuscrita de Magaly y cotización de Compras |
 | `src/components/PrintSheetOAB.tsx` | Plantilla formal imprimible con QR y cuadrantes de visto bueno manuscrito |
 | `src/components/ReceptionTerminalModal.tsx` | Terminal táctil de rampa para conteo físico, fotos de guía, backorders, Tasa BCV y Kardex |
+| `src/components/MaterialDispatchModal.tsx` | Modal táctil de despacho a taller: imputación en 3 niveles (MTS, MTO Tienda, MTO BOM) con decremento de stock y conmutador de empaque |
+| `src/components/OrderBOMAuditModal.tsx` | Modal de auditoría ex-post de mermas: balance de insumos (Teórico Valery vs Kardex Real) por pedido/tienda, KPIs monetarios, declaración de retazos e impresión |
 | `src/components/KardexViewerModal.tsx` | Visor denso de auditoría de Kardex con reconstrucción histórica y lightbox de comprobantes R2 |
 | `src/components/PinLoginModal.tsx` | Modal de acceso para terminales de PC con combobox autocompletado en tiempo real, keypad táctil y flujo 2FA |
 | `src/components/AccessDeniedModal.tsx` | Pantalla de bloqueo Zero Trust con botón de contacto interactivo a Sistemas (Mikel) |
@@ -212,6 +235,11 @@
 | `functions/api/notion/[[path]].js` | Cloudflare Pages Function: proxy seguro Notion API con secretos de entorno |
 | `functions/api/inventory/sync.js` | Cloudflare Pages Function: cálculo dinámico en vivo de insumos en tránsito con paginación cursor |
 | `functions/api/kardex/list.js` | Cloudflare Pages Function: consulta paginada y filtrada del histórico de Kardex |
+| `functions/api/kardex/dispatch.js` | Cloudflare Pages Function: decremento atómico de stock, asiento de salida a taller en Kardex y alerta Telegram |
+| `functions/api/bom/order-balance.js` | Cloudflare Pages Function: balance matemático ex-post de pedido (BOM Teórico vs Kardex Real) con segregación de especiales |
+| `src/data/bom_index_optimized.json` | Índice precompilado de despiece industrial Valery (956 muebles, 198 insumos, 10,111 renglones, 214 KB) |
+| `functions/api/orders/active.js` | Cloudflare Pages Function: consulta e hidratación concurrente de pedidos activos con clientes y proyectos |
+| `functions/api/orders/lines.js` | Cloudflare Pages Function: consulta reactiva de líneas de mobiliario (BOM) asociadas a un pedido |
 | `functions/api/storage/upload.js` | Cloudflare Pages Function: subida pericial de imágenes a Cloudflare R2 (`sanesca-evidencias`) |
 | `functions/api/telegram/notify.js` | Cloudflare Pages Function: despachador de alertas a Telegram Bot con timeout y deep-links |
 | `functions/api/oab/create.js` | Cloudflare Pages Function: creación atómica de OAB, líneas en Notion y alerta Telegram |

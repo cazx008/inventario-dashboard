@@ -21,9 +21,15 @@ import {
   registerReception,
   uploadEvidenceToR2,
   fetchPendingOABs,
-  fetchOABDetails
+  fetchOABDetails,
+  RegisterReceptionPayload
 } from '../services/oabService';
-import { queueOfflineReception } from '../services/offlineReceptionStorage';
+import { 
+  queueOfflineReception, 
+  uploadEvidenceWithBackoff, 
+  queuePhotoForRetry, 
+  getPendingPhotosCount 
+} from '../services/offlineReceptionStorage';
 import { compressImageFile } from '../utils/imageCompressor';
 
 interface ReceptionTerminalModalProps {
@@ -55,6 +61,12 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
   const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
   const [searchItemQuery, setSearchItemQuery] = useState('');
 
+  // Estados de Facturación Fiscal SENIAT y Resiliencia R2 (Fase 9C / 9D)
+  const [numeroFacturaFiscal, setNumeroFacturaFiscal] = useState('');
+  const [numeroControlFiscal, setNumeroControlFiscal] = useState('');
+  const [showFiscalInputs, setShowFiscalInputs] = useState(false);
+  const [pendingPhotosCount, setPendingPhotosCount] = useState<number>(0);
+
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Insumos filtrados para búsqueda y adición directa en rampa
@@ -80,6 +92,18 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
     };
   }, []);
 
+  // Monitorear cola de fotos diferidas y eventos de sincronización
+  useEffect(() => {
+    getPendingPhotosCount().then(setPendingPhotosCount).catch(() => {});
+    const handleSync = (e: any) => {
+      if (e.detail?.photoCount !== undefined) {
+        setPendingPhotosCount(e.detail.photoCount);
+      }
+    };
+    window.addEventListener('rampa-sync-updated', handleSync);
+    return () => window.removeEventListener('rampa-sync-updated', handleSync);
+  }, []);
+
   // Cargar lista de OABs pendientes al abrir el modal
   useEffect(() => {
     if (!isOpen) return;
@@ -88,6 +112,9 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
     setSelectedOabId(undefined);
     setManualFolioInput('');
     setNotaEntrega('');
+    setNumeroFacturaFiscal('');
+    setNumeroControlFiscal('');
+    setShowFiscalInputs(false);
     setFechaRecepcion(new Date().toISOString().split('T')[0]);
     setPhotoPreview(null);
     setReceptionComplete(null);
@@ -322,25 +349,36 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
     const activeFolio = selectedFolio || manualFolioInput || `RAMPA-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}`;
     const cleanNota = notaEntrega.trim();
     const isDeviceOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
-
-    // Subida pericial a Cloudflare R2 si estamos online y hay captura de foto
+    // Subida pericial a Cloudflare R2 con backoff exponencial si estamos online y hay captura de foto
     let r2EvidenceUrl: string | undefined = undefined;
+    let fotoPendienteSync = false;
     if (photoPreview && isDeviceOnline) {
       try {
-        r2EvidenceUrl = await uploadEvidenceToR2(activeFolio, cleanNota, photoPreview);
+        r2EvidenceUrl = await uploadEvidenceWithBackoff(activeFolio, cleanNota, photoPreview, 4);
       } catch (r2Err) {
-        console.warn('Subida directa a R2 no completada, encolando comprobante localmente:', r2Err);
+        console.warn('Subida a R2 agotó reintentos, encolando foto para reintento diferido:', r2Err);
+        await queuePhotoForRetry({
+          folioOAB: activeFolio,
+          numeroNotaEntrega: cleanNota,
+          imageBase64: photoPreview,
+          attempts: 4,
+          lastError: String(r2Err)
+        });
+        fotoPendienteSync = true;
       }
     }
 
-    const payload = {
+    const payload: RegisterReceptionPayload = {
       folioOAB: activeFolio,
       oabId: selectedOabId,
       numeroNotaEntrega: cleanNota,
       fechaRecepcion,
       tasaBCV: Number(tasaBCV) || 1.0,
       comprobanteUrl: r2EvidenceUrl,
-      comprobanteFile: !r2EvidenceUrl && photoPreview ? photoPreview : undefined,
+      comprobanteFile: !r2EvidenceUrl && photoPreview && !fotoPendienteSync ? photoPreview : undefined,
+      numeroFacturaFiscal: numeroFacturaFiscal.trim() || undefined,
+      numeroControlFiscal: numeroControlFiscal.trim() || undefined,
+      fotoPendienteSync: fotoPendienteSync || undefined,
       items: itemsToReceive.map(l => ({
         solicitudId: l.id,
         dashboardId: l.dashboardId,
@@ -423,6 +461,12 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
                   <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center gap-1">
                     <WifiOff className="w-3 h-3" />
                     Modo Offline
+                  </span>
+                )}
+                {pendingPhotosCount > 0 && (
+                  <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 flex items-center gap-1" title="Fotos encoladas para reintento automático hacia Cloudflare R2">
+                    <ImageIcon className="w-3 h-3" />
+                    {pendingPhotosCount} foto(s) pend. R2
                   </span>
                 )}
               </h2>
@@ -593,6 +637,46 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
                   className="hidden"
                 />
               </div>
+            </div>
+
+            {/* Sección Opcional: Facturación Legal SENIAT (Rampa u Oficina - Fase 9C) */}
+            <div className="px-4 py-2 bg-surfaceHigh/60 border-b border-borderSubtle flex flex-wrap items-center justify-between gap-2 text-xs">
+              <button
+                type="button"
+                onClick={() => setShowFiscalInputs(prev => !prev)}
+                className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-300 hover:text-white transition"
+              >
+                <FileText className="w-3.5 h-3.5 text-brand-400" />
+                <span>🏛️ Factura Fiscal SENIAT (Opcional - Rampa u Oficina)</span>
+                <span className="text-[10px] text-slate-400 underline ml-1">
+                  {showFiscalInputs ? 'Ocultar' : (numeroFacturaFiscal ? `FAC: ${numeroFacturaFiscal}` : 'Desplegar')}
+                </span>
+              </button>
+
+              {showFiscalInputs && (
+                <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto mt-1 sm:mt-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] uppercase text-slate-400 font-mono">N° Factura:</span>
+                    <input
+                      type="text"
+                      placeholder="Ej: 001248"
+                      value={numeroFacturaFiscal}
+                      onChange={(e) => setNumeroFacturaFiscal(e.target.value)}
+                      className="w-28 px-2 py-1 text-xs font-mono bg-surface border border-borderSubtle rounded text-slate-200 placeholder-slate-600 focus:border-brand-400"
+                    />
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] uppercase text-slate-400 font-mono">N° Control:</span>
+                    <input
+                      type="text"
+                      placeholder="Ej: 00-019842"
+                      value={numeroControlFiscal}
+                      onChange={(e) => setNumeroControlFiscal(e.target.value)}
+                      className="w-28 px-2 py-1 text-xs font-mono bg-surface border border-borderSubtle rounded text-slate-200 placeholder-slate-600 focus:border-brand-400"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Banner de Búsqueda o Errores */}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, X, FolderKanban, Check, Building2, Calendar, FileText } from 'lucide-react';
+import { Search, X, FolderKanban, Check, Building2, Calendar, FileText, RefreshCw } from 'lucide-react';
 import { OrderReference } from '../types/oab';
 
 interface OrderSearchModalProps {
@@ -21,73 +21,89 @@ export const OrderSearchModal: React.FC<OrderSearchModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [selectedPreview, setSelectedPreview] = useState<OrderReference | null>(null);
 
-  // Cargar pedidos activos desde Notion o mock representativo
-  useEffect(() => {
-    if (!isOpen) return;
-
-    let mounted = true;
+  // Cargar pedidos activos desde endpoint hidratado /api/orders/active o fallback
+  const fetchOrders = async () => {
     setLoading(true);
+    try {
+      // 1. Prioridad: Endpoint serverless de órdenes hidratadas (Cloudflare Pages)
+      const res = await fetch('/api/orders/active');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.orders && Array.isArray(data.orders) && data.orders.length > 0) {
+          setOrders(data.orders);
+          setSelectedPreview((prev) => 
+            prev ? (data.orders.find((o: OrderReference) => o.id === prev.id) || data.orders[0]) : data.orders[0]
+          );
+          setLoading(false);
+          return;
+        }
+      }
 
-    // Intentar consultar Notion API a través del proxy local
-    const fetchOrders = async () => {
-      try {
-        const res = await fetch('/api/notion/databases/3d086805-4e27-814b-9ff4-e694d56a58bb/query', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ page_size: 30 })
+      // 2. Fallback secundario: Consulta a Notion a través del proxy local
+      const fallbackRes = await fetch('/api/notion/databases/3d086805-4e27-814b-9ff4-e694d56a58bb/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ page_size: 50 })
+      });
+
+      if (fallbackRes.ok) {
+        const data = await fallbackRes.json();
+        const mapped: OrderReference[] = (data.results || []).map((page: any) => {
+          const props = page.properties;
+          // Propiedad título oficial en BD_Pedidos es "Número de Documento"
+          const codigo = props['Número de Documento']?.title?.[0]?.plain_text || 
+                         props['Código']?.title?.[0]?.plain_text || 
+                         props['Codigo']?.title?.[0]?.plain_text || 
+                         props['Nombre']?.title?.[0]?.plain_text || 'ORD-S/N';
+          const cliente = props['Cliente']?.rollup?.array?.[0]?.title?.[0]?.plain_text || 
+                          props['Cliente']?.rich_text?.[0]?.plain_text || 
+                          (props['BD_Clientes']?.relation?.length > 0 ? 'Cliente Registrado' : 'Cliente General');
+          const proyecto = props['Proyecto']?.rich_text?.[0]?.plain_text || 
+                           props['Obra']?.rich_text?.[0]?.plain_text || 
+                           codigo;
+          const fecha = props['Fecha del Documento']?.date?.start || page.created_time?.split('T')[0];
+          let tipo = 'PED';
+          if (codigo.startsWith('PRS') || props['Tipo de Documento']?.select?.name?.includes('PRS')) tipo = 'PRS';
+          else if (codigo.startsWith('FAC') || props['Tipo de Documento']?.select?.name?.includes('FAC')) tipo = 'FAC';
+
+          return {
+            id: page.id,
+            codigo,
+            cliente,
+            proyecto,
+            tipo,
+            fecha
+          };
         });
 
-        if (res.ok) {
-          const data = await res.json();
-          const mapped: OrderReference[] = (data.results || []).map((page: any) => {
-            const props = page.properties;
-            const codigo = props['Código']?.title?.[0]?.plain_text || props['Codigo']?.title?.[0]?.plain_text || props['Nombre']?.title?.[0]?.plain_text || 'ORD-000';
-            const cliente = props['Cliente']?.rollup?.array?.[0]?.title?.[0]?.plain_text || props['Cliente']?.rich_text?.[0]?.plain_text || 'Cliente General';
-            const proyecto = props['Proyecto']?.rich_text?.[0]?.plain_text || props['Obra']?.rich_text?.[0]?.plain_text || codigo;
-            const fecha = page.created_time?.split('T')[0];
-            const tipo = codigo.startsWith('PRS') ? 'PRS' : codigo.startsWith('FAC') ? 'FAC' : 'PED';
-
-            return {
-              id: page.id,
-              codigo,
-              cliente,
-              proyecto,
-              tipo,
-              fecha
-            };
-          });
-
-          if (mounted && mapped.length > 0) {
-            setOrders(mapped);
-            setSelectedPreview(mapped[0]);
-            setLoading(false);
-            return;
-          }
+        if (mapped.length > 0) {
+          setOrders(mapped);
+          setSelectedPreview(mapped[0]);
+          setLoading(false);
+          return;
         }
-      } catch (err) {
-        console.warn('Fallo consultando pedidos en Notion, usando catálogo activo:', err);
       }
+    } catch (err) {
+      console.warn('Fallo consultando pedidos en Notion, usando catálogo canónico:', err);
+    }
 
-      // Fallback a catálogo canónico de pedidos de Sanesca
-      if (mounted) {
-        const fallbackOrders: OrderReference[] = [
-          { id: 'ped-42', codigo: 'PED-42', cliente: 'Farmatodo C.A.', proyecto: 'Exhibidores Murales FT Las Mercedes', tipo: 'PED', fecha: '2026-09-28' },
-          { id: 'ped-43', codigo: 'PED-43', cliente: 'Automercados Plaza', proyecto: 'Góndolas Centrales Plaza Los Naranjos', tipo: 'PED', fecha: '2026-09-29' },
-          { id: 'prs-108', codigo: 'PRS-108', cliente: 'Traki Venezuela', proyecto: 'Remodelación Nivel Tiendas Valencia', tipo: 'PRS', fecha: '2026-09-25' },
-          { id: 'ped-44', codigo: 'PED-44', cliente: 'Daka Electrodomésticos', proyecto: 'Mostradores Tecnológicos Daka Bello Monte', tipo: 'PED', fecha: '2026-09-30' },
-          { id: 'fac-902', codigo: 'FAC-902', cliente: 'Mundo Total', proyecto: 'Racks Pesados Almacén Charallave', tipo: 'FAC', fecha: '2026-09-20' },
-        ];
-        setOrders(fallbackOrders);
-        setSelectedPreview(fallbackOrders[0]);
-        setLoading(false);
-      }
-    };
+    // 3. Fallback canónico si no hay conexión o no hay credenciales
+    const fallbackOrders: OrderReference[] = [
+      { id: 'ped-42', codigo: 'PED-42', cliente: 'Farmatodo C.A.', proyecto: 'Exhibidores Murales FT Las Mercedes', tipo: 'PED', fecha: '2026-09-28' },
+      { id: 'ped-43', codigo: 'PED-43', cliente: 'Automercados Plaza', proyecto: 'Góndolas Centrales Plaza Los Naranjos', tipo: 'PED', fecha: '2026-09-29' },
+      { id: 'prs-108', codigo: 'PRS-108', cliente: 'Traki Venezuela', proyecto: 'Remodelación Nivel Tiendas Valencia', tipo: 'PRS', fecha: '2026-09-25' },
+      { id: 'ped-44', codigo: 'PED-44', cliente: 'Daka Electrodomésticos', proyecto: 'Mostradores Tecnológicos Daka Bello Monte', tipo: 'PED', fecha: '2026-09-30' },
+      { id: 'fac-902', codigo: 'FAC-902', cliente: 'Mundo Total', proyecto: 'Racks Pesados Almacén Charallave', tipo: 'FAC', fecha: '2026-09-20' },
+    ];
+    setOrders(fallbackOrders);
+    setSelectedPreview(fallbackOrders[0]);
+    setLoading(false);
+  };
 
-    fetchOrders();
-
-    return () => {
-      mounted = false;
-    };
+  useEffect(() => {
+    if (isOpen) {
+      fetchOrders();
+    }
   }, [isOpen]);
 
   if (!isOpen) return null;
@@ -131,16 +147,26 @@ export const OrderSearchModal: React.FC<OrderSearchModalProps> = ({
 
         {/* Search & Type filter */}
         <div className="p-3 bg-page border-b border-borderSubtle flex flex-col sm:flex-row gap-2.5 items-center justify-between">
-          <div className="relative w-full sm:w-80">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5" />
-            <input
-              type="text"
-              placeholder="Buscar por código, cliente u obra..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 text-xs bg-surface border border-borderSubtle rounded-md text-slate-200 placeholder-slate-500 focus:outline-none focus:border-brand-400"
-              autoFocus
-            />
+          <div className="flex items-center gap-2 w-full sm:w-80">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5" />
+              <input
+                type="text"
+                placeholder="Buscar por código, cliente u obra..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 text-xs bg-surface border border-borderSubtle rounded-md text-slate-200 placeholder-slate-500 focus:outline-none focus:border-brand-400"
+                autoFocus
+              />
+            </div>
+            <button
+              onClick={fetchOrders}
+              disabled={loading}
+              title="Recargar órdenes desde Notion ERP"
+              className="p-1.5 text-slate-400 hover:text-brand-400 hover:bg-surfaceHigh rounded-md border border-borderSubtle transition disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-brand-400' : ''}`} />
+            </button>
           </div>
 
           <div className="flex gap-1 overflow-x-auto w-full sm:w-auto">

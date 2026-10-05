@@ -15,6 +15,8 @@ import { PinLoginModal } from './components/PinLoginModal';
 import { AccessDeniedModal } from './components/AccessDeniedModal';
 import { ChangePinModal } from './components/ChangePinModal';
 import { AccessAuditModal } from './components/AccessAuditModal';
+import { MaterialDispatchModal } from './components/MaterialDispatchModal';
+import { OrderBOMAuditModal } from './components/OrderBOMAuditModal';
 import { Trash2 } from 'lucide-react';
 import { useTelegramAuth } from './hooks/useTelegramAuth';
 import { PermissionKey } from './types/auth';
@@ -103,6 +105,10 @@ export default function App() {
   const [deepLinkFolio, setDeepLinkFolio] = useState<string | null>(null);
   const [changePinModalOpen, setChangePinModalOpen] = useState(false);
   const [auditModalOpen, setAuditModalOpen] = useState(false);
+  const [dispatchModalOpen, setDispatchModalOpen] = useState(false);
+  const [dispatchPreselectedItem, setDispatchPreselectedItem] = useState<InventoryItem | null>(null);
+  const [bomAuditModalOpen, setBomAuditModalOpen] = useState(false);
+  const [bomAuditPreselectedOrder, setBomAuditPreselectedOrder] = useState<{ id?: string; codigo?: string; nombre?: string } | null>(null);
 
   const showToast = useCallback((msg: string) => {
     setToastMessage(msg);
@@ -501,6 +507,26 @@ export default function App() {
             auth.triggerHaptic('error');
           }
         }}
+        onOpenDispatchModal={() => {
+          if (auth.hasPermission('Despacho_Taller') || auth.hasPermission('Superadmin')) {
+            setDispatchPreselectedItem(null);
+            setDispatchModalOpen(true);
+          } else {
+            setDeniedTargetModule('Terminal de Despacho a Taller');
+            setDeniedModalOpen(true);
+            auth.triggerHaptic('error');
+          }
+        }}
+        onOpenBOMAuditModal={() => {
+          if (auth.hasPermission('Auditoria_Kardex') || auth.hasPermission('Superadmin') || auth.hasPermission('Emitir_OAB')) {
+            setBomAuditPreselectedOrder(null);
+            setBomAuditModalOpen(true);
+          } else {
+            setDeniedTargetModule('Auditoría BOM y Balance de Tienda');
+            setDeniedModalOpen(true);
+            auth.triggerHaptic('error');
+          }
+        }}
         onOpenKardexModal={() => {
           if (auth.hasPermission('Auditoria_Kardex')) {
             setKardexTargetMaterial(null);
@@ -571,6 +597,16 @@ export default function App() {
               setKardexModalOpen(true);
             } else {
               setDeniedTargetModule('Libro Mayor de Almacén (Kardex)');
+              setDeniedModalOpen(true);
+              auth.triggerHaptic('error');
+            }
+          }}
+          onOpenDispatchItem={(item) => {
+            if (auth.hasPermission('Despacho_Taller') || auth.hasPermission('Superadmin')) {
+              setDispatchPreselectedItem(item);
+              setDispatchModalOpen(true);
+            } else {
+              setDeniedTargetModule('Terminal de Despacho a Taller');
               setDeniedModalOpen(true);
               auth.triggerHaptic('error');
             }
@@ -685,6 +721,37 @@ export default function App() {
         />
       )}
 
+      {/* Material Dispatch Modal (Terminal de Despacho a Taller - Fase 9A) */}
+      {dispatchModalOpen && (
+        <MaterialDispatchModal
+          isOpen={dispatchModalOpen}
+          onClose={() => {
+            setDispatchModalOpen(false);
+            setDispatchPreselectedItem(null);
+          }}
+          inventoryItems={items}
+          preselectedItem={dispatchPreselectedItem}
+          token={auth.token}
+          onDispatchSuccess={(res) => {
+            showToast(`📤 Despacho registrado: ${res.cantidad} und de ${res.materialNombre} a ${res.destino}`);
+            setItems(prev => prev.map(item => {
+              if (item.nombre === res.materialNombre) {
+                const updatedStock = res.nuevoStock;
+                const updatedDeficit = Math.max(0, item.stockMinimo - updatedStock);
+                return {
+                  ...item,
+                  stockBase: updatedStock,
+                  deficit: updatedDeficit,
+                  estadoStock: updatedStock === 0 ? 'Sin Stock' : updatedStock < item.stockMinimo ? 'Bajo Mínimo' : 'En Stock'
+                };
+              }
+              return item;
+            }));
+            handleRefresh();
+          }}
+        />
+      )}
+
       {/* Kardex Viewer Modal (Libro Mayor Inmutable) */}
       {kardexModalOpen && (
         <KardexViewerModal
@@ -700,6 +767,21 @@ export default function App() {
           initialMaterialName={kardexTargetMaterial?.nombre}
           initialSearchTerm={deepLinkFolio || undefined}
           currentStock={kardexTargetMaterial?.stock}
+        />
+      )}
+
+      {/* Order BOM Audit Modal (Auditoría Ex-Post de Mermas - Fase 9B) */}
+      {bomAuditModalOpen && (
+        <OrderBOMAuditModal
+          isOpen={bomAuditModalOpen}
+          onClose={() => {
+            setBomAuditModalOpen(false);
+            setBomAuditPreselectedOrder(null);
+          }}
+          initialOrderId={bomAuditPreselectedOrder?.id}
+          initialOrderCode={bomAuditPreselectedOrder?.codigo}
+          initialOrderName={bomAuditPreselectedOrder?.nombre}
+          token={auth.token}
         />
       )}
 
