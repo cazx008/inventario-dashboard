@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { PrintSheetBOMAudit } from './PrintSheetBOMAudit';
 import { 
   X, 
   Search, 
@@ -101,6 +102,9 @@ export const OrderBOMAuditModal: React.FC<OrderBOMAuditModalProps> = ({
   const [retazosDeclarados, setRetazosDeclarados] = useState<Record<string, number>>({});
   const [retazoInputMat, setRetazoInputMat] = useState('');
   const [retazoInputQty, setRetazoInputQty] = useState('');
+
+  // Vista Previa de Impresión Formal
+  const [showPrintSheet, setShowPrintSheet] = useState(false);
 
   // 1. Cargar lista de órdenes disponibles al abrir
   useEffect(() => {
@@ -238,31 +242,32 @@ export const OrderBOMAuditModal: React.FC<OrderBOMAuditModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-3 sm:p-5 overflow-y-auto print:p-0 print:bg-white print:static">
-      <div className="relative w-full max-w-6xl max-h-[94vh] flex flex-col bg-surface border border-borderSubtle rounded-2xl shadow-2xl overflow-hidden print:max-h-none print:border-none print:shadow-none">
+    <>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-3 sm:p-5 overflow-y-auto no-print">
+      <div className="relative w-full max-w-6xl max-h-[94vh] flex flex-col bg-surface border border-borderSubtle rounded-2xl shadow-2xl overflow-hidden">
         
         {/* CABECERA INDUSTRIAL */}
-        <div className="flex flex-wrap items-center justify-between gap-3 p-4 sm:p-5 border-b border-borderSubtle bg-surfaceHigh/80 print:bg-white print:border-b-2 print:border-slate-900">
+        <div className="flex flex-wrap items-center justify-between gap-3 p-4 sm:p-5 border-b border-borderSubtle bg-surfaceHigh/80">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-brand-500/10 border border-brand-500/30 text-brand-400 print:text-slate-900">
+            <div className="p-2 rounded-xl bg-brand-500/10 border border-brand-500/30 text-brand-400">
               <Boxes className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-base sm:text-lg font-bold text-white print:text-slate-900">
+                <h2 className="text-base sm:text-lg font-bold text-white">
                   Auditoría de Cierre BOM — Balance de Mermas
                 </h2>
-                <span className="px-2 py-0.5 text-[10px] font-mono font-bold uppercase rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 print:hidden">
+                <span className="px-2 py-0.5 text-[10px] font-mono font-bold uppercase rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
                   Ex-Post
                 </span>
               </div>
-              <p className="text-xs text-slate-400 print:text-slate-600">
+              <p className="text-xs text-slate-400">
                 Comparativa cuantitativa: Demanda teórica de muebles vs Salidas reales de Kardex
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 print:hidden">
+          <div className="flex items-center gap-2">
             {/* Selector de Pedidos */}
             <select
               value={selectedOrderId}
@@ -301,7 +306,7 @@ export const OrderBOMAuditModal: React.FC<OrderBOMAuditModalProps> = ({
 
             <button
               type="button"
-              onClick={() => window.print()}
+              onClick={() => setShowPrintSheet(true)}
               title="Imprimir informe formal"
               className="px-2.5 py-1.5 rounded-lg bg-surfaceHigh hover:bg-surfaceHighest text-slate-300 border border-borderSubtle text-xs font-semibold flex items-center gap-1.5 transition"
             >
@@ -734,5 +739,21 @@ export const OrderBOMAuditModal: React.FC<OrderBOMAuditModalProps> = ({
 
       </div>
     </div>
+
+    {/* Hoja Formal Imprimible Carta de Auditoría */}
+    {showPrintSheet && (
+      <PrintSheetBOMAudit
+        orderCode={selectedOrderCode}
+        orderName={selectedOrderName}
+        balanceItems={balanceItems}
+        mueblesSinBOM={mueblesSinBOM}
+        kpis={kpis}
+        retazosDeclarados={retazosDeclarados}
+        totalRetazosUSD={totalRetazosUSD}
+        varianzaAjustadaUSD={varianzaAjustadaUSD}
+        onClose={() => setShowPrintSheet(false)}
+      />
+    )}
+  </>
   );
 };

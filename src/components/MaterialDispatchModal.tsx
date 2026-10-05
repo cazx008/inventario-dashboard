@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   X, 
   ArrowUpRight, 
@@ -11,13 +11,26 @@ import {
   CheckCircle, 
   Layers, 
   ChevronRight,
+  ChevronDown,
   ShieldAlert,
   Calendar,
-  Sparkles
+  Sparkles,
+  Loader2,
+  Check
 } from 'lucide-react';
 import { InventoryItem } from '../types/inventory';
 import { OrderReference } from '../types/oab';
+import { ActiveEmployee } from '../types/auth';
 import { OrderSearchModal } from './OrderSearchModal';
+
+const DEFAULT_PLANT_WORKERS: ActiveEmployee[] = [
+  { id: 'emp-1', name: 'Mikel Itriago', hasPin: true, areas: ['Dirección General', 'Sistemas'] },
+  { id: 'emp-2', name: 'Pedro Herrero', hasPin: false, areas: ['Herrería', 'Estructuras'] },
+  { id: 'emp-3', name: 'Carlos Carpintero', hasPin: false, areas: ['Carpintería', 'Corte & Canteado'] },
+  { id: 'emp-4', name: 'Jose Pintor', hasPin: false, areas: ['Pintura Electrostática'] },
+  { id: 'emp-5', name: 'Luis Ensamblador', hasPin: false, areas: ['Ensamble Final', 'Embalaje'] },
+  { id: 'emp-6', name: 'Magaly González', hasPin: true, areas: ['Administración', 'Compras'] }
+];
 
 interface MaterialDispatchModalProps {
   isOpen: boolean;
@@ -68,13 +81,47 @@ export const MaterialDispatchModal: React.FC<MaterialDispatchModalProps> = ({
   const [manualFurnitureName, setManualFurnitureName] = useState('');
 
   // 4. Operario y Motivo
+  const [employees, setEmployees] = useState<ActiveEmployee[]>(DEFAULT_PLANT_WORKERS);
+  const [loadingEmployees, setLoadingEmployees] = useState(false);
   const [operarioReceptor, setOperarioReceptor] = useState('');
+  const [operarioSearch, setOperarioSearch] = useState('');
+  const [isOperarioDropdownOpen, setIsOperarioDropdownOpen] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState<ActiveEmployee | null>(null);
   const [motivoSalida, setMotivoSalida] = useState('Fabricación');
   const [notas, setNotas] = useState('');
 
   // 5. Estado de Envío
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Cargar catálogo de operarios desde Notion / RBAC al abrir el modal
+  useEffect(() => {
+    if (isOpen) {
+      setLoadingEmployees(true);
+      fetch('/api/auth/employees')
+        .then(res => res.json())
+        .then(data => {
+          if (data.status === 'success' && Array.isArray(data.employees)) {
+            setEmployees(data.employees);
+          }
+          setLoadingEmployees(false);
+        })
+        .catch(err => {
+          console.warn('Advertencia cargando operarios:', err);
+          setLoadingEmployees(false);
+        });
+    }
+  }, [isOpen]);
+
+  // Filtrado reactivo de operarios para autocompletado
+  const filteredEmployees = useMemo(() => {
+    if (!operarioSearch.trim()) return employees;
+    const s = operarioSearch.toLowerCase();
+    return employees.filter(e => 
+      e.name.toLowerCase().includes(s) || 
+      (e.areas && e.areas.some(a => a.toLowerCase().includes(s)))
+    );
+  }, [employees, operarioSearch]);
 
   // Actualizar preselección si cambia desde prop
   useEffect(() => {
@@ -709,18 +756,153 @@ export const MaterialDispatchModal: React.FC<MaterialDispatchModalProps> = ({
 
           {/* 4. Receptor en Taller & Motivo */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-slate-300 block">
-                Operario Receptor en Planta: <span className="text-rose-400">*</span>
-              </label>
-              <input
-                type="text"
-                placeholder="Nombre del operario que recibe..."
-                value={operarioReceptor}
-                onChange={(e) => setOperarioReceptor(e.target.value)}
-                className="w-full px-3.5 py-2 text-xs bg-surfaceHigh border border-borderSubtle rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-brand-400"
-                required
-              />
+            <div className="space-y-1.5 relative">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-medium text-slate-300 block">
+                  Operario Receptor en Planta: <span className="text-rose-400">*</span>
+                </label>
+                {selectedEmployee && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedEmployee(null);
+                      setOperarioReceptor('');
+                      setOperarioSearch('');
+                    }}
+                    className="text-[10px] text-brand-400 hover:underline"
+                  >
+                    Cambiar
+                  </button>
+                )}
+              </div>
+
+              {selectedEmployee ? (
+                <div className="flex items-center justify-between p-2 bg-surface border border-brand-500/40 rounded-xl">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1 rounded bg-brand-500/10 text-brand-400">
+                      <User className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-white block">{selectedEmployee.name}</span>
+                      <span className="text-[10px] text-slate-400">
+                        {selectedEmployee.areas && selectedEmployee.areas.length > 0 
+                          ? selectedEmployee.areas.join(' • ') 
+                          : 'Personal de Planta'}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedEmployee(null);
+                      setOperarioReceptor('');
+                      setOperarioSearch('');
+                    }}
+                    className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-surfaceHigh transition"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <div className="relative">
+                  <div className="relative flex items-center">
+                    <input
+                      type="text"
+                      placeholder={loadingEmployees ? "Cargando personal de planta..." : "Buscar operario (ej. Pedro, Mikel)..."}
+                      value={operarioSearch}
+                      onChange={(e) => {
+                        setOperarioSearch(e.target.value);
+                        setOperarioReceptor(e.target.value);
+                        setIsOperarioDropdownOpen(true);
+                      }}
+                      onFocus={() => setIsOperarioDropdownOpen(true)}
+                      onClick={() => setIsOperarioDropdownOpen(true)}
+                      className="w-full pl-8 pr-8 py-2 text-xs bg-surfaceHigh border border-borderSubtle rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-brand-400 font-medium"
+                      required
+                    />
+                    <User className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 pointer-events-none" />
+                    {loadingEmployees ? (
+                      <Loader2 className="w-3.5 h-3.5 text-brand-400 absolute right-2.5 animate-spin" />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsOperarioDropdownOpen(!isOperarioDropdownOpen);
+                        }}
+                        className="p-1 absolute right-2 text-slate-400 hover:text-white transition"
+                        title="Desplegar lista de operarios"
+                      >
+                        <ChevronDown className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Dropdown flotante */}
+                  {isOperarioDropdownOpen && (
+                    <>
+                      <div 
+                        className="fixed inset-0 z-40" 
+                        onClick={() => setIsOperarioDropdownOpen(false)}
+                      />
+                      <div className="absolute left-0 right-0 top-full mt-1 max-h-52 overflow-y-auto bg-surface border border-borderSubtle rounded-xl shadow-2xl z-50 py-1 divide-y divide-borderSubtle/50 custom-scrollbar">
+                        {filteredEmployees.length > 0 ? (
+                          filteredEmployees.map(emp => (
+                            <button
+                              key={emp.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedEmployee(emp);
+                                setOperarioReceptor(emp.name);
+                                setOperarioSearch('');
+                                setIsOperarioDropdownOpen(false);
+                              }}
+                              className="w-full px-3 py-2 text-left hover:bg-surfaceHigh flex items-center justify-between transition group"
+                            >
+                              <div>
+                                <span className="text-xs font-semibold text-slate-200 group-hover:text-brand-300 block">
+                                  {emp.name}
+                                </span>
+                                {emp.areas && emp.areas.length > 0 && (
+                                  <span className="text-[10px] text-slate-400">
+                                    {emp.areas.join(' • ')}
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-[10px] px-2 py-0.5 rounded bg-surfaceHigh border border-borderSubtle text-slate-400 group-hover:border-brand-500/40 group-hover:text-brand-400">
+                                Seleccionar
+                              </span>
+                            </button>
+                          ))
+                        ) : (
+                          <div className="p-2.5 text-center text-xs text-slate-400">
+                            No se encontraron operarios registrados con "{operarioSearch}"
+                          </div>
+                        )}
+
+                        {operarioSearch.trim() && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedEmployee({
+                                id: `custom-${Date.now()}`,
+                                name: operarioSearch.trim(),
+                                hasPin: false,
+                                areas: ['Contratista / Eventual']
+                              });
+                              setOperarioReceptor(operarioSearch.trim());
+                              setIsOperarioDropdownOpen(false);
+                            }}
+                            className="w-full px-3 py-2 text-left bg-brand-500/10 hover:bg-brand-500/20 text-brand-300 text-xs flex items-center gap-1.5 transition font-medium"
+                          >
+                            <span>➕ Usar "<strong>{operarioSearch.trim()}</strong>" como personal eventual / contratista</span>
+                          </button>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="space-y-1.5">
