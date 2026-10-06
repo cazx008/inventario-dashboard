@@ -16,7 +16,13 @@ import {
   Building2,
   Calendar,
   Layers,
-  Sparkles
+  Sparkles,
+  Sliders,
+  ShieldCheck,
+  ShieldAlert,
+  Lock,
+  Loader2,
+  Check
 } from 'lucide-react';
 
 interface BalanceItem {
@@ -105,6 +111,19 @@ export const OrderBOMAuditModal: React.FC<OrderBOMAuditModalProps> = ({
 
   // Vista Previa de Impresión Formal
   const [showPrintSheet, setShowPrintSheet] = useState(false);
+
+  // Tolerancias de Fábrica Editables y Ajustables (Pilar 3)
+  const [toleranciaGlobalPct, setToleranciaGlobalPct] = useState<number>(8.0);
+  const [isEditingTolerancia, setIsEditingTolerancia] = useState(false);
+
+  // Estados de Cierre Transaccional ERP (Pilar 2)
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [isSubmittingClose, setIsSubmittingClose] = useState(false);
+  const [closeSuccessData, setCloseSuccessData] = useState<any | null>(null);
+  const [closeErrorMsg, setCloseErrorMsg] = useState<string | null>(null);
+  const [auditorNameInput, setAuditorNameInput] = useState('Mikel Itriago');
+  const [observacionesInput, setObservacionesInput] = useState('');
+  const [supervisorPinInput, setSupervisorPinInput] = useState('');
 
   // 1. Cargar lista de órdenes disponibles al abrir
   useEffect(() => {
@@ -216,6 +235,73 @@ export const OrderBOMAuditModal: React.FC<OrderBOMAuditModalProps> = ({
   const varianzaAjustadaUSD = useMemo(() => {
     return Math.max(0, kpis.diferenciaNetaUSD - totalRetazosUSD);
   }, [kpis.diferenciaNetaUSD, totalRetazosUSD]);
+
+  // Regla de Conformidad Industrial (Pilar 3)
+  const esConforme = useMemo(() => {
+    return varianzaAjustadaUSD === 0 || (kpis.varianzaGlobalPct <= toleranciaGlobalPct && kpis.mermasCriticasCount === 0);
+  }, [varianzaAjustadaUSD, kpis.varianzaGlobalPct, toleranciaGlobalPct, kpis.mermasCriticasCount]);
+
+  // Handler de Cierre Transaccional ERP (Pilar 2)
+  const handleConcludeAudit = async () => {
+    if (!selectedOrderId) return;
+
+    setIsSubmittingClose(true);
+    setCloseErrorMsg(null);
+
+    const retazosList = Object.entries(retazosDeclarados).map(([mat, qty]) => {
+      const it = balanceItems.find(b => b.mat === mat);
+      return {
+        mat,
+        codigo: it?.codigo || mat,
+        nombre: it?.nombre || mat,
+        qty,
+        unit: it?.unidad || 'Und',
+        dashboardId: it?.dashboardId || null
+      };
+    });
+
+    const payload = {
+      orderId: selectedOrderId,
+      orderCode: selectedOrderCode,
+      orderName: selectedOrderName,
+      varianzaUSD: varianzaAjustadaUSD,
+      varianzaPct: kpis.varianzaGlobalPct,
+      totalTeoricoUSD: kpis.totalTeoricoUSD,
+      totalRealUSD: kpis.totalRealUSD,
+      retazosDeducidosUSD: totalRetazosUSD,
+      retazosList,
+      mermasCriticasCount: kpis.mermasCriticasCount,
+      auditorName: auditorNameInput || 'Mikel Itriago',
+      observaciones: observacionesInput,
+      reglasAplicadas: {
+        toleranciaAplicadaPct: toleranciaGlobalPct,
+        sobreconsumoUmbralPct: 115.0,
+        esExcepcionConPIN: Boolean(supervisorPinInput)
+      },
+      snapshotItems: balanceItems
+    };
+
+    try {
+      const res = await fetch('/api/bom/order-close-audit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const resData = await res.json();
+      if (!res.ok) {
+        throw new Error(resData.error || `HTTP ${res.status}`);
+      }
+
+      setCloseSuccessData(resData);
+      setIsSubmittingClose(false);
+      // Actualizar estado en la lista local para marcar la orden cerrada
+      setActiveOrders(prev => prev.map(o => o.id === selectedOrderId ? { ...o, estado: 'Cerrado' } : o));
+    } catch (err: any) {
+      setCloseErrorMsg(`Error al cerrar auditoría: ${err.message}`);
+      setIsSubmittingClose(false);
+    }
+  };
 
   // Filtrado de la tabla
   const filteredItems = useMemo(() => {
@@ -422,6 +508,72 @@ export const OrderBOMAuditModal: React.FC<OrderBOMAuditModalProps> = ({
               <span className="text-[10px] text-slate-500 block mt-1">
                 {kpis.mermasCriticasCount > 0 ? 'Requiere justificación técnica' : 'Dentro de tolerancia'}
               </span>
+            </div>
+          </div>
+
+          {/* CONTROL DE TOLERANCIAS Y DICTAMEN DE CONFORMIDAD (PILAR 3) */}
+          <div className="p-3.5 bg-surfaceHigh/60 border border-borderSubtle rounded-xl flex flex-wrap items-center justify-between gap-3 text-xs print:hidden">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-1.5 text-slate-300 font-semibold">
+                <Sliders className="w-4 h-4 text-brand-400" />
+                <span>Tolerancia de Fábrica:</span>
+              </div>
+              <div className="flex items-center gap-1 bg-surface border border-borderSubtle rounded-lg px-2.5 py-1">
+                <input
+                  type="number"
+                  min={1}
+                  max={30}
+                  step={0.5}
+                  value={toleranciaGlobalPct}
+                  onChange={(e) => setToleranciaGlobalPct(Number(e.target.value))}
+                  className="w-12 bg-transparent text-center font-mono font-bold text-white focus:outline-none"
+                />
+                <span className="text-slate-400 font-mono">%</span>
+              </div>
+              <div className="hidden sm:flex items-center gap-1">
+                <span className="text-[10px] text-slate-500 uppercase mr-1">Preajustes:</span>
+                {[
+                  { label: 'Tornillería (5%)', val: 5 },
+                  { label: 'Perfiles (8%)', val: 8 },
+                  { label: 'Maderas (10%)', val: 10 },
+                  { label: 'Pintura (12%)', val: 12 }
+                ].map(p => (
+                  <button
+                    key={p.val}
+                    type="button"
+                    onClick={() => setToleranciaGlobalPct(p.val)}
+                    className={`px-2 py-0.5 text-[11px] rounded transition ${
+                      toleranciaGlobalPct === p.val 
+                        ? 'bg-brand-500 text-white font-bold' 
+                        : 'bg-surface hover:bg-surfaceHighest text-slate-400 border border-borderSubtle'
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Dictamen de Conformidad */}
+            <div className="flex items-center gap-2">
+              <span className="text-slate-400">Dictamen:</span>
+              {esConforme ? (
+                <span className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-bold text-[11px]">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>CONFORME (≤ {toleranciaGlobalPct}%)</span>
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-300 font-bold text-[11px]">
+                  <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
+                  <span>
+                    DESVIACIÓN (
+                    {kpis.varianzaGlobalPct > toleranciaGlobalPct 
+                      ? `${kpis.varianzaGlobalPct}% > ${toleranciaGlobalPct}%` 
+                      : `${kpis.mermasCriticasCount} merma crítica`
+                    })
+                  </span>
+                </span>
+              )}
             </div>
           </div>
 
@@ -725,10 +877,7 @@ export const OrderBOMAuditModal: React.FC<OrderBOMAuditModalProps> = ({
 
             <button
               type="button"
-              onClick={() => {
-                alert(`Balance de Obra ${selectedOrderCode} consolidado exitosamente. Retazos computados: $${totalRetazosUSD.toFixed(2)} USD. Varianza final: $${varianzaAjustadaUSD.toFixed(2)} USD.`);
-                onClose();
-              }}
+              onClick={() => setIsConfirmModalOpen(true)}
               className="px-4 py-2 text-xs font-semibold rounded-xl bg-brand-500 hover:bg-brand-600 text-white shadow-lg shadow-brand-500/20 transition flex items-center gap-1.5"
             >
               <CheckCircle2 className="w-4 h-4" />
@@ -753,6 +902,182 @@ export const OrderBOMAuditModal: React.FC<OrderBOMAuditModalProps> = ({
         varianzaAjustadaUSD={varianzaAjustadaUSD}
         onClose={() => setShowPrintSheet(false)}
       />
+    )}
+
+    {/* MODAL DE CONFIRMACIÓN Y CIERRE TRANSACCIONAL EN NOTION ERP (PILAR 2) */}
+    {isConfirmModalOpen && (
+      <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/85 backdrop-blur-md p-4 overflow-y-auto no-print">
+        <div className="relative w-full max-w-lg bg-surfaceHigh border border-borderSubtle rounded-2xl shadow-2xl p-5 sm:p-6 space-y-4">
+          <div className="flex items-center justify-between border-b border-borderSubtle pb-3">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-brand-400" />
+              <h3 className="text-base font-bold text-white">
+                Liquidación y Cierre Transaccional BOM
+              </h3>
+            </div>
+            <button
+              type="button"
+              disabled={isSubmittingClose}
+              onClick={() => {
+                if (!isSubmittingClose) {
+                  setIsConfirmModalOpen(false);
+                  setCloseSuccessData(null);
+                  setCloseErrorMsg(null);
+                }
+              }}
+              className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-surfaceHighest transition"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {closeSuccessData ? (
+            <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl space-y-3">
+              <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm">
+                <CheckCircle2 className="w-5 h-5" />
+                <span>¡Auditoría BOM Asentada en Notion ERP!</span>
+              </div>
+              <p className="text-xs text-slate-300">
+                La orden <strong className="text-white font-mono">{selectedOrderCode}</strong> fue marcada como <strong>Cerrada</strong> en <code>BD_Pedidos</code>, se registró la pista forense inmutable en <code>BD_Auditoria_Accesos_Logs</code> y se reingresaron <strong>{closeSuccessData.retazosReintegradosCount}</strong> retazos útiles al Kardex.
+              </p>
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsConfirmModalOpen(false);
+                    setCloseSuccessData(null);
+                    onClose();
+                  }}
+                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-lg transition"
+                >
+                  Concluir y Volver al Dashboard
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4 text-xs">
+              {closeErrorMsg && (
+                <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-300 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <span>{closeErrorMsg}</span>
+                </div>
+              )}
+
+              {/* Resumen Ejecutivo */}
+              <div className="p-3 bg-surface border border-borderSubtle rounded-xl space-y-1.5 font-mono">
+                <div className="flex justify-between text-slate-400">
+                  <span>Orden:</span>
+                  <span className="text-white font-bold">{selectedOrderCode} — {selectedOrderName}</span>
+                </div>
+                <div className="flex justify-between text-slate-400">
+                  <span>Demanda Teórica:</span>
+                  <span className="text-slate-200">${kpis.totalTeoricoUSD.toFixed(2)} USD</span>
+                </div>
+                <div className="flex justify-between text-slate-400">
+                  <span>Despacho Real:</span>
+                  <span className="text-slate-200">${kpis.totalRealUSD.toFixed(2)} USD</span>
+                </div>
+                {totalRetazosUSD > 0 && (
+                  <div className="flex justify-between text-emerald-400">
+                    <span>Retazos Reintegrados:</span>
+                    <span>-${totalRetazosUSD.toFixed(2)} USD</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-slate-300 pt-1 border-t border-borderSubtle/60 font-bold">
+                  <span>Varianza Neta Liquidada:</span>
+                  <span className={varianzaAjustadaUSD > 0 ? 'text-rose-400' : 'text-emerald-400'}>
+                    ${varianzaAjustadaUSD.toFixed(2)} USD ({kpis.varianzaGlobalPct}%)
+                  </span>
+                </div>
+                <div className="flex justify-between text-slate-400 pt-1">
+                  <span>Dictamen:</span>
+                  <span className={esConforme ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
+                    {esConforme ? `🟢 Conforme (≤ ${toleranciaGlobalPct}%)` : `🔴 Desviación (> ${toleranciaGlobalPct}%)`}
+                  </span>
+                </div>
+              </div>
+
+              {/* Auditor y Observaciones */}
+              <div className="space-y-2">
+                <label className="font-semibold text-slate-300 block">Auditor Responsable:</label>
+                <input
+                  type="text"
+                  value={auditorNameInput}
+                  onChange={(e) => setAuditorNameInput(e.target.value)}
+                  placeholder="Nombre y apellido del auditor"
+                  className="w-full px-3 py-2 bg-surface border border-borderSubtle rounded-xl text-white focus:outline-none focus:border-brand-400"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="font-semibold text-slate-300 block">Observaciones de Planta (Opcional):</label>
+                <textarea
+                  value={observacionesInput}
+                  onChange={(e) => setObservacionesInput(e.target.value)}
+                  placeholder="Detalles sobre desperdicios, motivos de merma o calidad del insumo..."
+                  rows={2}
+                  className="w-full px-3 py-2 bg-surface border border-borderSubtle rounded-xl text-white focus:outline-none focus:border-brand-400 resize-none text-xs"
+                />
+              </div>
+
+              {/* Si hay desviación, requerir PIN o justificación */}
+              {!esConforme && (
+                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl space-y-2 text-amber-200">
+                  <div className="flex items-center gap-1.5 font-bold text-amber-300">
+                    <Lock className="w-4 h-4" />
+                    <span>Autorización de Excepción por Desviación</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400">
+                    La varianza excede la tolerancia permitida ({toleranciaGlobalPct}%). Ingrese su PIN de Supervisor para autorizar la liquidación contable.
+                  </p>
+                  <input
+                    type="password"
+                    maxLength={6}
+                    value={supervisorPinInput}
+                    onChange={(e) => setSupervisorPinInput(e.target.value)}
+                    placeholder="PIN de Supervisor (4-6 dígitos)"
+                    className="w-full px-3 py-1.5 bg-surface border border-amber-500/40 rounded-xl text-white font-mono text-center tracking-widest focus:outline-none"
+                  />
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 pt-2">
+                <button
+                  type="button"
+                  disabled={isSubmittingClose}
+                  onClick={() => setIsConfirmModalOpen(false)}
+                  className="flex-1 py-2 text-xs font-semibold rounded-xl bg-surface hover:bg-surfaceHighest text-slate-300 border border-borderSubtle transition"
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="button"
+                  disabled={isSubmittingClose || (!esConforme && !supervisorPinInput.trim())}
+                  onClick={handleConcludeAudit}
+                  className={`flex-1 py-2 text-xs font-semibold rounded-xl text-white shadow-lg transition flex items-center justify-center gap-1.5 ${
+                    isSubmittingClose || (!esConforme && !supervisorPinInput.trim())
+                      ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
+                      : 'bg-brand-500 hover:bg-brand-600 shadow-brand-500/20'
+                  }`}
+                >
+                  {isSubmittingClose ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Asentando en Notion...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Confirmar y Liquidar en Notion</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     )}
   </>
   );

@@ -141,7 +141,17 @@ export async function onRequest(context) {
 
     const orderTag = pedidoId ? `[ORDER_UUID:${pedidoId}] ` : '';
     const empaqueTag = payload.empaqueComercialInfo ? ` | Empaque: ${payload.empaqueComercialInfo}` : '';
-    const detalleExtStr = `${orderTag}Nivel: ${nivelImputacion} | Pedido: ${pedidoCodigo || 'N/A'} | Proyecto: ${proyectoNombre || 'N/A'}${mobiliarioNombre ? ' | Mobiliario: ' + mobiliarioNombre : ''}${empaqueTag} | Despachador: ${authCheck.user?.name || 'Almacén'}`;
+    const sobreconsumoTag = payload.sobreconsumoFlag ? ` | ⚠️ SOBRECONSUMO BOM: ${payload.porcentajeDemanda || '>115%'}` : '';
+    const detalleExtStr = `${orderTag}Nivel: ${nivelImputacion} | Pedido: ${pedidoCodigo || 'N/A'} | Proyecto: ${proyectoNombre || 'N/A'}${mobiliarioNombre ? ' | Mobiliario: ' + mobiliarioNombre : ''}${empaqueTag}${sobreconsumoTag} | Despachador: ${authCheck.user?.name || 'Almacén'}`;
+
+    const glosaTitle = `Salida a Taller: ${itemActualName} (-${qty} ${unidad}) → ${destinoLabel}`;
+    const propositoParts = [
+      motivoSalida,
+      `Receptor: ${operarioReceptor}`,
+      notas ? `Notas: ${notas}` : null,
+      payload.sobreconsumoFlag ? `[⚠️ SOBRECONSUMO BOM: ${payload.porcentajeDemanda || '>115%'}]` : null
+    ].filter(Boolean);
+    const propositoStr = propositoParts.join(' | ');
 
     // 4. Crear Asiento Inmutable en BD_Kardex_Movimientos
     const kardexProps = {
@@ -219,6 +229,7 @@ export async function onRequest(context) {
     // 6. Notificación Operativa en Telegram
     const telegramMessage = [
       `📤 <b>DESPACHO A PRODUCCIÓN / TALLER</b>`,
+      payload.sobreconsumoFlag ? `⚠️ <b>ALERTA SOBRECONSUMO:</b> Acumulado > 115% de Receta BOM (${payload.porcentajeDemanda || '>115%'})` : null,
       `📦 <b>Material:</b> ${itemActualName}`,
       `📉 <b>Cantidad Despachada:</b> -${qty} ${unidad}`,
       `📊 <b>Stock Anterior:</b> ${currentStock} → <b>Nuevo Saldo:</b> ${newStock} ${unidad}`,
@@ -228,7 +239,7 @@ export async function onRequest(context) {
       `🏷️ <b>Área / Motivo:</b> ${areaDestino} · ${motivoSalida}`,
       `👤 <b>Despachado por:</b> ${authCheck.user?.name || 'Almacén'}`,
       `📅 <b>Fecha:</b> ${todayStr}`
-    ].join('\n');
+    ].filter(Boolean).join('\n');
 
     sendTelegramAlert({ env, text: telegramMessage }).catch(e => {
       console.warn('Advertencia despachando alerta Telegram:', e);

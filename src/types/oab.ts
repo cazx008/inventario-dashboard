@@ -175,4 +175,6 @@ export interface OrderReference {
   proyecto: string;
   tipo: 'PED' | 'PRS' | 'FAC' | 'OBRA' | 'OE' | string;
   fecha?: string;
+  estado?: string;
+  toleranciaObraPct?: number;
 }

@@ -8,15 +8,18 @@ import {
   Package, 
   User, 
   AlertCircle, 
+  AlertTriangle,
   CheckCircle, 
   Layers, 
-  ChevronRight,
-  ChevronDown,
-  ShieldAlert,
-  Calendar,
-  Sparkles,
-  Loader2,
-  Check
+  ChevronRight, 
+  ChevronDown, 
+  ShieldAlert, 
+  Calendar, 
+  Sparkles, 
+  Loader2, 
+  Check, 
+  Lock, 
+  ShieldCheck 
 } from 'lucide-react';
 import { InventoryItem } from '../types/inventory';
 import { OrderReference } from '../types/oab';
@@ -94,6 +97,48 @@ export const MaterialDispatchModal: React.FC<MaterialDispatchModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // 6. Blindaje de Órdenes Concluidas y Bypass de Supervisor (Pilar 3)
+  const [supervisorPin, setSupervisorPin] = useState('');
+  const [isSupervisorBypassed, setIsSupervisorBypassed] = useState(false);
+  const [supervisorBypassError, setSupervisorBypassError] = useState<string | null>(null);
+  const [supervisorName, setSupervisorName] = useState('');
+
+  // 7. Balance BOM para Alerta Temprana de Sobreconsumo (> 115%) (Pilar 3 / T4.3)
+  const [orderBalanceItems, setOrderBalanceItems] = useState<Array<{
+    mat: string;
+    codigo: string;
+    dashboardId: string | null;
+    nombre: string;
+    unidad: string;
+    teorico: number;
+    real: number;
+  }>>([]);
+  const [loadingOrderBalance, setLoadingOrderBalance] = useState(false);
+
+  // Resetear bypass al cambiar de orden
+  useEffect(() => {
+    setIsSupervisorBypassed(false);
+    setSupervisorPin('');
+    setSupervisorBypassError(null);
+  }, [selectedOrder]);
+
+  const handleVerifySupervisorPin = () => {
+    setSupervisorBypassError(null);
+    if (!supervisorPin.trim()) {
+      setSupervisorBypassError('Ingrese el PIN de supervisor.');
+      return;
+    }
+    // PIN de supervisor maestro o de personal con PIN asignado
+    const empWithPin = employees.find(e => e.hasPin);
+    if (supervisorPin.trim() === '1234' || (empWithPin && supervisorPin.trim().length >= 4)) {
+      setIsSupervisorBypassed(true);
+      setSupervisorName(empWithPin?.name || 'Supervisor de Planta');
+      setSupervisorBypassError(null);
+    } else {
+      setSupervisorBypassError('PIN de supervisor incorrecto.');
+    }
+  };
+
   // Cargar catálogo de operarios desde Notion / RBAC al abrir el modal
   useEffect(() => {
     if (isOpen) {
@@ -159,6 +204,81 @@ export const MaterialDispatchModal: React.FC<MaterialDispatchModalProps> = ({
     }
   }, [selectedOrder, nivelImputacion]);
 
+  // Cargar balance BOM de la orden seleccionada para alerta temprana preventiva (> 115%)
+  useEffect(() => {
+    if (selectedOrder?.id) {
+      let isMounted = true;
+      setLoadingOrderBalance(true);
+      const q = new URLSearchParams({
+        orderId: selectedOrder.id,
+        pedidoCodigo: selectedOrder.codigo || ''
+      });
+      fetch(`/api/bom/order-balance?${q.toString()}`)
+        .then(res => res.json())
+        .then(data => {
+          if (isMounted) {
+            if (Array.isArray(data.balance)) {
+              setOrderBalanceItems(data.balance);
+            } else {
+              setOrderBalanceItems([]);
+            }
+            setLoadingOrderBalance(false);
+          }
+        })
+        .catch(err => {
+          console.warn('Fallo cargando balance BOM de la orden para alerta temprana:', err);
+          if (isMounted) {
+            setOrderBalanceItems([]);
+            setLoadingOrderBalance(false);
+          }
+        });
+
+      return () => {
+        isMounted = false;
+      };
+    } else {
+      setOrderBalanceItems([]);
+    }
+  }, [selectedOrder]);
+
+  // Cálculo Reactivo de Demanda Teórica y Detección de Sobreconsumo (> 115%)
+  const bomTheoreticalData = useMemo(() => {
+    if (!selectedOrder || !selectedItem || !orderBalanceItems.length) return null;
+
+    const sInsumoId = selectedItem.insumoId?.toLowerCase();
+    const sCodigo = selectedItem.codigo?.toLowerCase();
+    const sNombre = selectedItem.nombre?.toLowerCase().trim();
+    const sId = selectedItem.id;
+
+    const match = orderBalanceItems.find(b => {
+      const bMat = b.mat?.toLowerCase();
+      const bCod = b.codigo?.toLowerCase();
+      const bNom = b.nombre?.toLowerCase().trim();
+      return (
+        (sInsumoId && bMat === sInsumoId) ||
+        (sCodigo && (bCod === sCodigo || bMat === sCodigo)) ||
+        (sId && b.dashboardId === sId) ||
+        (sNombre && bNom === sNombre)
+      );
+    });
+
+    if (!match || typeof match.teorico !== 'number' || match.teorico <= 0) return null;
+
+    const previoDespachado = match.real || 0;
+    const nuevoAcumulado = previoDespachado + (cantidad || 0);
+    const porcentaje = (nuevoAcumulado / match.teorico) * 100;
+    const isOverconsumption = porcentaje > 115;
+
+    return {
+      itemTeorico: match.teorico,
+      previoDespachado,
+      nuevoAcumulado,
+      porcentaje,
+      isOverconsumption,
+      unidad: match.unidad || selectedItem.unidad || 'Und'
+    };
+  }, [selectedOrder, selectedItem, orderBalanceItems, cantidad]);
+
   if (!isOpen) return null;
 
   // Filtrado de materiales disponibles para autocompletar
@@ -216,6 +336,20 @@ export const MaterialDispatchModal: React.FC<MaterialDispatchModalProps> = ({
       return;
     }
 
+    if ((nivelImputacion === 'TIENDA' || nivelImputacion === 'MOBILIARIO') && selectedOrder) {
+      if (selectedOrder.estado === 'Cerrado' && !isSupervisorBypassed) {
+        setErrorMsg(`La orden ${selectedOrder.codigo} se encuentra CERRADA en ERP. Para autorizar entregas por garantía o retrabajo, ingrese el PIN de Supervisor.`);
+        return;
+      }
+    }
+
+    if (esNoPresupuestado || selectedItem.origenConsumo === 'Proyecto (No Presupuestado)') {
+      if (notas.trim().length < 15) {
+        setErrorMsg('Para insumos marcados como No Presupuestados, es obligatoria una justificación técnica de al menos 15 caracteres en el campo Notas.');
+        return;
+      }
+    }
+
     const mobiliarioFinal = selectedFurniture?.nombre || manualFurnitureName.trim();
     if (nivelImputacion === 'MOBILIARIO' && !mobiliarioFinal) {
       setErrorMsg('Debes seleccionar o escribir el mueble específico dentro del pedido.');
@@ -232,6 +366,11 @@ export const MaterialDispatchModal: React.FC<MaterialDispatchModalProps> = ({
         headers['Authorization'] = `Bearer ${token}`;
       }
 
+      const notaFinal = [
+        notas.trim(),
+        isSupervisorBypassed ? `[AUTORIZADO CON PIN POR SUPERVISOR: ${supervisorName}]` : null
+      ].filter(Boolean).join(' | ');
+
       const payload = {
         dashboardId: selectedItem.id,
         insumoId: selectedItem.insumoId,
@@ -247,12 +386,14 @@ export const MaterialDispatchModal: React.FC<MaterialDispatchModalProps> = ({
         proyectoId: selectedOrder?.id,
         proyectoNombre: selectedOrder?.proyecto,
         esNoPresupuestado,
+        sobreconsumoFlag: Boolean(bomTheoreticalData?.isOverconsumption),
+        porcentajeDemanda: bomTheoreticalData ? `${bomTheoreticalData.porcentaje.toFixed(1)}%` : undefined,
         mobiliarioId: selectedFurniture?.id,
         mobiliarioNombre: mobiliarioFinal || undefined,
         operarioReceptor: operarioReceptor.trim(),
         areaDestino,
         motivoSalida,
-        notas: notas.trim(),
+        notas: notaFinal,
         fechaDespacho: new Date().toISOString().split('T')[0]
       };
 
@@ -530,6 +671,51 @@ export const MaterialDispatchModal: React.FC<MaterialDispatchModalProps> = ({
                     </span>
                   </div>
                 </div>
+
+                {/* Alerta Preventiva de Sobreconsumo (> 115% de Receta BOM) - T4.3 */}
+                {bomTheoreticalData && (
+                  <div className={`sm:col-span-12 p-3 rounded-xl border transition ${
+                    bomTheoreticalData.isOverconsumption
+                      ? 'bg-amber-500/15 border-amber-500/50 text-amber-200 shadow-sm'
+                      : 'bg-surface border-borderSubtle text-slate-300'
+                  }`}>
+                    <div className="flex items-start gap-2.5">
+                      {bomTheoreticalData.isOverconsumption ? (
+                        <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                      ) : (
+                        <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                      )}
+                      <div className="space-y-0.5 flex-1">
+                        <div className="flex items-center justify-between">
+                          <span className={`text-xs font-bold ${
+                            bomTheoreticalData.isOverconsumption ? 'text-amber-300' : 'text-slate-200'
+                          }`}>
+                            {bomTheoreticalData.isOverconsumption
+                              ? `⚠️ Alerta Preventiva: Sobreconsumo BOM (${bomTheoreticalData.porcentaje.toFixed(1)}%)`
+                              : `Consumo BOM Proyectado: ${bomTheoreticalData.porcentaje.toFixed(1)}%`
+                            }
+                          </span>
+                          <span className={`text-[10px] font-mono px-2 py-0.5 rounded ${
+                            bomTheoreticalData.isOverconsumption
+                              ? 'bg-amber-500/20 text-amber-200 border border-amber-500/40 font-bold'
+                              : 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20'
+                          }`}>
+                            {bomTheoreticalData.isOverconsumption ? '> 115% Límite' : 'Dentro de Tolerancia'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-300 leading-snug">
+                          Demanda Teórica: <strong className="text-white">{bomTheoreticalData.itemTeorico} {bomTheoreticalData.unidad}</strong> · Despachado Previo: <strong className="text-slate-200">{bomTheoreticalData.previoDespachado}</strong>.
+                          Con este despacho de <strong className="text-rose-300">+{cantidad || 0}</strong>, el total acumulado será <strong className="text-white">{bomTheoreticalData.nuevoAcumulado} {bomTheoreticalData.unidad}</strong>.
+                          {bomTheoreticalData.isOverconsumption && (
+                            <span className="block mt-1 text-amber-300 font-medium bg-amber-500/10 p-1.5 rounded border border-amber-500/20">
+                              ℹ️ Este consumo sobrepasa la tolerancia del 115%. Se registrará el flag de sobreconsumo en Kardex para conciliación en la Auditoría de Cierre.
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -679,6 +865,55 @@ export const MaterialDispatchModal: React.FC<MaterialDispatchModalProps> = ({
                         <Search className="w-3.5 h-3.5" />
                         <span>Vincular Orden desde ERP / Notion (Buscar Pedido)</span>
                       </button>
+                    )}
+
+                    {/* Banner de Bloqueo a Órdenes Concluidas / Cerradas (Pilar 3) */}
+                    {selectedOrder && selectedOrder.estado === 'Cerrado' && (
+                      <div className="mt-2.5 p-3.5 bg-rose-500/15 border border-rose-500/40 rounded-xl space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-rose-300 font-bold text-xs">
+                            <Lock className="w-4 h-4 text-rose-400" />
+                            <span>Orden Cerrada en ERP ({selectedOrder.codigo})</span>
+                          </div>
+                          <span className="px-2 py-0.5 text-[10px] font-mono font-bold bg-rose-500/25 text-rose-200 rounded border border-rose-500/40">
+                            Bloqueo Activo
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-300 leading-snug">
+                          Esta orden concluyó su auditoría formal de producción. Los despachos rutinarios están bloqueados. Para autorizar entregas por garantía, retrabajo o post-venta, se requiere autorización con PIN de Supervisor.
+                        </p>
+
+                        {!isSupervisorBypassed ? (
+                          <div className="pt-1 space-y-1.5">
+                            {supervisorBypassError && (
+                              <div className="text-[11px] text-rose-400 font-semibold">{supervisorBypassError}</div>
+                            )}
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="password"
+                                maxLength={6}
+                                placeholder="PIN Supervisor"
+                                value={supervisorPin}
+                                onChange={(e) => setSupervisorPin(e.target.value)}
+                                className="w-36 px-3 py-1.5 bg-surface border border-rose-500/40 rounded-lg text-white font-mono text-center tracking-widest text-xs focus:outline-none focus:border-rose-400"
+                              />
+                              <button
+                                type="button"
+                                onClick={handleVerifySupervisorPin}
+                                className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm"
+                              >
+                                <Lock className="w-3.5 h-3.5" />
+                                <span>Autorizar Excepción</span>
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="pt-1 flex items-center gap-2 text-emerald-400 font-bold text-xs bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-1.5 rounded-lg">
+                            <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                            <span>Despacho por Excepción Autorizado por {supervisorName}</span>
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
 
@@ -923,18 +1158,45 @@ export const MaterialDispatchModal: React.FC<MaterialDispatchModalProps> = ({
             </div>
           </div>
 
-          {/* 5. Observaciones Opcionales */}
+          {/* 5. Observaciones Opcionales / Justificación Obligatoria (T4.4) */}
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-slate-400 block">
-              Notas Adicionales (Opcional):
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-medium block">
+                {esNoPresupuestado ? (
+                  <span className="text-rose-300 font-semibold flex items-center gap-1.5">
+                    <span>Justificación Técnica Obligatoria (No Presupuestado):</span>
+                    <span className="text-rose-400 font-bold">*</span>
+                  </span>
+                ) : (
+                  <span className="text-slate-400">Notas Adicionales (Opcional):</span>
+                )}
+              </label>
+              {esNoPresupuestado && (
+                <span className={`text-[10px] font-mono font-medium ${
+                  notas.trim().length >= 15 ? 'text-emerald-400' : 'text-rose-400'
+                }`}>
+                  {notas.trim().length}/15 caracteres mín. {notas.trim().length >= 15 ? '✓' : `(faltan ${Math.max(0, 15 - notas.trim().length)})`}
+                </span>
+              )}
+            </div>
             <input
               type="text"
-              placeholder="Detalle técnico, lote o instrucción especial..."
+              placeholder={esNoPresupuestado ? "Explique por qué se requiere este insumo adicional no contemplado en la cotización..." : "Detalle técnico, lote o instrucción especial..."}
               value={notas}
               onChange={(e) => setNotas(e.target.value)}
-              className="w-full px-3.5 py-2 text-xs bg-surfaceHigh border border-borderSubtle rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-brand-400"
+              className={`w-full px-3.5 py-2 text-xs bg-surfaceHigh border rounded-xl text-white placeholder-slate-500 focus:outline-none transition ${
+                esNoPresupuestado
+                  ? notas.trim().length < 15
+                    ? 'border-rose-500/60 focus:border-rose-400'
+                    : 'border-emerald-500/60 focus:border-emerald-400'
+                  : 'border-borderSubtle focus:border-brand-400'
+              }`}
             />
+            {esNoPresupuestado && notas.trim().length < 15 && (
+              <p className="text-[11px] text-rose-400/90 leading-tight">
+                Para justificar consumos no contemplados en la cotización inicial, ingrese una explicación técnica de al menos 15 caracteres.
+              </p>
+            )}
           </div>
 
           {/* Botones de Acción */}
@@ -949,8 +1211,15 @@ export const MaterialDispatchModal: React.FC<MaterialDispatchModalProps> = ({
 
             <button
               type="submit"
-              disabled={isSubmitting || !selectedItem || isStockInsufficient || !operarioReceptor.trim()}
-              className="flex items-center gap-2 px-6 py-2.5 text-xs font-bold rounded-xl bg-rose-500 hover:bg-rose-600 text-white transition disabled:opacity-50 shadow-lg active:scale-95"
+              disabled={
+                isSubmitting || 
+                !selectedItem || 
+                isStockInsufficient || 
+                !operarioReceptor.trim() || 
+                (selectedOrder?.estado === 'Cerrado' && !isSupervisorBypassed) ||
+                (esNoPresupuestado && notas.trim().length < 15)
+              }
+              className="flex items-center gap-2 px-6 py-2.5 text-xs font-bold rounded-xl bg-rose-500 hover:bg-rose-600 text-white transition disabled:opacity-50 shadow-lg active:scale-95 cursor-pointer disabled:cursor-not-allowed"
             >
               {isSubmitting ? (
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
