@@ -95,6 +95,26 @@ Sistema web industrial para la gestión integral de inventario, emisión de órd
 - Alerta bimonetaria instantánea ante emisión de OAB con deep-link al dashboard.
 - Alerta pericial ante incidencias en rampa (rechazos, faltantes y sobrecostos) con deep-link al visor de Kardex.
 
+### 7. Terminal de Despacho Físico a Taller (Fase 9A)
+- Salida formal de materias primas e insumos desde almacén hacia líneas de fabricación.
+- Imputación en 3 niveles de ingeniería: General Planta (MTS), Tienda/Obra (MTO) y Mobiliario Específico (BOM MTO).
+- Conmutador de empaque comercial y justificación técnica obligatoria ($\ge 15$ caracteres) para consumos no presupuestados.
+- Decremento atómico de existencias y asiento inmutable en Kardex.
+
+### 8. Auditoría de Cierre BOM, Conciliación de Mermas y Transaccionalidad ERP (Fase 9B-9E)
+- Comparación cuantitativa ex-post entre Demanda Teórica (Valery SSOT) y Despachos Reales (Kardex).
+- Costos unitarios en USD reales para el 100% de insumos (441 ítems) en `BD_Catalogo_Insumos`.
+- Matriz dinámica de tolerancias (5%, 8%, 10%, 12%) con dictamen dinámico (`🟢 CONFORME` vs `🔴 DESVIACIÓN`).
+- Liquidación formal con mutación a `Cerrado` en `BD_Pedidos`, registro inmutable en `BD_Auditoria_Accesos_Logs` y reintegro contable de retazos útiles ($\ge 1.0\text{ m}$) en Kardex.
+- Bloqueo activo en terminal para órdenes concluidas con bypass de excepción por PIN de supervisor.
+- Hoja de impresión formal en formato Carta con 4 cuadrantes de firmas físicas.
+
+### 9. Identidad, Seguridad Criptográfica RBAC y 2FA Telegram (Fase 10)
+- Autenticación criptográfica con HMAC-SHA256 para Telegram WebApp y PIN operativo para terminales de PC.
+- Matriz de permisos RBAC gobernada directamente desde Notion (`Puestos de trabajo`).
+- Flujo interactivo 2FA vía Telegram con tickets efímeros y nonces de un solo uso para reseteo de PIN.
+- Protección anti-fuerza bruta en Upstash Redis y visor denso de auditoría forense para Superadmin (`AccessAuditModal`).
+
 ---
 
 ## 💻 Desarrollo y Ejecución Local
@@ -121,16 +141,20 @@ npm run build
 
 ---
 
-## 🗄️ Esquema de Bases de Datos en Notion
+## 🗄️ Esquema Canónico de Bases de Datos en Notion (Estándar Odoo 18)
 
-| Base de Datos | ID de Notion | Rol en el Sistema |
-|:--------------|:-------------|:-------------------|
-| **BD_Materiales_Insumos** | `26286805-4e27-8067-8847-d39de1bf0bde` | Catálogo maestro de materias primas y empaques |
-| **BD_Ordenes_Abastecimiento** | `3eb86805-4e27-81f9-860a-c51fc794ebb0` | Cabeceras de órdenes de abastecimiento (Folio OAB) |
-| **Solicitudes de Insumos** | `2bc86805-4e27-8036-ba88-d52ec84742ba` | Renglones transaccionales por material y proyecto |
-| **Dashboard** | `2b586805-4e27-80fe-b6e8-e4c6dc325696` | Existencias físicas activas en planta (Stock base) |
-| **BD_Kardex_Movimientos** | `26286805-4e27-803b-91ce-ef8f121d622d` | Libro mayor inmutable de movimientos de almacén |
-| **BD_Pedidos** | `3d086805-4e27-814b-9ff4-e694d56a58bb` | Órdenes y proyectos industriales activos de la empresa |
+| Base de Datos Canónica | ID de Notion | Modelo Odoo 18 | Rol en Ingeniería Industrial |
+|:-----------------------|:-------------|:---------------|:-----------------------------|
+| **BD_Catalogo_Insumos** | `26286805-4e27-8067-8847-d39de1bf0bde` | `product.template` | Ficha técnica maestra y costo unitario base USD (Cero Stock) |
+| **BD_Control_Stock_Existencias** | `2b586805-4e27-80fe-b6e8-e4c6dc325696` | `stock.quant` | Existencias físicas activas en planta y stock mínimo |
+| **BD_Kardex_Movimientos** | `26286805-4e27-803b-91ce-ef8f121d622d` | `stock.move` | Libro mayor inmutable de movimientos de almacén |
+| **BD_Ordenes_Abastecimiento** | `3eb86805-4e27-81f9-860a-c51fc794ebb0` | `purchase.order` | Requisiciones y cabeceras de compras (Folio OAB) |
+| **BD_Lineas_Abastecimiento** | `2bc86805-4e27-8036-ba88-d52ec84742ba` | `purchase.order.line` | Renglones transaccionales por insumo y obra |
+| **BD_Pedidos** | `3d086805-4e27-814b-9ff4-e694d56a58bb` | `sale.order` | Órdenes de fabricación confirmadas y estado de auditoría |
+| **BD_Pedidos_Lineas** | `3d086805-4e27-811c-b163-cd5f972b0855` | `sale.order.line` | Líneas de mobiliario despiezado a fabricar |
+| **BD_Proyectos** | `31e86805-4e27-80e0-8be5-f3d30532e900` | `project.project` | Cuentas analíticas de obras y tiendas |
+| **BD_Clientes** | `31e86805-4e27-8060-a52b-c2f81d58f466` | `res.partner` | Directorio comercial canónico de clientes |
+| **BD_Auditoria_Accesos_Logs** | `3ec86805-4e27-8111-8cc9-fcfb594f3b1e` | `ir.logging` | Pista forense inmutable, sesiones y cierres BOM |
 
 ---
 

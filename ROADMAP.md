@@ -18,6 +18,7 @@
 | **Fase 8** | ✅ Completada | Consolidación Industrial: Visor Kardex & Cursor (8A), Almacenamiento R2 (8B), Costo Reposición Dual (8C), Alertas Telegram (8D) — Desplegada en vivo en Cloudflare Pages (`https://sanesca-inventario.pages.dev/`) |
 | **Fase 9A** | ✅ Completada | Terminal de Despacho Físico a Taller: Salidas a Producción, Cruce de Tienda, Desglose BOM y Asiento Kardex — Desplegada en vivo (`https://sanesca-inventario.pages.dev/`) |
 | **Fase 9B-9D** | ✅ Completada | Auditoría Ex-Post de Mermas BOM (9B), Alertas Reactivas Supervisadas (9C), Resiliencia R2 Backoff y Factura SENIAT (9D) — Desplegada y Certificada en vivo (`https://sanesca-inventario.pages.dev/`) |
+| **Fase 9E** | ✅ Completada | Cierre de Ciclo BOM: Costos Unitarios USD (441 insumos), Transaccionalidad ERP (`BD_Pedidos`), Tolerancias Editables, Reintegro de Retazos y Blindaje de Despacho — Desplegada y Certificada en vivo (`https://sanesca-inventario.pages.dev/`) |
 | **Fase 10** | ✅ Completada | Identidad WebApp con HMAC-SHA256, RBAC en Notion, 2FA Telegram, Anti-Fuerza Bruta y Auditoría Forense Dual — Desplegada en vivo en Cloudflare Pages (`https://sanesca-inventario.pages.dev/`) |
 
 ---
@@ -195,6 +196,28 @@
 
 ---
 
+## Fase 9E — Cierre de Ciclo BOM, Costos USD y Transaccionalidad ERP (✅ Desplegada y Certificada)
+
+- **9E.1. Enriquecimiento de Costos Base USD (`BD_Catalogo_Insumos`):**
+  - Script `scripts/enrich-insumos-costs.cjs` para conciliación cruzada de 3 fuentes (compras en `BD_Lineas_Abastecimiento`, catálogo físico `inventory.json` y precios de mercado).
+  - 441/441 insumos enriquecidos con `Costo_Unitario_Base_USD` en Notion. Recompilación automática de `bom_index_optimized.json` erradicando costos $0.00 en la auditoría.
+- **9E.2. Endpoint Serverless de Cierre Transaccional (`order-close-audit.js`):**
+  - Mutación atómica en `BD_Pedidos`: transición de orden a `Cerrado`, dictamen (`CONFORME` / `DESVIACION_ACEPTADA`), merma porcentual y varianza monetaria USD.
+  - Asiento forense inmutable en `BD_Auditoria_Accesos_Logs` con snapshot de reglas aplicadas y justificación de supervisor.
+  - Reingreso contable automático de retazos útiles ($\ge 1.0\text{ m}$) a `BD_Kardex_Movimientos` (`ENTRADA / REINTEGRO_RETAZO_UTIL`) incrementando stock físico y deduciendo costo de merma.
+- **9E.3. Matriz Dinámica de Tolerancias y Dictamen Visual:**
+  - Selector de tolerancias configurables (5% Tornillería, 8% Perfiles, 10% Maderas, 12% Pintura/Foráneos) y override de obra en Notion (`Tolerancia_Especial_Obra_Pct`).
+  - Dictamen dinámico (`🟢 CONFORME` vs `🔴 DESVIACIÓN`) con segregación de causas (varianza neta vs mermas críticas individuales).
+  - Submodal de liquidación previa con resumen financiero y exigencia de PIN de supervisor (`1234`) ante desviaciones.
+- **9E.4. Blindaje Operativo en Terminal de Despacho (`MaterialDispatchModal.tsx`):**
+  - Bloqueo disuasivo de entregas para órdenes concluidas (`estado === 'Cerrado'`) con bypass de excepción por PIN de supervisor.
+  - Alerta temprana ámbar preventiva al superar el 115% de la receta teórica con flag `[SOBRECONSUMO_BOM_115%]` en Kardex y Telegram.
+  - Validación en caliente de justificación obligatoria ($\ge 15$ caracteres) con contador dinámico para insumos no presupuestados.
+- **9E.5. Formato Carta para Impresión Formal (`PrintSheetBOMAudit.tsx`):**
+  - Hoja de liquidación `@media print` en una página Letter, desglose cuantitativo y 4 cuadrantes de firmas físicas (Ingeniería, Taller, Almacén, Auditoría).
+
+---
+
 ## Archivos del proyecto
 
 | Archivo / Carpeta | Descripción |
@@ -236,7 +259,10 @@
 | `functions/api/inventory/sync.js` | Cloudflare Pages Function: cálculo dinámico en vivo de insumos en tránsito con paginación cursor |
 | `functions/api/kardex/list.js` | Cloudflare Pages Function: consulta paginada y filtrada del histórico de Kardex |
 | `functions/api/kardex/dispatch.js` | Cloudflare Pages Function: decremento atómico de stock, asiento de salida a taller en Kardex y alerta Telegram |
+| `src/components/PrintSheetBOMAudit.tsx` | Plantilla formal imprimible Carta de auditoría BOM con 4 cuadrantes de firmas y balance de mermas |
 | `functions/api/bom/order-balance.js` | Cloudflare Pages Function: balance matemático ex-post de pedido (BOM Teórico vs Kardex Real) con segregación de especiales |
+| `functions/api/bom/order-close-audit.js` | Cloudflare Pages Function: liquidación y cierre formal en Notion ERP (`BD_Pedidos`), log forense y reintegro contable de retazos en Kardex |
+| `scripts/enrich-insumos-costs.cjs` | Script de enriquecimiento de costos en USD de insumos cruzando compras de abastecimiento y catálogo físico |
 | `src/data/bom_index_optimized.json` | Índice precompilado de despiece industrial Valery (956 muebles, 198 insumos, 10,111 renglones, 214 KB) |
 | `functions/api/orders/active.js` | Cloudflare Pages Function: consulta e hidratación concurrente de pedidos activos con clientes y proyectos |
 | `functions/api/orders/lines.js` | Cloudflare Pages Function: consulta reactiva de líneas de mobiliario (BOM) asociadas a un pedido |

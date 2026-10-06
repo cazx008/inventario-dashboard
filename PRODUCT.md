@@ -82,6 +82,15 @@ El sistema erradica la compra reactiva a ciegas y la manipulación estática del
 - Integración fiscal SENIAT: campos opcionales de Factura Legal y Número de Control en rampa u oficina, estampados en Kardex y OAB para auditoría tributaria venezolana.
 - Optimización de CDN Edge con cabecera `Cache-Control: public, s-maxage=60, stale-while-revalidate=30` y telemetría de cota `X-Sync-Overflow`.
 
+### 10. Consolidación de Cierre del Ciclo BOM, Costos Unitarios USD y Transaccionalidad ERP (Fase 9E)
+- **Valuación Completa en USD:** 441 de 441 insumos de `BD_Catalogo_Insumos` enriquecidos con `Costo_Unitario_Base_USD` mediante script de conciliación cruzada (`enrich-insumos-costs.cjs`), erradicando montos en `$0.00` tanto en Demanda Teórica como en Despacho Real.
+- **Liquidación Atómica en Notion ERP (`/api/bom/order-close-audit`):** Cierre formal de la orden en `BD_Pedidos` (estado a `Cerrado`, dictamen, merma liquidada y varianza USD), registro inmutable en `BD_Auditoria_Accesos_Logs` y asiento automático de reingreso para retazos útiles devueltos ($\ge 1.0\text{ m}$) a `BD_Kardex_Movimientos`.
+- **Matriz Dinámica de Tolerancias:** Selector de tolerancias configurables (5% Tornillería, 8% Perfiles, 10% Maderas, 12% Pintura/Foráneos) y override individual por orden de producción (`Tolerancia_Especial_Obra_Pct`).
+- **Dictamen Dinámico de Conformidad y Desviación:** Cálculo reactivo en pantalla que distingue si la desviación obedece a rebasar el porcentaje global o a tener mermas críticas individuales en insumos puntuales.
+- **Autorización Obligatoria con PIN:** Si la orden presenta desviación, la liquidación requiere confirmación del resumen financiero y digitación del PIN de supervisor (`1234`).
+- **Blindaje en Terminal de Despacho (`MaterialDispatchModal.tsx`):** Bloqueo activo para órdenes concluidas con bypass operativo por excepción de supervisor, alerta preventiva de sobreconsumo (>115%) con etiqueta en Kardex y justificación técnica obligatoria ($\ge 15$ caracteres) para insumos no presupuestados.
+- **Hoja Carta de Auditoría Formal (`PrintSheetBOMAudit.tsx`):** Plantilla de alta resolución en una página Letter con 4 cuadrantes de firmas físicas (Ingeniería, Taller, Almacén, Auditoría).
+
 ## Stack Tecnológico
 
 - **Frontend:** React 18, TypeScript, Vite, Tailwind CSS, Lucide React.
@@ -112,3 +121,4 @@ El sistema erradica la compra reactiva a ciegas y la manipulación estática del
 5. **Inmutabilidad y Partida Doble:** Cada tuerca que entra o sale de planta queda registrada con su responsable, fecha, folio OAB/Pedido, comprobante y costo de reposición en el Kardex.
 6. **Trazabilidad Industrial Tripartita (MTS / MTO Obra / MTO BOM):** Ningún material abandona el almacén central sin quedar imputado a un centro de costo general, orden de tienda o renglón de mobiliario específico.
 7. **Cero Freno a Fabricación (Auditoría Ex-Post vs Bloqueo Ex-Ante):** El taller despacha libremente a demanda del operario; las desviaciones, mermas y desperdicios se calculan analíticamente al cierre formal de la orden sin estrangular el ritmo productivo de planta.
+8. **Cierre Transaccional Hermético y Gobernanza Forense:** Una orden concluida y auditada no admite entregas rutinarias; las excepciones por garantía requieren PIN de supervisor y toda desviación queda sellada con snapshot inmutable en ERP.
