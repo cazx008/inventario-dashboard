@@ -223,8 +223,8 @@ export async function onRequest(context) {
     }
 
     // Generar Folio de Reversión
-    const vzlaNow = getVzlaTime();
-    const todayStr = vzlaNow.split('T')[0];
+    const { isoVzla } = getVzlaTime();
+    const todayStr = isoVzla.split('T')[0];
     const randomHash = Math.floor(1000 + Math.random() * 9000);
     const folioReverso = `REV-${todayStr.replace(/-/g, '')}-${randomHash}`;
 
