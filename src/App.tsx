@@ -20,6 +20,8 @@ import { OrderBOMAuditModal } from './components/OrderBOMAuditModal';
 import { StockAdjustmentModal } from './components/StockAdjustmentModal';
 import { OfflineQueueModal } from './components/OfflineQueueModal';
 import { PrintCountingSheetModal } from './components/PrintCountingSheetModal';
+import { BarcodeCollectorModal } from './components/BarcodeCollectorModal';
+import { initScannerQueue, subscribeQueue, subscribeItemProcessed } from './services/scannerQueueService';
 import { getPendingAdjustmentsCount } from './services/offlineStorageService';
 import { syncPendingAdjustments } from './services/offlineSyncService';
 import { StockAdjustmentResult } from './types/adjustment';
@@ -122,6 +124,8 @@ export default function App() {
   const [offlineQueueCount, setOfflineQueueCount] = useState(0);
   const [offlineQueueModalOpen, setOfflineQueueModalOpen] = useState(false);
   const [printSheetModalOpen, setPrintSheetModalOpen] = useState(false);
+  const [barcodeCollectorOpen, setBarcodeCollectorOpen] = useState(false);
+  const [scannerQueueCount, setScannerQueueCount] = useState(0);
 
   const showToast = useCallback((msg: string) => {
     setToastMessage(msg);
@@ -129,6 +133,65 @@ export default function App() {
       setToastMessage(curr => (curr === msg ? null : curr));
     }, 3500);
   }, []);
+
+  // Inicialización y reactividad de Cola de Escaneo en Ráfaga (Fase 9J)
+  useEffect(() => {
+    initScannerQueue();
+
+    const unsubQueue = subscribeQueue((queue) => {
+      const activeOrPending = queue.filter(q => q.status !== 'COMPLETADO');
+      setScannerQueueCount(activeOrPending.length);
+    });
+
+    const unsubProcessed = subscribeItemProcessed((result, queueItem) => {
+      if (result.newStock !== undefined && result.status === 'success') {
+        saveStockOverride(result.dashboardId || queueItem.dashboardId, result.newStock);
+        setItems(currItems => {
+          return currItems.map(item => {
+            if (item.id === (result.dashboardId || queueItem.dashboardId)) {
+              const newBaseStock = result.newStock!;
+              const def = Math.max(0, (item.stockMinimo || 0) - newBaseStock);
+              const est = newBaseStock === 0 ? 'Sin Stock' : (newBaseStock < item.stockMinimo ? 'Bajo Mínimo' : 'En Stock');
+              return {
+                ...item,
+                stockBase: newBaseStock,
+                deficit: def,
+                estadoStock: est,
+                stockProyectado: newBaseStock + (item.enTransitoOAB || 0),
+                seReconto3D: true,
+                diasDesdeReconteo: 0
+              };
+            }
+            return item;
+          });
+        });
+        showToast(`⚡ Ajuste de ${queueItem.nombre} asentado en Notion (${result.folio || 'Kardex'})`);
+      }
+    });
+
+    return () => {
+      unsubQueue();
+      unsubProcessed();
+    };
+  }, [showToast]);
+
+  // Atajo global de teclado para Modo Pistola (F2 o Alt+B)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'F2' || (e.altKey && (e.key === 'b' || e.key === 'B'))) {
+        e.preventDefault();
+        if (auth.hasPermission('Ajustes' as PermissionKey) || auth.profile?.permissions?.includes('Superadmin')) {
+          setBarcodeCollectorOpen(prev => !prev);
+        } else {
+          setDeniedTargetModule('Modo Pistola de Código de Barras');
+          setDeniedModalOpen(true);
+          auth.triggerHaptic('error');
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [auth]);
 
   // Monitoreo de Cola Offline y Sincronización Automática al Detectar Red (Fase 9G.2)
   const refreshOfflineCount = useCallback(async () => {
@@ -772,6 +835,16 @@ export default function App() {
           }
         }}
         onOpenAdjustmentModal={() => handleOpenAdjustmentModal(null)}
+        onOpenBarcodeCollectorModal={() => {
+          if (auth.hasPermission('Ajustes' as PermissionKey) || auth.profile?.permissions?.includes('Superadmin')) {
+            setBarcodeCollectorOpen(true);
+          } else {
+            setDeniedTargetModule('Modo Pistola de Código de Barras');
+            setDeniedModalOpen(true);
+            auth.triggerHaptic('error');
+          }
+        }}
+        scannerQueueCount={scannerQueueCount}
         onOpenKardexModal={() => {
           if (auth.hasPermission('Auditoria_Kardex')) {
             setKardexTargetMaterial(null);
@@ -1122,6 +1195,14 @@ export default function App() {
           bcvRate={bcvRate}
         />
       )}
+
+      {/* Barcode Collector Modal (Modo Pistola Zero-Mouse - Fase 9J) */}
+      <BarcodeCollectorModal
+        isOpen={barcodeCollectorOpen}
+        onClose={() => setBarcodeCollectorOpen(false)}
+        items={items}
+        tasaBCV={bcvRate}
+      />
 
       {/* Print Counting Sheet Modal (Planilla Tipo Carta - Fase 9G.2) */}
       {printSheetModalOpen && (

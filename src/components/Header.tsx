@@ -1,4 +1,4 @@
-import { ShoppingCart, Truck, ExternalLink, RefreshCw, ClipboardCheck, BookOpen, User, LogOut, ShieldCheck, KeyRound, ShieldAlert, Clock, ArrowUpRight, Scale, Database } from 'lucide-react';
+import { ShoppingCart, Truck, ExternalLink, RefreshCw, ClipboardCheck, BookOpen, User, LogOut, ShieldCheck, KeyRound, ShieldAlert, Clock, ArrowUpRight, Scale, Database, Barcode } from 'lucide-react';
 import { UserProfile } from '../types/auth';
 
 interface HeaderProps {
@@ -10,6 +10,8 @@ interface HeaderProps {
   onOpenDispatchModal?: () => void;
   onOpenBOMAuditModal?: () => void;
   onOpenAdjustmentModal?: () => void;
+  onOpenBarcodeCollectorModal?: () => void;
+  scannerQueueCount?: number;
   onOpenKardexModal: () => void;
   onOpenAuditModal?: () => void;
   onRefresh: () => void;
@@ -32,6 +34,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenDispatchModal,
   onOpenBOMAuditModal,
   onOpenAdjustmentModal,
+  onOpenBarcodeCollectorModal,
+  scannerQueueCount,
   onOpenKardexModal,
   onOpenAuditModal,
   onRefresh,
@@ -131,6 +135,23 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <Scale className="w-3.5 h-3.5 text-amber-400" />
               <span>Conteo / Ajuste</span>
+            </button>
+          )}
+
+          {/* Action: Modo Pistola Zero-Mouse (Fase 9J) */}
+          {onOpenBarcodeCollectorModal && (
+            <button
+              onClick={onOpenBarcodeCollectorModal}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/40 hover:border-emerald-400 transition active:scale-95 shadow-sm shadow-emerald-500/20"
+              title="Modo Pistola de Código de Barras 'Zero-Mouse' (Atajo: F2 o Alt+B)"
+            >
+              <Barcode className="w-3.5 h-3.5 text-emerald-400" />
+              <span>📟 Modo Pistola</span>
+              {scannerQueueCount !== undefined && scannerQueueCount > 0 && (
+                <span className="px-1.5 py-0.2 bg-emerald-400 text-slate-950 font-bold rounded-full text-[10px] animate-pulse">
+                  {scannerQueueCount}
+                </span>
+              )}
             </button>
           )}
 
