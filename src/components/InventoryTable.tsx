@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronRight, ChevronDown, PlusCircle, BookOpen, ArrowUpRight } from 'lucide-react';
+import { ChevronRight, ChevronDown, PlusCircle, BookOpen, ArrowUpRight, Scale } from 'lucide-react';
 import { InventoryItem, ColumnDef, SortLevel } from '../types/inventory';
 
 interface InventoryTableProps {
@@ -13,6 +13,7 @@ interface InventoryTableProps {
   onAddToDraft?: (item: InventoryItem) => void;
   onOpenKardexItem?: (item: InventoryItem) => void;
   onOpenDispatchItem?: (item: InventoryItem) => void;
+  onOpenAdjustmentItem?: (item: InventoryItem) => void;
   loading?: boolean;
   loadError?: boolean;
   onRetry?: () => void;
@@ -30,6 +31,7 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({
   onAddToDraft,
   onOpenKardexItem,
   onOpenDispatchItem,
+  onOpenAdjustmentItem,
   loading = false,
   loadError = false,
   onRetry,
@@ -85,6 +87,18 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({
                   title={`Despachar ${row.nombre} a taller`}
                 >
                   <ArrowUpRight className="w-3.5 h-3.5" />
+                </button>
+              )}
+              {onOpenAdjustmentItem && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenAdjustmentItem(row);
+                  }}
+                  className="text-amber-400 hover:text-amber-300 transition text-[11px] p-0.5 rounded hover:bg-surfaceHigh"
+                  title={`Conteo Cíclico / Ajustar existencias de ${row.nombre}`}
+                >
+                  <Scale className="w-3.5 h-3.5" />
                 </button>
               )}
               {onOpenKardexItem && (
@@ -184,11 +198,22 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({
         return row.seReconto3D ? (
           <span className="text-emerald-400 font-medium">✓ Sí</span>
         ) : (
-          <span className="text-slate-500">—</span>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenAdjustmentItem?.(row);
+            }}
+            className="text-amber-400 hover:text-amber-300 font-mono text-[11px] hover:underline"
+            title="Pendiente de conteo físico - Clic para auditar"
+          >
+            Recontar
+          </button>
         );
       case 'diasDesdeReconteo':
         return row.diasDesdeReconteo !== null && row.diasDesdeReconteo !== undefined ? (
-          <span className="font-mono text-slate-400 text-xs">{row.diasDesdeReconteo}d</span>
+          <span className={`font-mono text-xs ${row.diasDesdeReconteo > 7 ? 'text-amber-400 font-bold' : 'text-slate-400'}`}>
+            {row.diasDesdeReconteo}d
+          </span>
         ) : (
           <span className="text-slate-500">—</span>
         );

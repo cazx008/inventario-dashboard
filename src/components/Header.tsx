@@ -9,6 +9,7 @@ interface HeaderProps {
   onOpenReceptionModal: () => void;
   onOpenDispatchModal?: () => void;
   onOpenBOMAuditModal?: () => void;
+  onOpenAdjustmentModal?: () => void;
   onOpenKardexModal: () => void;
   onOpenAuditModal?: () => void;
   onRefresh: () => void;
@@ -28,6 +29,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenReceptionModal,
   onOpenDispatchModal,
   onOpenBOMAuditModal,
+  onOpenAdjustmentModal,
   onOpenKardexModal,
   onOpenAuditModal,
   onRefresh,
@@ -113,6 +115,18 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <Scale className="w-3.5 h-3.5 text-indigo-400" />
               <span>Auditoría BOM</span>
+            </button>
+          )}
+
+          {/* Action: Conteo Cíclico y Ajustes (Fase 9F) */}
+          {onOpenAdjustmentModal && (
+            <button
+              onClick={onOpenAdjustmentModal}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:border-amber-500/60 transition active:scale-95 shadow-sm"
+              title="Conteo Cíclico en Vivo y Ajustes de Inventario (Odoo 18 Quant)"
+            >
+              <Scale className="w-3.5 h-3.5 text-amber-400" />
+              <span>Conteo / Ajuste</span>
             </button>
           )}
 

@@ -91,6 +91,16 @@ El sistema erradica la compra reactiva a ciegas y la manipulación estática del
 - **Blindaje en Terminal de Despacho (`MaterialDispatchModal.tsx`):** Bloqueo activo para órdenes concluidas con bypass operativo por excepción de supervisor, alerta preventiva de sobreconsumo (>115%) con etiqueta en Kardex y justificación técnica obligatoria ($\ge 15$ caracteres) para insumos no presupuestados.
 - **Hoja Carta de Auditoría Formal (`PrintSheetBOMAudit.tsx`):** Plantilla de alta resolución en una página Letter con 4 cuadrantes de firmas físicas (Ingeniería, Taller, Almacén, Auditoría).
 
+### 11. Conteo Cíclico en Vivo, Ajustes Físico-Financieros y Kardex Odoo 18 (Fase 9F)
+- **Flujo Canónico Odoo 18 (`stock.quant` ➔ `stock.move` ➔ `account.move` ➔ `ir.logging`):**
+  - Auditoría física en planta mediante `StockAdjustmentModal.tsx` con acceso dual (cabecera global y botón contextual por fila `[ ⚖️ ]`).
+  - Distinción canónica entre conteo conforme ($\Delta = 0$) y ajuste de discrepancia ($\Delta \ne 0$). Si $\Delta = 0$, se actualiza el balance de existencias y se asienta evento `INVENTORY_COUNT_VERIFIED` en auditoría forense sin generar líneas vacías en Kardex.
+  - Asiento de doble partida contable en `BD_Kardex_Movimientos` ante discrepancias físicas con valuación bimonetaria instantánea (USD neto y Bs a tasa BCV del día).
+  - Catálogo de 5 motivos estandarizados Odoo 18 (`STOCK_ADJUSTMENT_REASONS`) y campo obligatorio de justificación técnica ($\ge 10$ caracteres).
+  - Protocolo de supervisión estricto: descalces $> 5$ unidades o impacto $> \$5.00$ USD exigen autorización de supervisor con PIN `1234`. Detección automática y bypass transparente para sesiones con rango de mando (Supervisor / Superadmin Mikel Itriago).
+  - Actualización reactiva optimista instantánea en frontend (stock, déficit, KPIs y badge de reconteo) con revalidación asíncrona SWR en segundo plano.
+  - Blindaje Zero Trust RBAC con guardián perimetral (`Auditoria_Kardex` o `Superadmin`) y pantalla de bloqueo disuasivo `AccessDeniedModal`.
+
 ## Stack Tecnológico
 
 - **Frontend:** React 18, TypeScript, Vite, Tailwind CSS, Lucide React.

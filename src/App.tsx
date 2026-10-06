@@ -17,6 +17,8 @@ import { ChangePinModal } from './components/ChangePinModal';
 import { AccessAuditModal } from './components/AccessAuditModal';
 import { MaterialDispatchModal } from './components/MaterialDispatchModal';
 import { OrderBOMAuditModal } from './components/OrderBOMAuditModal';
+import { StockAdjustmentModal } from './components/StockAdjustmentModal';
+import { StockAdjustmentResult } from './types/adjustment';
 import { Trash2 } from 'lucide-react';
 import { useTelegramAuth } from './hooks/useTelegramAuth';
 import { PermissionKey } from './types/auth';
@@ -109,6 +111,8 @@ export default function App() {
   const [dispatchPreselectedItem, setDispatchPreselectedItem] = useState<InventoryItem | null>(null);
   const [bomAuditModalOpen, setBomAuditModalOpen] = useState(false);
   const [bomAuditPreselectedOrder, setBomAuditPreselectedOrder] = useState<{ id?: string; codigo?: string; nombre?: string } | null>(null);
+  const [adjustmentModalOpen, setAdjustmentModalOpen] = useState(false);
+  const [adjustmentPreselectedItem, setAdjustmentPreselectedItem] = useState<InventoryItem | null>(null);
 
   const showToast = useCallback((msg: string) => {
     setToastMessage(msg);
@@ -273,6 +277,53 @@ export default function App() {
       });
     }, 2000);
   }, []);
+
+  // Handler para Conteo Cíclico y Ajustes de Kardex (Fase 9F - Decisión /grill-me)
+  const handleOpenAdjustmentModal = useCallback((preselected: InventoryItem | null = null) => {
+    if (!auth.hasPermission('Auditoria_Kardex') && !auth.hasPermission('Superadmin')) {
+      setDeniedTargetModule('Conteo Cíclico y Ajustes de Kardex');
+      setDeniedModalOpen(true);
+      auth.triggerHaptic('error');
+      return;
+    }
+    setAdjustmentPreselectedItem(preselected);
+    setAdjustmentModalOpen(true);
+  }, [auth]);
+
+  const handleAdjustmentSuccess = useCallback((result: StockAdjustmentResult) => {
+    showToast(result.message);
+    auth.triggerHaptic('success');
+
+    if (result.newStock !== undefined) {
+      setItems(prevItems => prevItems.map(item => {
+        const isTarget = (adjustmentPreselectedItem && item.id === adjustmentPreselectedItem.id) ||
+                         (result.kardexId && adjustmentPreselectedItem && item.nombre === adjustmentPreselectedItem.nombre);
+        if (isTarget) {
+          const newStock = result.newStock!;
+          const newDeficit = Math.max(0, item.stockMinimo - newStock);
+          let newEstado = '🟢 En Stock';
+          if (newStock === 0) newEstado = '🔴 Sin Stock';
+          else if (newStock < item.stockMinimo) newEstado = '🟠 Bajo Mínimo';
+
+          return {
+            ...item,
+            stockBase: newStock,
+            deficit: newDeficit,
+            estadoStock: result.nuevoEstadoStock || newEstado,
+            stockProyectado: newStock + (item.enTransitoOAB || 0),
+            seReconto3D: true,
+            seRecontoHoy: true,
+            diasDesdeReconteo: 0,
+            ultimaFechaReconteo: new Date().toISOString().split('T')[0],
+            necesitaReconteo: false
+          };
+        }
+        return item;
+      }));
+    }
+
+    handleRefresh();
+  }, [adjustmentPreselectedItem, auth, handleRefresh, showToast]);
 
   // View Mode changes
   const handleSetViewMode = (mode: 'compact' | 'expanded') => {
@@ -527,6 +578,7 @@ export default function App() {
             auth.triggerHaptic('error');
           }
         }}
+        onOpenAdjustmentModal={() => handleOpenAdjustmentModal(null)}
         onOpenKardexModal={() => {
           if (auth.hasPermission('Auditoria_Kardex')) {
             setKardexTargetMaterial(null);
@@ -611,6 +663,7 @@ export default function App() {
               auth.triggerHaptic('error');
             }
           }}
+          onOpenAdjustmentItem={(item) => handleOpenAdjustmentModal(item)}
           loading={loading}
           loadError={loadError}
           onRetry={handleRefresh}
@@ -825,6 +878,22 @@ export default function App() {
           isOpen={auditModalOpen}
           onClose={() => setAuditModalOpen(false)}
           token={auth.token}
+        />
+      )}
+
+      {/* Stock Adjustment Modal (Conteo Cíclico & Ajustes - Fase 9F) */}
+      {adjustmentModalOpen && (
+        <StockAdjustmentModal
+          isOpen={adjustmentModalOpen}
+          onClose={() => {
+            setAdjustmentModalOpen(false);
+            setAdjustmentPreselectedItem(null);
+          }}
+          inventoryItems={items}
+          preselectedItem={adjustmentPreselectedItem}
+          onAdjustmentSuccess={handleAdjustmentSuccess}
+          bcvRate={bcvRate}
+          currentUser={auth.profile}
         />
       )}
     </div>

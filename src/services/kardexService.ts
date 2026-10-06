@@ -3,6 +3,8 @@
  * Ruta: src/services/kardexService.ts
  */
 
+import { StockAdjustmentPayload, StockAdjustmentResult } from '../types/adjustment';
+
 export interface KardexMovement {
   id: string;
   descripcion: string;
@@ -242,3 +244,47 @@ export function computeRunningBalances(
 
   return computed;
 }
+
+function getAuthHeader(): Record<string, string> {
+  if (typeof window === 'undefined') return {};
+  const token = sessionStorage.getItem('sanesca_auth_jwt') || localStorage.getItem('sanesca_auth_jwt') || '';
+  return token ? { 'Authorization': `Bearer ${token}` } : {};
+}
+
+/**
+ * Asienta un conteo físico / ajuste de inventario en vivo en el servidor (Fase 9F)
+ */
+export async function submitStockAdjustment(payload: StockAdjustmentPayload): Promise<StockAdjustmentResult> {
+  const idempotencyKey = payload.idempotencyKey || `IDEMP-ADJ-${payload.dashboardId}-${Date.now()}`;
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'X-Idempotency-Key': idempotencyKey,
+    ...getAuthHeader()
+  };
+
+  const response = await fetch('/api/kardex/adjust', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      ...payload,
+      idempotencyKey
+    })
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw {
+      status: 'error',
+      statusCode: response.status,
+      message: data.error || 'Error procesando ajuste de inventario en el servidor.',
+      requiresSupervisorPin: Boolean(data.requiresSupervisorPin),
+      delta: data.delta,
+      impactoUSD: data.impactoUSD
+    };
+  }
+
+  return data as StockAdjustmentResult;
+}
+

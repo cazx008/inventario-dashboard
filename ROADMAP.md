@@ -19,6 +19,7 @@
 | **Fase 9A** | ✅ Completada | Terminal de Despacho Físico a Taller: Salidas a Producción, Cruce de Tienda, Desglose BOM y Asiento Kardex — Desplegada en vivo (`https://sanesca-inventario.pages.dev/`) |
 | **Fase 9B-9D** | ✅ Completada | Auditoría Ex-Post de Mermas BOM (9B), Alertas Reactivas Supervisadas (9C), Resiliencia R2 Backoff y Factura SENIAT (9D) — Desplegada y Certificada en vivo (`https://sanesca-inventario.pages.dev/`) |
 | **Fase 9E** | ✅ Completada | Cierre de Ciclo BOM: Costos Unitarios USD (441 insumos), Transaccionalidad ERP (`BD_Pedidos`), Tolerancias Editables, Reintegro de Retazos y Blindaje de Despacho — Desplegada y Certificada en vivo (`https://sanesca-inventario.pages.dev/`) |
+| **Fase 9F** | ✅ Completada | Conteo Cíclico en Vivo, Ajustes Físico-Financieros y Libro Mayor Kardex (Odoo 18 Quant) — Desplegada y Certificada en vivo (`https://sanesca-inventario.pages.dev/`) |
 | **Fase 10** | ✅ Completada | Identidad WebApp con HMAC-SHA256, RBAC en Notion, 2FA Telegram, Anti-Fuerza Bruta y Auditoría Forense Dual — Desplegada en vivo en Cloudflare Pages (`https://sanesca-inventario.pages.dev/`) |
 
 ---
@@ -218,6 +219,24 @@
 
 ---
 
+## Fase 9F — Conteo Cíclico en Vivo, Ajustes Físico-Financieros y Kardex Odoo 18 (✅ Desplegada y Certificada)
+
+- **9F.1. Backend Serverless Transaccional (`functions/api/kardex/adjust.js`):**
+  - Modelo canónico Odoo 18: `stock.quant` ➔ `stock.move` ➔ `account.move` ➔ `ir.logging`.
+  - Mutación atómica en `BD_Control_Stock_Existencias`: recalculo de `Stock (base)`, `Déficit`, `Estado` y sellado de fecha de reconteo (`Se Recontó Hoy`, `Fecha Último Reconteo`).
+  - Asiento de doble partida condicional en `BD_Kardex_Movimientos`: si $\Delta \ne 0$, genera asiento `AJUSTE_INVENTARIO` (`🟢 Entrada por Ajuste` o `🔴 Salida por Merma/Ajuste`) con valuación bimonetaria ($ USD y Bs BCV a tasa oficial).
+  - Si $\Delta = 0$ (conteo conforme), **no genera asiento en Kardex** para evitar polución de datos; asienta evento inmutable `INVENTORY_COUNT_VERIFIED` en `BD_Auditoria_Accesos_Logs`.
+  - Pista forense en Redis y Notion con metadata completa: operador, insumo, discrepancia física, impacto financiero y justificación técnica.
+- **9F.2. Modal Táctil Industrial y Reactividad Optimista (`StockAdjustmentModal.tsx`):**
+  - Acceso global desde cabecera (`[ ⚖️ Conteo / Ajuste ]`) y contextual desde cada fila de la tabla (`[ ⚖️ ]` y celda `Reconteo 3D`).
+  - Buscador combobox reactivo con autocompletado y listado de existencias en tiempo real.
+  - Formulario con 5 motivos estandarizados Odoo 18 (`STOCK_ADJUSTMENT_REASONS`) y campo obligatorio de justificación técnica ($\ge 10$ caracteres).
+  - Protocolo de supervisión estricto: descalces $> 5$ unidades o impacto $> \$5.00$ USD exigen PIN de supervisor (`1234`). Detección automática y bypass transparente para sesiones activas de rango de mando (Supervisor / Superadmin Mikel Itriago).
+  - Mutación reactiva optimista instantánea: actualiza el stock, déficit, KPIs y badge de reconteo en pantalla en milisegundos sin esperar la respuesta remota de Notion.
+  - Blindaje Zero Trust RBAC: guardián estricto para perfiles sin permiso `Auditoria_Kardex` o `Superadmin` con despliegue de `AccessDeniedModal`.
+
+---
+
 ## Archivos del proyecto
 
 | Archivo / Carpeta | Descripción |
@@ -239,11 +258,12 @@
 | `src/components/PinLoginModal.tsx` | Modal de acceso para terminales de PC con combobox autocompletado en tiempo real, keypad táctil y flujo 2FA |
 | `src/components/AccessDeniedModal.tsx` | Pantalla de bloqueo Zero Trust con botón de contacto interactivo a Sistemas (Mikel) |
 | `src/components/AccessAuditModal.tsx` | Visor denso de auditoría de accesos y telemetría para Superadmin con KPIs y exportación |
+| `src/components/StockAdjustmentModal.tsx` | Modal táctil de Conteo Cíclico y Ajustes de Kardex (Fase 9F) con calculadora bimonetaria y motivos Odoo 18 |
+| `src/types/adjustment.ts` | Tipos TypeScript de ajustes de stock, contratos de payload y motivos estandarizados Odoo 18 |
 | `src/hooks/useTelegramAuth.ts` | Hook de autenticación híbrida: Telegram WebApp HMAC + PIN sesión PC |
-| `src/types/auth.ts` | Contratos TypeScript de identidad, sesión, permisos y respuestas de autenticación |
 | `src/services/inventoryService.ts` | Servicio de carga de inventario, enriquecimiento SWR en vivo y tasa BCV |
 | `src/services/oabService.ts` | Servicio cliente de emisión de OAB, transcripción gerencial y recepciones |
-| `src/services/kardexService.ts` | Servicio cliente de consulta de Kardex y retro-cálculo matemático de saldos |
+| `src/services/kardexService.ts` | Servicio cliente de consulta de Kardex, retro-cálculo y registro de ajustes de inventario |
 | `src/services/offlineReceptionStorage.ts` | Servicio de persistencia local IndexedDB para recepciones offline en rampa con drenador R2 |
 | `src/utils/imageCompressor.ts` | Utilidad Canvas para compresión pericial de fotografías en cliente (máx 1600px, JPEG 80%) |
 | `functions/api/auth/telegram-verify.js` | Cloudflare Pages Function: validación criptográfica HMAC-SHA256 de initData y RBAC Notion |
@@ -259,6 +279,7 @@
 | `functions/api/inventory/sync.js` | Cloudflare Pages Function: cálculo dinámico en vivo de insumos en tránsito con paginación cursor |
 | `functions/api/kardex/list.js` | Cloudflare Pages Function: consulta paginada y filtrada del histórico de Kardex |
 | `functions/api/kardex/dispatch.js` | Cloudflare Pages Function: decremento atómico de stock, asiento de salida a taller en Kardex y alerta Telegram |
+| `functions/api/kardex/adjust.js` | Cloudflare Pages Function: ajuste atómico Odoo 18 en existencias, doble partida en Kardex y pista forense |
 | `src/components/PrintSheetBOMAudit.tsx` | Plantilla formal imprimible Carta de auditoría BOM con 4 cuadrantes de firmas y balance de mermas |
 | `functions/api/bom/order-balance.js` | Cloudflare Pages Function: balance matemático ex-post de pedido (BOM Teórico vs Kardex Real) con segregación de especiales |
 | `functions/api/bom/order-close-audit.js` | Cloudflare Pages Function: liquidación y cierre formal en Notion ERP (`BD_Pedidos`), log forense y reintegro contable de retazos en Kardex |
