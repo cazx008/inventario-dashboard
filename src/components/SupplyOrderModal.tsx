@@ -25,7 +25,7 @@ export const SupplyOrderModal: React.FC<SupplyOrderModalProps> = ({
 }) => {
   const [folio, setFolio] = useState('');
   const [fechaEmision, setFechaEmision] = useState('');
-  const [tasa, setTasa] = useState(bcvRate || 36.50);
+  const [tasa, setTasa] = useState(Number((bcvRate || 36.50).toFixed(2)));
   const [notas, setNotas] = useState('');
   const [lines, setLines] = useState<OABLineItem[]>([]);
   const [orderModalOpen, setOrderModalOpen] = useState(false);
@@ -59,7 +59,7 @@ export const SupplyOrderModal: React.FC<SupplyOrderModalProps> = ({
 
     setFolio(generateFolioOAB());
     setFechaEmision(new Date().toISOString().split('T')[0]);
-    setTasa(bcvRate || 36.50);
+    setTasa(Number((bcvRate || 36.50).toFixed(2)));
     setSubmittedHeader(null);
     setStatusMessage(null);
 
@@ -69,7 +69,8 @@ export const SupplyOrderModal: React.FC<SupplyOrderModalProps> = ({
       : inventoryItems.filter(i => (i.deficit || 0) > 0);
 
     const generatedLines: OABLineItem[] = sourceItems.map(item => {
-      const def = item.deficit > 0 ? item.deficit : Math.max(1, (item.stockMinimo || 10) - (item.stockBase || 0));
+      const rawDef = Math.max(0, (item.stockMinimo || 0) - (item.stockBase || 0));
+      const def = (item.deficit && item.deficit > 0) ? item.deficit : (rawDef > 0 ? rawDef : 1);
       const pack = computePackagingSuggestion(item.nombre, item.categoriaMaterial, def);
       const cost = item.costoUnitarioUSD || 1.0;
       return {
@@ -136,7 +137,8 @@ export const SupplyOrderModal: React.FC<SupplyOrderModalProps> = ({
 
   const handleAddManualItem = (item: InventoryItem) => {
     if (lines.some(l => l.dashboardId === item.id || l.nombre === item.nombre)) return;
-    const def = item.deficit > 0 ? item.deficit : 10;
+    const rawDef = Math.max(0, (item.stockMinimo || 0) - (item.stockBase || 0));
+    const def = (item.deficit && item.deficit > 0) ? item.deficit : (rawDef > 0 ? rawDef : 1);
     const pack = computePackagingSuggestion(item.nombre, item.categoriaMaterial, def);
     const cost = item.costoUnitarioUSD || 1.0;
     setLines(prev => [
@@ -230,7 +232,7 @@ export const SupplyOrderModal: React.FC<SupplyOrderModalProps> = ({
   return (
     <>
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-3 sm:p-4 no-print">
-        <div className="bg-surface border border-borderSubtle rounded-xl w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden shadow-2xl">
+        <div className="bg-surface border border-borderSubtle rounded-xl w-full max-w-5xl max-h-[92dvh] sm:max-h-[90vh] flex flex-col overflow-hidden shadow-2xl">
           
           {/* Modal Header */}
           <div className="px-5 py-3 bg-surfaceHigh border-b border-borderSubtle flex items-center justify-between">
@@ -252,7 +254,7 @@ export const SupplyOrderModal: React.FC<SupplyOrderModalProps> = ({
             </div>
             <button
               onClick={onClose}
-              className="text-slate-400 hover:text-white p-1 rounded-md hover:bg-surfaceHighest transition"
+              className="text-slate-400 hover:text-white p-1 rounded-md hover:bg-surfaceHighest transition min-w-[36px] min-h-[36px] flex items-center justify-center"
             >
               <X className="w-4 h-4" />
             </button>
@@ -309,7 +311,7 @@ export const SupplyOrderModal: React.FC<SupplyOrderModalProps> = ({
           </div>
 
           {/* Lines Table */}
-          <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-2">
+          <div className="flex-1 overflow-y-auto custom-scrollbar p-3 sm:p-4 space-y-2">
             <div className="flex items-center justify-between pb-1">
               <span className="text-xs uppercase font-semibold text-slate-400 tracking-wider">
                 Ítems Seleccionados ({lines.length})
@@ -417,15 +419,15 @@ export const SupplyOrderModal: React.FC<SupplyOrderModalProps> = ({
                 No hay ítems con déficit ni seleccionados en el borrador.
               </div>
             ) : (
-              <div className="border border-borderSubtle rounded-lg overflow-hidden">
-                <table className="w-full text-xs text-left">
-                  <thead className="bg-surfaceHigh text-slate-400 uppercase text-[10px] border-b border-borderSubtle">
+              <div className="border border-borderSubtle rounded-lg overflow-x-auto custom-scrollbar">
+                <table className="w-full text-xs text-left min-w-[760px]">
+                  <thead className="bg-surfaceHigh text-slate-400 uppercase text-[10px] border-b border-borderSubtle sticky top-0 z-10 shadow-sm">
                     <tr>
                       <th className="p-2 w-8 text-center">#</th>
                       <th className="p-2">Insumo</th>
                       <th className="p-2 w-16 text-right">Stock</th>
                       <th className="p-2 w-16 text-right">Déficit</th>
-                      <th className="p-2 w-24 text-right">Cant. Sol.</th>
+                      <th className="p-2 w-28 text-right">Cant. Sol.</th>
                       <th className="p-2 w-20 text-right">P. Unit ($)</th>
                       <th className="p-2 w-20 text-right">Subtotal</th>
                       <th className="p-2 w-28">Prioridad</th>
@@ -456,12 +458,21 @@ export const SupplyOrderModal: React.FC<SupplyOrderModalProps> = ({
                         </td>
                         <td className="p-2 text-right">
                           <div className="flex flex-col items-end gap-1">
+                            {line.deficit <= 0 && (
+                              <span className="text-[8px] font-mono text-amber-400 bg-amber-500/10 px-1 py-0.5 rounded border border-amber-500/30 font-semibold whitespace-nowrap">
+                                ⚠️ Definir cant.
+                              </span>
+                            )}
                             <input
                               type="number"
                               min="1"
                               value={line.cantidadSolicitada}
                               onChange={(e) => handleQuantityChange(idx, Number(e.target.value))}
-                              className="w-24 px-2 py-0.5 text-right font-mono font-bold bg-page border border-borderSubtle rounded text-brand-400 focus:border-brand-400"
+                              className={`w-24 px-2 py-1 text-right font-mono font-bold bg-page border rounded text-brand-400 focus:border-brand-400 focus:outline-none ${
+                                line.deficit <= 0
+                                  ? 'border-amber-500/60 ring-1 ring-amber-500/30'
+                                  : 'border-borderSubtle'
+                              }`}
                             />
                             {line.cantidadComercialSugerida && line.cantidadSugerida && line.cantidadComercialSugerida !== line.cantidadSugerida && (
                               <div className="flex items-center gap-1 text-[9px] font-mono">
@@ -500,7 +511,7 @@ export const SupplyOrderModal: React.FC<SupplyOrderModalProps> = ({
                             min="0"
                             value={line.costoUnitarioUSD}
                             onChange={(e) => handleCostChange(idx, Number(e.target.value))}
-                            className="w-16 px-1.5 py-0.5 text-right font-mono bg-page border border-borderSubtle rounded text-slate-200"
+                            className="w-16 px-1.5 py-1 text-right font-mono bg-page border border-borderSubtle rounded text-slate-200"
                           />
                         </td>
                         <td className="p-2 text-right font-mono font-bold text-slate-100">
@@ -510,7 +521,7 @@ export const SupplyOrderModal: React.FC<SupplyOrderModalProps> = ({
                           <select
                             value={line.prioridad}
                             onChange={(e) => handlePriorityChange(idx, e.target.value)}
-                            className="text-[11px] bg-page border border-borderSubtle rounded px-1.5 py-0.5 text-slate-300"
+                            className="text-[11px] bg-page border border-borderSubtle rounded px-1.5 py-1 text-slate-300"
                           >
                             <option value="Urgente">🔴 Urgente</option>
                             <option value="Alta">🟠 Alta</option>
@@ -549,7 +560,7 @@ export const SupplyOrderModal: React.FC<SupplyOrderModalProps> = ({
                         <td className="p-2 text-center">
                           <button
                             onClick={() => handleRemoveLine(idx)}
-                            className="text-red-400 hover:text-red-300 transition"
+                            className="text-red-400 hover:text-red-300 transition p-1"
                             title="Eliminar línea"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -564,16 +575,16 @@ export const SupplyOrderModal: React.FC<SupplyOrderModalProps> = ({
           </div>
 
           {/* Modal Footer with Totals & Actions */}
-          <div className="p-4 bg-surfaceHigh border-t border-borderSubtle flex flex-wrap items-center justify-between gap-4">
+          <div className="p-3 sm:p-4 bg-surfaceHigh border-t border-borderSubtle flex flex-wrap items-center justify-between gap-3 sm:gap-4">
             {/* Totals */}
-            <div className="flex items-center gap-6">
+            <div className="flex items-center gap-4 sm:gap-6">
               <div>
                 <span className="text-[10px] uppercase text-slate-400 block font-semibold">Total Estimado ($ USD)</span>
-                <span className="text-xl font-bold font-mono text-emerald-400">${totalUSD.toFixed(2)}</span>
+                <span className="text-lg sm:text-xl font-bold font-mono text-emerald-400">${totalUSD.toFixed(2)}</span>
               </div>
-              <div className="border-l border-borderSubtle pl-6">
+              <div className="border-l border-borderSubtle pl-4 sm:pl-6">
                 <span className="text-[10px] uppercase text-slate-400 block font-semibold">Total Estimado (Bs BCV)</span>
-                <span className="text-xl font-bold font-mono text-amber-300">Bs {totalBs.toFixed(2)}</span>
+                <span className="text-lg sm:text-xl font-bold font-mono text-amber-300">Bs {totalBs.toFixed(2)}</span>
               </div>
               {statusMessage && (
                 <div className="hidden md:flex items-center gap-1.5 text-xs text-brand-400 bg-page px-3 py-1 rounded border border-brand-500/30">
@@ -584,15 +595,17 @@ export const SupplyOrderModal: React.FC<SupplyOrderModalProps> = ({
             </div>
 
             {/* Action Buttons */}
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
+                type="button"
                 onClick={onClose}
-                className="px-3 py-1.5 text-xs text-slate-400 hover:text-white"
+                className="px-3 py-2 text-xs text-slate-400 hover:text-white min-h-[36px]"
               >
                 Cerrar
               </button>
 
               <button
+                type="button"
                 onClick={() => {
                   const headerObj: OABHeader = {
                     folio,
@@ -606,7 +619,7 @@ export const SupplyOrderModal: React.FC<SupplyOrderModalProps> = ({
                   setSubmittedHeader(headerObj);
                   setShowPrintSheet(true);
                 }}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-surfaceHighest hover:bg-slate-700 text-slate-200 border border-borderSubtle transition"
+                className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-surfaceHighest hover:bg-slate-700 text-slate-200 border border-borderSubtle transition min-h-[36px] active:scale-95"
                 title="Generar vista de impresión física para Magaly y Compras"
               >
                 <Printer className="w-4 h-4 text-brand-400" />
@@ -614,9 +627,10 @@ export const SupplyOrderModal: React.FC<SupplyOrderModalProps> = ({
               </button>
 
               <button
+                type="button"
                 onClick={handleSaveToNotion}
                 disabled={isSubmitting || lines.length === 0}
-                className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold rounded-lg bg-brand-500 hover:bg-brand-600 text-slate-950 transition disabled:opacity-50 active:scale-95"
+                className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-brand-500 hover:bg-brand-600 text-slate-950 transition disabled:opacity-50 active:scale-95 min-h-[36px] shadow-sm shadow-brand-500/20"
               >
                 {isSubmitting ? (
                   <div className="w-3.5 h-3.5 border-2 border-slate-900 border-t-transparent rounded-full animate-spin"></div>

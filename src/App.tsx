@@ -781,7 +781,7 @@ export default function App() {
   };
 
   return (
-    <div className="bg-page text-slate-100 min-h-screen flex flex-col antialiased">
+    <div className="bg-page text-slate-100 min-h-screen flex flex-col antialiased no-print">
       {/* Header */}
       <Header
         lastSyncDisplay={lastSyncDisplay}

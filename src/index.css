@@ -105,18 +105,47 @@ code, .font-mono {
 /* Print styling */
 @page {
   size: letter portrait;
-  margin: 12mm;
+  margin: 8mm;
 }
 
 @media print {
-  body {
-    background: white !important;
-    color: black !important;
-    font-size: 11px;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+  /* Ocultar el 100% de los elementos dependientes del body excepto el portal de impresión */
+  body > *:not(#print-portal) {
+    display: none !important;
   }
+
+  #root {
+    display: none !important;
+  }
+
   .no-print {
     display: none !important;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-size: 11px;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  #print-portal {
+    display: block !important;
+    position: static !important;
+    width: 215.9mm !important;
+    max-width: 215.9mm !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    overflow: visible !important;
+  }
+
+  .avoid-break {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 }
