@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, SlidersHorizontal, ArrowUpDown, Layers, RotateCcw, Check, ChevronDown, ChevronUp, Eye } from 'lucide-react';
+import { Search, SlidersHorizontal, ArrowUpDown, Layers, RotateCcw, Check, ChevronDown, ChevronUp, Eye, Printer } from 'lucide-react';
 import { ColumnDef, SortLevel } from '../types/inventory';
 
 interface FilterBarProps {
@@ -29,6 +29,7 @@ interface FilterBarProps {
   onlyPendingRecount: boolean;
   onToggleOnlyPendingRecount: () => void;
   pendingRecountCount: number;
+  onOpenPrintModal?: () => void;
 }
 
 export const FilterBar: React.FC<FilterBarProps> = ({
@@ -54,7 +55,8 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   onToggleOnlyDeficit,
   onlyPendingRecount,
   onToggleOnlyPendingRecount,
-  pendingRecountCount
+  pendingRecountCount,
+  onOpenPrintModal
 }) => {
   const [viewOpen, setViewOpen] = useState(false);
   const [colsOpen, setColsOpen] = useState(false);
@@ -144,6 +146,18 @@ export const FilterBar: React.FC<FilterBarProps> = ({
           <span>🕒 Pendientes ({pendingRecountCount})</span>
           {onlyPendingRecount && <Check className="w-3 h-3 text-amber-400" />}
         </button>
+
+        {/* Planilla Imprimible de Conteo (Fase 9G.2) */}
+        {onOpenPrintModal && (
+          <button
+            onClick={onOpenPrintModal}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border bg-page border-borderSubtle text-slate-300 hover:text-white hover:border-cyan-500/50 hover:bg-cyan-500/10 transition"
+            title="Generar e imprimir planilla física de toma de inventario (Carta)"
+          >
+            <Printer className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Planilla Conteo</span>
+          </button>
+        )}
 
         {/* Mobile toolbar toggle */}
         <button

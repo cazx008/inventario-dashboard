@@ -24,6 +24,7 @@ import {
   StockAdjustmentResult
 } from '../types/adjustment';
 import { submitStockAdjustment } from '../services/kardexService';
+import { saveOfflineAdjustment } from '../services/offlineStorageService';
 
 interface StockAdjustmentModalProps {
   isOpen: boolean;
@@ -179,6 +180,43 @@ export const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
     setIsSubmitting(true);
     setErrorMessage(null);
 
+    // 1. Detección Proactiva de Estado Offline
+    const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+    if (isOffline) {
+      try {
+        await saveOfflineAdjustment({
+          dashboardItemId: selectedItem.id,
+          insumoId: selectedItem.insumoId,
+          itemNombre: selectedItem.nombre,
+          unidad: selectedItem.unidad || 'Und',
+          conteoFisicoReal: numConteo,
+          stockSistemaAlCapturar: currentStock,
+          costoReferencialUSD: parsedRefCost > 0 ? parsedRefCost : undefined,
+          motivo,
+          justificacion: justificacion.trim(),
+          supervisorPin: requiresPinInput ? supervisorPin.trim() : undefined,
+          deltaOriginal: delta,
+        });
+
+        onAdjustmentSuccess({
+          status: 'success',
+          message: `📦 Conteo de "${selectedItem.nombre}" guardado localmente (Offline). Se sincronizará automáticamente al volver la señal.`,
+          newStock: numConteo,
+          previousStock: currentStock,
+          delta,
+          nuevoEstadoStock: numConteo === 0 ? '🔴 Sin Stock' : numConteo < selectedItem.stockMinimo ? '🟠 Bajo Mínimo' : '🟢 En Stock'
+        });
+        onClose();
+        return;
+      } catch (offlineErr: any) {
+        console.error('Error guardando ajuste offline:', offlineErr);
+        setErrorMessage('Fallo al guardar en la base local del dispositivo: ' + offlineErr.message);
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
+    // 2. Envío en Línea con Resguardo Automático si la red cae durante la petición
     try {
       const payload = {
         dashboardId: selectedItem.id,
@@ -201,7 +239,41 @@ export const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
       onAdjustmentSuccess(result);
       onClose();
     } catch (err: any) {
-      console.error('Error enviando ajuste de stock:', err);
+      console.warn('Error enviando ajuste de stock:', err);
+
+      // Resguardo de contingencia si falló por corte abrupto de red
+      const isNetworkFail = !navigator.onLine || err?.message?.includes('fetch') || err?.message?.includes('NetworkError') || err?.name === 'TypeError';
+      if (isNetworkFail) {
+        try {
+          await saveOfflineAdjustment({
+            dashboardItemId: selectedItem.id,
+            insumoId: selectedItem.insumoId,
+            itemNombre: selectedItem.nombre,
+            unidad: selectedItem.unidad || 'Und',
+            conteoFisicoReal: numConteo,
+            stockSistemaAlCapturar: currentStock,
+            costoReferencialUSD: parsedRefCost > 0 ? parsedRefCost : undefined,
+            motivo,
+            justificacion: justificacion.trim(),
+            supervisorPin: requiresPinInput ? supervisorPin.trim() : undefined,
+            deltaOriginal: delta,
+          });
+
+          onAdjustmentSuccess({
+            status: 'success',
+            message: `📦 Conexión interrumpida: El conteo se resguardó en la cola local offline.`,
+            newStock: numConteo,
+            previousStock: currentStock,
+            delta,
+            nuevoEstadoStock: numConteo === 0 ? '🔴 Sin Stock' : numConteo < selectedItem.stockMinimo ? '🟠 Bajo Mínimo' : '🟢 En Stock'
+          });
+          onClose();
+          return;
+        } catch (storageErr) {
+          console.error('Error en resguardo offline de contingencia:', storageErr);
+        }
+      }
+
       setErrorMessage(err.message || 'Error registrando el ajuste en el servidor.');
     } finally {
       setIsSubmitting(false);

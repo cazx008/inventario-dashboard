@@ -1,4 +1,4 @@
-import { ShoppingCart, Truck, ExternalLink, RefreshCw, ClipboardCheck, BookOpen, User, LogOut, ShieldCheck, KeyRound, ShieldAlert, Clock, ArrowUpRight, Scale } from 'lucide-react';
+import { ShoppingCart, Truck, ExternalLink, RefreshCw, ClipboardCheck, BookOpen, User, LogOut, ShieldCheck, KeyRound, ShieldAlert, Clock, ArrowUpRight, Scale, Database } from 'lucide-react';
 import { UserProfile } from '../types/auth';
 
 interface HeaderProps {
@@ -19,6 +19,8 @@ interface HeaderProps {
   onChangePin?: () => void;
   onLogout?: () => void;
   isTelegram?: boolean;
+  offlineQueueCount?: number;
+  onOpenOfflineQueueModal?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -38,7 +40,9 @@ export const Header: React.FC<HeaderProps> = ({
   onRefreshPermissions,
   onChangePin,
   onLogout,
-  isTelegram = false
+  isTelegram = false,
+  offlineQueueCount,
+  onOpenOfflineQueueModal
 }) => {
   return (
     <header className="bg-surface/95 backdrop-blur border-b border-borderSubtle sticky top-0 z-40 no-print">
@@ -127,6 +131,18 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <Scale className="w-3.5 h-3.5 text-amber-400" />
               <span>Conteo / Ajuste</span>
+            </button>
+          )}
+
+          {/* Indicador de Cola Local Offline (Fase 9G.2) */}
+          {offlineQueueCount !== undefined && offlineQueueCount > 0 && onOpenOfflineQueueModal && (
+            <button
+              onClick={onOpenOfflineQueueModal}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/40 hover:border-cyan-400 transition animate-pulse shadow-sm shadow-cyan-500/20"
+              title="Existen conteos físicos guardados localmente pendientes de subir al ERP"
+            >
+              <Database className="w-3.5 h-3.5 text-cyan-400" />
+              <span>📡 {offlineQueueCount} Offline</span>
             </button>
           )}
 

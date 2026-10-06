@@ -79,7 +79,9 @@ export async function onRequest(context) {
       costoReferencialUSD = 0,
       tasaBCV = 0,
       unidad = 'Und',
-      supervisorPin = null
+      supervisorPin = null,
+      stockTeoricoAlCapturar = null,
+      isOfflineSync = false
     } = payload;
 
     const idempotencyKey = request.headers.get('x-idempotency-key') || payload.idempotencyKey;
@@ -198,24 +200,28 @@ export async function onRequest(context) {
       const dateCompact = todayStr.replace(/-/g, '');
       folioCorrelativo = `ADJ-${dateCompact}-${rand4}`;
 
-      const glosaTitle = `[AJUSTE] ${itemActualName} (${delta > 0 ? '+' : ''}${delta} ${unidad}) · ${motivo}`;
+      const stockDesfasado = stockTeoricoAlCapturar !== null && stockTeoricoAlCapturar !== undefined && Number(stockTeoricoAlCapturar) !== currentStock;
+      const tagPrefix = stockDesfasado || isOfflineSync ? '[AJUSTE OFFLINE]' : '[AJUSTE]';
+      const glosaTitle = `${tagPrefix} ${itemActualName} (${delta > 0 ? '+' : ''}${delta} ${unidad}) · ${motivo}${stockDesfasado ? ` [Saldo previo: ${stockTeoricoAlCapturar} → Actual: ${currentStock}]` : ''}`;
 
       const propositoStr = [
         `Motivo: ${motivo}`,
         `Auditor: ${authCheck.user?.name || 'Almacén'}`,
         supervisorAutorizo ? `Autorizó: ${supervisorAutorizo}` : null,
-        rateBCV > 0 ? `Tasa BCV: ${rateBCV.toFixed(2)} Bs/$` : null
+        rateBCV > 0 ? `Tasa BCV: ${rateBCV.toFixed(2)} Bs/$` : null,
+        stockDesfasado ? `Conflicto Offline Resuelto (Saldo capturado ${stockTeoricoAlCapturar} vs actual ${currentStock})` : (isOfflineSync ? 'Sincronizado diferido (Offline)' : null)
       ].filter(Boolean).join(' | ');
 
       const detalleExtStr = [
         `[FOLIO: ${folioCorrelativo}]`,
         `Motivo: ${motivo}`,
         `Justificación: ${cleanJustificacion}`,
-        `Stock Teórico: ${currentStock} → Conteo Físico: ${physicalCount}`,
+        `Stock Teórico: ${currentStock} (Capturado: ${stockTeoricoAlCapturar ?? currentStock}) → Conteo Físico: ${physicalCount}`,
         `Discrepancia: ${delta > 0 ? '+' : ''}${delta} ${unidad}`,
         `Impacto Financiero: $${impactoUSD.toFixed(2)} USD${impactoBs > 0 ? ` (Bs ${impactoBs.toLocaleString('es-VE', { minimumFractionDigits: 2 })})` : ''}`,
-        `Auditor: ${authCheck.user?.name || 'Almacén'}${supervisorAutorizo ? ` | Aprobó: ${supervisorAutorizo}` : ''}`
-      ].join(' | ');
+        `Auditor: ${authCheck.user?.name || 'Almacén'}${supervisorAutorizo ? ` | Aprobó: ${supervisorAutorizo}` : ''}`,
+        isOfflineSync ? 'Origen: Cola Local Offline' : null
+      ].filter(Boolean).join(' | ');
 
       const kardexProps = {
         'Descripción': {

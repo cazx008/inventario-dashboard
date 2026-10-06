@@ -27,6 +27,8 @@ export interface StockAdjustmentPayload {
   unidad?: string;
   supervisorPin?: string;
   idempotencyKey?: string;
+  stockTeoricoAlCapturar?: number;
+  isOfflineSync?: boolean;
 }
 
 export interface StockAdjustmentResult {

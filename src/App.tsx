@@ -18,6 +18,10 @@ import { AccessAuditModal } from './components/AccessAuditModal';
 import { MaterialDispatchModal } from './components/MaterialDispatchModal';
 import { OrderBOMAuditModal } from './components/OrderBOMAuditModal';
 import { StockAdjustmentModal } from './components/StockAdjustmentModal';
+import { OfflineQueueModal } from './components/OfflineQueueModal';
+import { PrintCountingSheetModal } from './components/PrintCountingSheetModal';
+import { getPendingAdjustmentsCount } from './services/offlineStorageService';
+import { syncPendingAdjustments } from './services/offlineSyncService';
 import { StockAdjustmentResult } from './types/adjustment';
 import { Trash2 } from 'lucide-react';
 import { useTelegramAuth } from './hooks/useTelegramAuth';
@@ -114,6 +118,9 @@ export default function App() {
   const [bomAuditPreselectedOrder, setBomAuditPreselectedOrder] = useState<{ id?: string; codigo?: string; nombre?: string } | null>(null);
   const [adjustmentModalOpen, setAdjustmentModalOpen] = useState(false);
   const [adjustmentPreselectedItem, setAdjustmentPreselectedItem] = useState<InventoryItem | null>(null);
+  const [offlineQueueCount, setOfflineQueueCount] = useState(0);
+  const [offlineQueueModalOpen, setOfflineQueueModalOpen] = useState(false);
+  const [printSheetModalOpen, setPrintSheetModalOpen] = useState(false);
 
   const showToast = useCallback((msg: string) => {
     setToastMessage(msg);
@@ -121,6 +128,48 @@ export default function App() {
       setToastMessage(curr => (curr === msg ? null : curr));
     }, 3500);
   }, []);
+
+  // Monitoreo de Cola Offline y Sincronización Automática al Detectar Red (Fase 9G.2)
+  const refreshOfflineCount = useCallback(async () => {
+    try {
+      const count = await getPendingAdjustmentsCount();
+      setOfflineQueueCount(count);
+    } catch (e) {
+      console.warn('Error leyendo conteos offline:', e);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshOfflineCount();
+
+    const handleOnline = async () => {
+      auth.triggerHaptic('success');
+      const count = await getPendingAdjustmentsCount();
+      if (count > 0) {
+        showToast('📡 Conexión restablecida: Sincronizando conteos locales con Notion ERP...');
+        try {
+          const res = await syncPendingAdjustments(bcvRate);
+          if (res.syncedCount > 0) {
+            showToast(`✅ Sincronizados ${res.syncedCount} conteos offline con éxito.`);
+            refreshOfflineCount();
+            setTimeout(() => {
+              setItems(current => {
+                revalidateInventoryLive(current).then(r => {
+                  if (r.synced) setItems(r.updatedItems);
+                });
+                return current;
+              });
+            }, 2500);
+          }
+        } catch (err) {
+          console.error('Error en auto-sync al reconectar:', err);
+        }
+      }
+    };
+
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, [bcvRate, refreshOfflineCount, showToast, auth]);
 
   // Auto-apertura por Deep-Links sincronizada con perfil y permisos
   useEffect(() => {
@@ -323,6 +372,8 @@ export default function App() {
       }));
     }
 
+    refreshOfflineCount();
+
     // Reconciliar con Notion en segundo plano tras 2.5 segundos (SWR anti-flicker Fase 9G)
     setTimeout(() => {
       setItems(current => {
@@ -332,7 +383,7 @@ export default function App() {
         return current;
       });
     }, 2500);
-  }, [adjustmentPreselectedItem, auth, showToast]);
+  }, [adjustmentPreselectedItem, auth, showToast, refreshOfflineCount]);
 
   // View Mode changes
   const handleSetViewMode = (mode: 'compact' | 'expanded') => {
@@ -618,6 +669,8 @@ export default function App() {
         onChangePin={() => setChangePinModalOpen(true)}
         onLogout={auth.logout}
         isTelegram={auth.isTelegramWebApp}
+        offlineQueueCount={offlineQueueCount}
+        onOpenOfflineQueueModal={() => setOfflineQueueModalOpen(true)}
       />
 
       {/* Main Container (1600px North Star) */}
@@ -655,6 +708,7 @@ export default function App() {
           onlyPendingRecount={onlyPendingRecount}
           onToggleOnlyPendingRecount={() => setOnlyPendingRecount(!onlyPendingRecount)}
           pendingRecountCount={pendingRecountCount}
+          onOpenPrintModal={() => setPrintSheetModalOpen(true)}
         />
 
         {/* Inventory Data Table */}
@@ -918,6 +972,42 @@ export default function App() {
           onAdjustmentSuccess={handleAdjustmentSuccess}
           bcvRate={bcvRate}
           currentUser={auth.profile}
+        />
+      )}
+
+      {/* Offline Queue Modal (Cola Local de Conteos - Fase 9G.2) */}
+      {offlineQueueModalOpen && (
+        <OfflineQueueModal
+          isOpen={offlineQueueModalOpen}
+          onClose={() => {
+            setOfflineQueueModalOpen(false);
+            refreshOfflineCount();
+          }}
+          onSyncComplete={(res) => {
+            refreshOfflineCount();
+            if (res.syncedCount > 0) {
+              showToast(`✅ Sincronizados ${res.syncedCount} conteos de almacén.`);
+              setTimeout(() => {
+                setItems(current => {
+                  revalidateInventoryLive(current).then(r => {
+                    if (r.synced) setItems(r.updatedItems);
+                  });
+                  return current;
+                });
+              }, 2500);
+            }
+          }}
+          bcvRate={bcvRate}
+        />
+      )}
+
+      {/* Print Counting Sheet Modal (Planilla Tipo Carta - Fase 9G.2) */}
+      {printSheetModalOpen && (
+        <PrintCountingSheetModal
+          isOpen={printSheetModalOpen}
+          onClose={() => setPrintSheetModalOpen(false)}
+          allItems={items}
+          filteredItems={filteredAndSortedItems}
         />
       )}
     </div>

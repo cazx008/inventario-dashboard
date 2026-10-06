@@ -103,10 +103,18 @@ code, .font-mono {
 }
 
 /* Print styling */
+@page {
+  size: letter portrait;
+  margin: 12mm;
+}
+
 @media print {
   body {
     background: white !important;
     color: black !important;
+    font-size: 11px;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
   .no-print {
     display: none !important;
