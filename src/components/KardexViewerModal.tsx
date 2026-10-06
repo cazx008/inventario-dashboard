@@ -12,12 +12,17 @@ import {
   FileText,
   Loader2,
   Calendar,
-  Layers
+  Layers,
+  RotateCcw,
+  ShieldCheck,
+  KeyRound
 } from 'lucide-react';
 import { 
   KardexMovement, 
   fetchKardexMovements, 
-  computeRunningBalances 
+  computeRunningBalances,
+  reverseKardexMovement,
+  ReverseKardexResult
 } from '../services/kardexService';
 
 interface KardexViewerModalProps {
@@ -27,6 +32,7 @@ interface KardexViewerModalProps {
   initialMaterialName?: string | null;
   initialSearchTerm?: string | null;
   currentStock?: number | null;
+  onReversalSuccess?: (result: ReverseKardexResult) => void;
 }
 
 export const KardexViewerModal: React.FC<KardexViewerModalProps> = ({
@@ -36,6 +42,7 @@ export const KardexViewerModal: React.FC<KardexViewerModalProps> = ({
   initialMaterialName = null,
   initialSearchTerm = null,
   currentStock = null,
+  onReversalSuccess
 }) => {
   const [movements, setMovements] = useState<KardexMovement[]>([]);
   const [loading, setLoading] = useState(false);
@@ -43,6 +50,14 @@ export const KardexViewerModal: React.FC<KardexViewerModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
+
+  // Estados para Reversión de Ajustes (Fase 9I)
+  const [reversalTarget, setReversalTarget] = useState<KardexMovement | null>(null);
+  const [reversalJustificacion, setReversalJustificacion] = useState('');
+  const [reversalPin, setReversalPin] = useState('');
+  const [reversing, setReversing] = useState(false);
+  const [reversalError, setReversalError] = useState<string | null>(null);
+  const [reversalSuccessMsg, setReversalSuccessMsg] = useState<string | null>(null);
 
   // Filtros locales
   const [selectedDashboardId, setSelectedDashboardId] = useState<string | null>(initialDashboardId);
@@ -122,6 +137,52 @@ export const KardexViewerModal: React.FC<KardexViewerModalProps> = ({
       m.numeroNotaEntrega.toLowerCase().includes(term)
     );
   }, [computedMovements, searchTerm]);
+
+  // Manejador de reversión de ajuste (Fase 9I)
+  const handleExecuteReversal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reversalTarget) return;
+
+    if (reversalJustificacion.trim().length < 10) {
+      setReversalError('La justificación debe tener al menos 10 caracteres.');
+      return;
+    }
+
+    if (!reversalPin.trim()) {
+      setReversalError('Debe ingresar el PIN de supervisor.');
+      return;
+    }
+
+    setReversing(true);
+    setReversalError(null);
+
+    try {
+      const res = await reverseKardexMovement({
+        kardexId: reversalTarget.id,
+        justificacion: reversalJustificacion.trim(),
+        supervisorPin: reversalPin.trim()
+      });
+
+      setReversalSuccessMsg(res.message);
+      if (onReversalSuccess) {
+        onReversalSuccess(res);
+      }
+
+      // Cerrar modal de confirmación tras 1.2s y recargar movimientos
+      setTimeout(() => {
+        setReversalTarget(null);
+        setReversalJustificacion('');
+        setReversalPin('');
+        setReversalSuccessMsg(null);
+        loadMovements(true);
+      }, 1200);
+
+    } catch (err: any) {
+      setReversalError(err.message || 'Error procesando la reversión del movimiento.');
+    } finally {
+      setReversing(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -284,11 +345,19 @@ export const KardexViewerModal: React.FC<KardexViewerModalProps> = ({
                   <th className="py-2.5 px-3">Documento Ref.</th>
                   <th className="py-2.5 px-3 text-right">Costo Unit. / Total</th>
                   <th className="py-2.5 px-3 text-center">Evidencia</th>
+                  <th className="py-2.5 px-3 text-center">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60 text-xs font-normal">
                 {filteredMovements.map((mov) => {
                   const isAjuste = mov.movimiento.toLowerCase().includes('ajuste') || mov.movimiento.toLowerCase().includes('merma');
+                  const isContraAsiento = Boolean(
+                    mov.folioOAB?.startsWith('REV-') || 
+                    mov.numeroNotaEntrega?.startsWith('REV-') || 
+                    mov.descripcion?.includes('[CONTRA-ASIENTO]')
+                  );
+                  const isEligibleForReversal = isAjuste && !isContraAsiento && mov.cantidad !== 0;
+
                   const isEntry = mov.movimiento.toLowerCase().includes('entrada') || 
                                   mov.movimiento.toLowerCase().includes('inicial') ||
                                   (isAjuste && mov.cantidad > 0);
@@ -382,6 +451,28 @@ export const KardexViewerModal: React.FC<KardexViewerModalProps> = ({
                           <span className="text-slate-600 text-[11px]">Sin adjunto</span>
                         )}
                       </td>
+
+                      {/* Acciones de Reversión (Fase 9I) */}
+                      <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                        {isEligibleForReversal ? (
+                          <button
+                            onClick={() => {
+                              setReversalTarget(mov);
+                              setReversalJustificacion('');
+                              setReversalPin('');
+                              setReversalError(null);
+                              setReversalSuccessMsg(null);
+                            }}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30 hover:bg-amber-500/20 text-[11px] font-medium transition-colors"
+                            title="Generar contra-asiento formal de corrección (Odoo 18)"
+                          >
+                            <RotateCcw className="w-3 h-3" />
+                            <span>Revertir</span>
+                          </button>
+                        ) : (
+                          <span className="text-slate-600 text-[11px] font-mono">—</span>
+                        )}
+                      </td>
                     </tr>
                   );
                 })}
@@ -458,7 +549,145 @@ export const KardexViewerModal: React.FC<KardexViewerModalProps> = ({
             </div>
           </div>
         )}
+
+        {/* SUB-MODAL DE CONFIRMACIÓN DE REVERSIÓN (FASE 9I) */}
+        {reversalTarget && (
+          <div 
+            className="fixed inset-0 z-60 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4 animate-in fade-in duration-150"
+            onClick={() => !reversing && setReversalTarget(null)}
+          >
+            <div 
+              className="relative w-full max-w-lg bg-slate-900 border border-amber-500/40 rounded-xl shadow-2xl p-6 text-slate-100 flex flex-col gap-4"
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Header del Sub-modal */}
+              <div className="flex items-start justify-between border-b border-slate-800 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400">
+                    <RotateCcw className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-white flex items-center gap-2">
+                      <span>Reversión de Ajuste</span>
+                      <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                        Odoo 18
+                      </span>
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      Contra-asiento compensatorio sobre saldo vivo
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => !reversing && setReversalTarget(null)}
+                  className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                  disabled={reversing}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Resumen del Movimiento a Revertir */}
+              <div className="p-3 rounded-lg bg-slate-950/60 border border-slate-800 text-xs space-y-1.5">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Insumo:</span>
+                  <span className="font-semibold text-slate-200">{selectedMaterialName || reversalTarget.descripcion}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Folio Original:</span>
+                  <span className="font-mono text-amber-300">{reversalTarget.numeroNotaEntrega || reversalTarget.folioOAB || reversalTarget.id}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Discrepancia asentada (Δ):</span>
+                  <span className="font-mono font-bold text-rose-400">{reversalTarget.cantidad > 0 ? `+${reversalTarget.cantidad}` : reversalTarget.cantidad} Und</span>
+                </div>
+                <div className="flex justify-between border-t border-slate-800 pt-1.5 text-emerald-400 font-semibold">
+                  <span>Compensación por Contra-Asiento:</span>
+                  <span className="font-mono">{reversalTarget.cantidad < 0 ? `+${Math.abs(reversalTarget.cantidad)}` : `-${Math.abs(reversalTarget.cantidad)}`} Und</span>
+                </div>
+              </div>
+
+              {/* Alerta de Política */}
+              <div className="p-3 rounded-lg bg-amber-950/20 border border-amber-500/20 text-[11px] text-amber-200/90 leading-relaxed">
+                <strong>Aviso de Auditoría:</strong> El asiento original no se borrará (Libro Mayor inmutable). Se generará un contra-asiento formal <code>REV-...</code> y se aplicará la compensación aditiva al stock actual en Notion.
+              </div>
+
+              {/* Formulario de Reversión */}
+              <form onSubmit={handleExecuteReversal} className="flex flex-col gap-3.5">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Justificación técnica del error de conteo <span className="text-rose-400">* (mín. 10 chars)</span>
+                  </label>
+                  <textarea
+                    value={reversalJustificacion}
+                    onChange={e => setReversalJustificacion(e.target.value)}
+                    disabled={reversing}
+                    placeholder="Ej: Error de tipeo en conteo de grano P40 vs P60 por operario en pasillo B..."
+                    rows={2}
+                    className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-xs text-white placeholder-slate-500 outline-none resize-none"
+                  />
+                  <div className="flex justify-between mt-1 text-[10px] text-slate-500">
+                    <span>Mínimo 10 caracteres explicativos</span>
+                    <span className={reversalJustificacion.trim().length >= 10 ? 'text-emerald-400' : 'text-slate-500'}>
+                      {reversalJustificacion.trim().length}/10
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center gap-1.5">
+                    <KeyRound className="w-3.5 h-3.5 text-amber-400" />
+                    <span>PIN de Autorización de Supervisor <span className="text-rose-400">*</span></span>
+                  </label>
+                  <input
+                    type="password"
+                    maxLength={6}
+                    value={reversalPin}
+                    onChange={e => setReversalPin(e.target.value)}
+                    disabled={reversing}
+                    placeholder="Ingrese PIN (default: 1234)"
+                    className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-xs text-white font-mono placeholder-slate-500 outline-none"
+                  />
+                </div>
+
+                {reversalError && (
+                  <div className="p-2.5 rounded-lg bg-rose-950/40 border border-rose-500/40 text-xs text-rose-300 flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>{reversalError}</span>
+                  </div>
+                )}
+
+                {reversalSuccessMsg && (
+                  <div className="p-2.5 rounded-lg bg-emerald-950/40 border border-emerald-500/40 text-xs text-emerald-300 flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 shrink-0" />
+                    <span>{reversalSuccessMsg}</span>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setReversalTarget(null)}
+                    disabled={reversing}
+                    className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-colors disabled:opacity-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={reversing || reversalJustificacion.trim().length < 10 || !reversalPin.trim()}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-semibold text-xs shadow-lg shadow-amber-900/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {reversing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+                    <span>Confirmar Contra-Asiento</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 };
+

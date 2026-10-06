@@ -26,6 +26,19 @@ export function saveStockOverride(dashboardId: string, newStock: number, nuevoEs
   }
 }
 
+export function removeStockOverride(dashboardId: string) {
+  try {
+    if (typeof window === 'undefined') return;
+    const raw = localStorage.getItem(STOCK_OVERRIDES_KEY);
+    if (!raw) return;
+    const overrides = JSON.parse(raw);
+    delete overrides[dashboardId];
+    localStorage.setItem(STOCK_OVERRIDES_KEY, JSON.stringify(overrides));
+  } catch (e) {
+    console.warn('Error eliminando override de stock:', e);
+  }
+}
+
 export function getStockOverrides(): Record<string, { stock: number; estadoStock?: string; timestamp: number }> {
   try {
     if (typeof window === 'undefined') return {};
@@ -85,14 +98,28 @@ export async function loadInventoryData(): Promise<InventoryDataResponse> {
     console.warn('Fallo cargando data estática local:', err);
   }
 
-  // Leer sobreescrituras locales recientes de ajustes físicos (Fase 9H - Decisión D3)
+  // Leer sobreescrituras locales recientes de ajustes físicos (Fase 9H/9I - Decisión D5)
   const overrides = typeof window !== 'undefined' ? getStockOverrides() : {};
+  let overridesModified = false;
 
-  // Enriquecer items con enTransitoOAB, stockProyectado y aplicar overrides locales recientes
+  // Enriquecer items con enTransitoOAB, stockProyectado y reconciliar/evictar overrides locales
   items = items.map(item => {
     const override = overrides[item.id];
-    const baseStock = override !== undefined ? override.stock : (item.stockBase || 0);
-    const estado = override?.estadoStock ? override.estadoStock : item.estadoStock;
+    let baseStock = item.stockBase || 0;
+    let estado = item.estadoStock;
+
+    if (override !== undefined) {
+      // Reconciliación Fase 9I: si el JSON estático ya consolidó el saldo ajustado, evictar override
+      if (item.stockBase === override.stock) {
+        delete overrides[item.id];
+        overridesModified = true;
+      } else {
+        // Discrepancia activa: prevalece el override reciente del usuario
+        baseStock = override.stock;
+        if (override.estadoStock) estado = override.estadoStock;
+      }
+    }
+
     const enTransito = item.enTransitoOAB || 0;
     const proyectado = baseStock + enTransito;
     const deficit = Math.max(0, (item.stockMinimo || 0) - baseStock);
@@ -106,6 +133,15 @@ export async function loadInventoryData(): Promise<InventoryDataResponse> {
       costoUnitarioUSD: item.costoUnitarioUSD || 0
     };
   });
+
+  // Si se desalojaron overrides reconciliados, sincronizar localStorage
+  if (overridesModified && typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(STOCK_OVERRIDES_KEY, JSON.stringify(overrides));
+    } catch (e) {
+      console.warn('Error persistiendo evicción de overrides:', e);
+    }
+  }
 
   // Si hay overrides aplicados, actualizar los conteos de estado en kpis
   if (Object.keys(overrides).length > 0 && items.length > 0) {

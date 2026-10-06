@@ -23,6 +23,7 @@ import { PrintCountingSheetModal } from './components/PrintCountingSheetModal';
 import { getPendingAdjustmentsCount } from './services/offlineStorageService';
 import { syncPendingAdjustments } from './services/offlineSyncService';
 import { StockAdjustmentResult } from './types/adjustment';
+import { ReverseKardexResult } from './services/kardexService';
 import { Trash2 } from 'lucide-react';
 import { useTelegramAuth } from './hooks/useTelegramAuth';
 import { PermissionKey } from './types/auth';
@@ -426,6 +427,84 @@ export default function App() {
       });
     }, 2500);
   }, [adjustmentPreselectedItem, auth, showToast, refreshOfflineCount]);
+
+  // Handler para Reversión de Ajustes de Kardex (Fase 9I - Contra-asiento Odoo 18)
+  const handleReversalSuccess = useCallback((result: ReverseKardexResult) => {
+    showToast(result.message);
+    auth.triggerHaptic('success');
+
+    if (result.newStock !== undefined) {
+      const targetDashboardId = result.dashboardId;
+      const targetInsumoId = result.insumoId;
+      const targetName = result.itemNombre;
+
+      let matchedDashboardId: string | null = null;
+
+      setItems(prevItems => {
+        const nextItems = prevItems.map(item => {
+          const isTarget = (targetDashboardId && item.id === targetDashboardId) ||
+                           (targetInsumoId && item.insumoId === targetInsumoId) ||
+                           (targetName && item.nombre.toLowerCase().trim() === targetName.toLowerCase().trim());
+          if (isTarget) {
+            matchedDashboardId = item.id;
+            const newStock = result.newStock;
+            const newDeficit = Math.max(0, item.stockMinimo - newStock);
+            let newEstado = '🟢 En Stock';
+            if (newStock === 0) newEstado = '🔴 Sin Stock';
+            else if (newStock < item.stockMinimo) newEstado = '🟠 Bajo Mínimo';
+
+            return {
+              ...item,
+              stockBase: newStock,
+              deficit: newDeficit,
+              estadoStock: result.nuevoEstadoStock 
+                ? (result.nuevoEstadoStock === 'En Stock' ? '🟢 En Stock' : result.nuevoEstadoStock === 'Bajo Mínimo' ? '🟠 Bajo Mínimo' : '🔴 Sin Stock') 
+                : newEstado,
+              stockProyectado: newStock + (item.enTransitoOAB || 0),
+              isOptimisticSync: true,
+              syncNote: `Reversión formal ${result.folioReverso} aplicada`
+            };
+          }
+          return item;
+        });
+
+        // Recalcular baseKpis en caliente
+        const total = nextItems.length;
+        const sinStock = nextItems.filter(i => (i.stockBase || 0) === 0).length;
+        const bajoMinimo = nextItems.filter(i => (i.stockBase || 0) > 0 && (i.stockBase || 0) < i.stockMinimo).length;
+        const enStock = nextItems.filter(i => (i.stockBase || 0) >= i.stockMinimo).length;
+
+        setBaseKpis(prev => ({
+          ...prev,
+          total,
+          estado: {
+            ...prev.estado,
+            sinStock,
+            bajoMinimo,
+            enStock,
+          }
+        }));
+
+        return nextItems;
+      });
+
+      // Persistir override en localStorage para resistir recargas F5
+      const finalIdForOverride = targetDashboardId || matchedDashboardId;
+      if (finalIdForOverride) {
+        saveStockOverride(finalIdForOverride, result.newStock, result.nuevoEstadoStock);
+      }
+    }
+
+    // Reconciliar con Notion en segundo plano tras 2.5 segundos
+    setTimeout(() => {
+      setItems(current => {
+        revalidateInventoryLive(current).then(res => {
+          if (res.synced) setItems(res.updatedItems);
+        }).catch(err => console.warn('Background SWR post-reversión:', err));
+        return current;
+      });
+    }, 2500);
+  }, [auth, showToast]);
 
   // View Mode changes
   const handleSetViewMode = (mode: 'compact' | 'expanded') => {
@@ -940,6 +1019,7 @@ export default function App() {
           initialMaterialName={kardexTargetMaterial?.nombre}
           initialSearchTerm={deepLinkFolio || undefined}
           currentStock={kardexTargetMaterial?.stock}
+          onReversalSuccess={handleReversalSuccess}
         />
       )}
 

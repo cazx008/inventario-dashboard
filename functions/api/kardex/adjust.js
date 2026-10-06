@@ -323,20 +323,37 @@ export async function onRequest(context) {
       });
     }
 
-    // 6.1 Enriquecimiento de Catálogo (BD_Catalogo_Insumos) si se suministró costo referencial
-    const targetInsumoId = insumoId || dashPage.properties?.['Insumos']?.relation?.[0]?.id;
-    if (refCost > 0 && targetInsumoId && context?.waitUntil) {
-      context.waitUntil(
-        fetch(`https://api.notion.com/v1/pages/${targetInsumoId}`, {
-          method: 'PATCH',
-          headers,
-          body: JSON.stringify({
-            properties: {
-              'Costo_Unitario_Base_USD': { number: refCost }
+    // 6.1 Enriquecimiento Condicional de Catálogo Maestro (BD_Catalogo_Insumos) (Fase 9I - Decisión D4)
+    const targetInsumoId = insumoId || dashPage.properties?.['Producto']?.relation?.[0]?.id || dashPage.properties?.['Insumos']?.relation?.[0]?.id;
+    if (refCost > 0 && targetInsumoId) {
+      const enrichCatalogPromise = (async () => {
+        try {
+          const insumoRes = await fetch(`https://api.notion.com/v1/pages/${targetInsumoId}`, { headers });
+          if (insumoRes.ok) {
+            const insumoData = await insumoRes.json();
+            const currentMasterCost = insumoData.properties?.['Costo_Unitario_Base_USD']?.number || 0;
+            if (currentMasterCost <= 0) {
+              await fetch(`https://api.notion.com/v1/pages/${targetInsumoId}`, {
+                method: 'PATCH',
+                headers,
+                body: JSON.stringify({
+                  properties: {
+                    'Costo_Unitario_Base_USD': { number: refCost }
+                  }
+                })
+              });
             }
-          })
-        }).catch(err => console.warn('Advertencia enriqueciendo costo base en Notion:', err))
-      );
+          }
+        } catch (enrichErr) {
+          console.warn('Advertencia enriqueciendo costo base en BD_Catalogo_Insumos:', enrichErr);
+        }
+      })();
+
+      if (context?.waitUntil) {
+        context.waitUntil(enrichCatalogPromise);
+      } else {
+        await enrichCatalogPromise;
+      }
     }
 
     // 7. Registro de Auditoría Forense en BD_Auditoria_Accesos_Logs

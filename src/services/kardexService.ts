@@ -288,3 +288,47 @@ export async function submitStockAdjustment(payload: StockAdjustmentPayload): Pr
   return data as StockAdjustmentResult;
 }
 
+export interface ReverseKardexPayload {
+  kardexId: string;
+  justificacion: string;
+  supervisorPin: string;
+}
+
+export interface ReverseKardexResult {
+  success: boolean;
+  message: string;
+  folioReverso: string;
+  reversedKardexId: string;
+  newKardexId: string;
+  dashboardId: string;
+  insumoId?: string;
+  itemNombre: string;
+  previousStock: number;
+  newStock: number;
+  invertedDelta: number;
+  nuevoEstadoStock: string;
+}
+
+/**
+ * Ejecuta el contra-asiento formal de reversión de un ajuste de Kardex (Fase 9I)
+ */
+export async function reverseKardexMovement(payload: ReverseKardexPayload): Promise<ReverseKardexResult> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...getAuthHeader()
+  };
+
+  const response = await fetch('/api/kardex/reverse', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload)
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(data.error || 'Error procesando la reversión del ajuste en el servidor.');
+  }
+
+  return data as ReverseKardexResult;
+}
