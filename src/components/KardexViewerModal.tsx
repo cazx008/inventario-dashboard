@@ -203,6 +203,19 @@ export const KardexViewerModal: React.FC<KardexViewerModalProps> = ({
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Chip Rápido Solo Ajustes / Mermas (Fase 9G) */}
+            <button
+              onClick={() => setSelectedTipo(selectedTipo === '🟡 Ajuste / Merma' ? 'TODOS' : '🟡 Ajuste / Merma')}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
+                selectedTipo === '🟡 Ajuste / Merma'
+                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-sm'
+                  : 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white hover:border-slate-600'
+              }`}
+              title="Filtrar exclusivamente asientos de reconteo físico y ajustes de inventario"
+            >
+              <span>🟡 Solo Ajustes</span>
+            </button>
+
             {/* Selector de Tipo de Movimiento */}
             <div className="flex items-center gap-1.5 text-xs text-slate-400">
               <Filter className="w-3.5 h-3.5" />
@@ -275,10 +288,25 @@ export const KardexViewerModal: React.FC<KardexViewerModalProps> = ({
               </thead>
               <tbody className="divide-y divide-slate-800/60 text-xs font-normal">
                 {filteredMovements.map((mov) => {
+                  const isAjuste = mov.movimiento.toLowerCase().includes('ajuste') || mov.movimiento.toLowerCase().includes('merma');
                   const isEntry = mov.movimiento.toLowerCase().includes('entrada') || 
-                                  mov.movimiento.toLowerCase().includes('inicial');
+                                  mov.movimiento.toLowerCase().includes('inicial') ||
+                                  (isAjuste && mov.cantidad > 0);
                   const isExit = mov.movimiento.toLowerCase().includes('salida') || 
-                                 mov.movimiento.toLowerCase().includes('merma');
+                                 (isAjuste && mov.cantidad < 0);
+
+                  const deltaDisplay = mov.cantidad > 0 
+                    ? `+${mov.cantidad}` 
+                    : mov.cantidad < 0 
+                    ? `${mov.cantidad}` 
+                    : '0';
+
+                  let badgeClass = 'bg-amber-500/15 text-amber-300 border-amber-500/30';
+                  if (isEntry && !isAjuste) {
+                    badgeClass = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+                  } else if (isExit && !isAjuste) {
+                    badgeClass = 'bg-rose-500/10 text-rose-400 border-rose-500/20';
+                  }
 
                   return (
                     <tr key={mov.id} className="hover:bg-slate-800/40 transition-colors">
@@ -292,13 +320,7 @@ export const KardexViewerModal: React.FC<KardexViewerModalProps> = ({
 
                       {/* Tipo */}
                       <td className="py-2.5 px-3 whitespace-nowrap">
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium border ${
-                          isEntry 
-                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
-                            : isExit 
-                            ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' 
-                            : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                        }`}>
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium border ${badgeClass}`}>
                           {isEntry ? <ArrowDownRight className="w-3 h-3" /> : isExit ? <ArrowUpRight className="w-3 h-3" /> : null}
                           {mov.movimiento}
                         </span>
@@ -313,7 +335,7 @@ export const KardexViewerModal: React.FC<KardexViewerModalProps> = ({
                       <td className={`py-2.5 px-3 text-right font-mono font-bold whitespace-nowrap ${
                         isEntry ? 'text-emerald-400' : isExit ? 'text-rose-400' : 'text-slate-200'
                       }`}>
-                        {isEntry ? `+${mov.cantidad}` : isExit ? `-${mov.cantidad}` : mov.cantidad}
+                        {deltaDisplay}
                       </td>
 
                       {/* Saldo Resultante (si aplica) */}

@@ -22,6 +22,7 @@ export interface StockAdjustmentPayload {
   motivo: StockAdjustmentReason | string;
   justificacion: string;
   costoUnitarioUSD?: number;
+  costoReferencialUSD?: number;
   tasaBCV?: number;
   unidad?: string;
   supervisorPin?: string;

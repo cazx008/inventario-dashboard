@@ -76,6 +76,7 @@ export async function onRequest(context) {
       motivo,
       justificacion = '',
       costoUnitarioUSD = 0,
+      costoReferencialUSD = 0,
       tasaBCV = 0,
       unidad = 'Und',
       supervisorPin = null
@@ -146,7 +147,9 @@ export async function onRequest(context) {
 
     const physicalCount = Number(conteoFisico);
     const delta = Math.round((physicalCount - currentStock) * 100) / 100;
-    const unitCost = Number(costoUnitarioUSD) || 0;
+    const refCost = Number(costoReferencialUSD) || 0;
+    const baseUnitCost = Number(costoUnitarioUSD) || 0;
+    const unitCost = refCost > 0 ? refCost : baseUnitCost;
     const rateBCV = Number(tasaBCV) || 0;
     const impactoUSD = Math.round(Math.abs(delta) * unitCost * 100) / 100;
     const impactoBs = rateBCV > 0 ? Math.round(impactoUSD * rateBCV * 100) / 100 : 0;
@@ -302,6 +305,22 @@ export async function onRequest(context) {
 
     if (!patchDashRes.ok) {
       console.error('Alerta crítica: Falló PATCH de stock en Dashboard:', await patchDashRes.text());
+    }
+
+    // 6.1 Enriquecimiento de Catálogo (BD_Catalogo_Insumos) si se suministró costo referencial
+    const targetInsumoId = insumoId || dashPage.properties?.['Insumos']?.relation?.[0]?.id;
+    if (refCost > 0 && targetInsumoId && context?.waitUntil) {
+      context.waitUntil(
+        fetch(`https://api.notion.com/v1/pages/${targetInsumoId}`, {
+          method: 'PATCH',
+          headers,
+          body: JSON.stringify({
+            properties: {
+              'Costo_Unitario_Base_USD': { number: refCost }
+            }
+          })
+        }).catch(err => console.warn('Advertencia enriqueciendo costo base en Notion:', err))
+      );
     }
 
     // 7. Registro de Auditoría Forense en BD_Auditoria_Accesos_Logs

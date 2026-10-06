@@ -89,6 +89,7 @@ export default function App() {
     prioridad: []
   });
   const [onlyDeficit, setOnlyDeficit] = useState(false);
+  const [onlyPendingRecount, setOnlyPendingRecount] = useState(false);
 
   // Auth & RBAC State
   const auth = useTelegramAuth();
@@ -322,8 +323,16 @@ export default function App() {
       }));
     }
 
-    handleRefresh();
-  }, [adjustmentPreselectedItem, auth, handleRefresh, showToast]);
+    // Reconciliar con Notion en segundo plano tras 2.5 segundos (SWR anti-flicker Fase 9G)
+    setTimeout(() => {
+      setItems(current => {
+        revalidateInventoryLive(current).then(res => {
+          if (res.synced) setItems(res.updatedItems);
+        }).catch(err => console.warn('Background SWR post-ajuste:', err));
+        return current;
+      });
+    }, 2500);
+  }, [adjustmentPreselectedItem, auth, showToast]);
 
   // View Mode changes
   const handleSetViewMode = (mode: 'compact' | 'expanded') => {
@@ -392,6 +401,7 @@ export default function App() {
     setQuickFilters({ estadoStock: [], prioridad: [] });
     setGroupByKey(null);
     setOnlyDeficit(false);
+    setOnlyPendingRecount(false);
     handleSetViewMode('compact');
   };
 
@@ -402,10 +412,16 @@ export default function App() {
       quickFilters.estadoStock.length > 0 ||
       quickFilters.prioridad.length > 0 ||
       onlyDeficit ||
+      onlyPendingRecount ||
       groupByKey !== null ||
       viewMode !== 'compact'
     );
-  }, [searchQuery, quickFilters, onlyDeficit, groupByKey, viewMode]);
+  }, [searchQuery, quickFilters, onlyDeficit, onlyPendingRecount, groupByKey, viewMode]);
+
+  // Contador de artículos pendientes de reconteo físico (>3 días sin auditar o nunca contados)
+  const pendingRecountCount = useMemo(() => {
+    return items.filter(i => !i.seReconto3D || i.diasDesdeReconteo == null || i.diasDesdeReconteo > 3).length;
+  }, [items]);
 
   // Filtering & Sorting Process
   const filteredAndSortedItems = useMemo(() => {
@@ -433,6 +449,11 @@ export default function App() {
     // 3. Only deficit
     if (onlyDeficit) {
       result = result.filter(i => (i.deficit || 0) > 0);
+    }
+
+    // 3.5 Only pending recount (>3D)
+    if (onlyPendingRecount) {
+      result = result.filter(i => !i.seReconto3D || i.diasDesdeReconteo == null || i.diasDesdeReconteo > 3);
     }
 
     // 4. Sorting
@@ -470,7 +491,7 @@ export default function App() {
     }
 
     return result;
-  }, [items, searchQuery, quickFilters, onlyDeficit, sortLevels, selectOrders]);
+  }, [items, searchQuery, quickFilters, onlyDeficit, onlyPendingRecount, sortLevels, selectOrders]);
 
   // Dynamic KPIs from filtered items
   const activeKpis = useMemo(() => {
@@ -631,6 +652,9 @@ export default function App() {
           totalCount={items.length}
           onlyDeficit={onlyDeficit}
           onToggleOnlyDeficit={() => setOnlyDeficit(!onlyDeficit)}
+          onlyPendingRecount={onlyPendingRecount}
+          onToggleOnlyPendingRecount={() => setOnlyPendingRecount(!onlyPendingRecount)}
+          pendingRecountCount={pendingRecountCount}
         />
 
         {/* Inventory Data Table */}

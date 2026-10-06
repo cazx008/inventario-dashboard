@@ -26,6 +26,9 @@ interface FilterBarProps {
   totalCount: number;
   onlyDeficit: boolean;
   onToggleOnlyDeficit: () => void;
+  onlyPendingRecount: boolean;
+  onToggleOnlyPendingRecount: () => void;
+  pendingRecountCount: number;
 }
 
 export const FilterBar: React.FC<FilterBarProps> = ({
@@ -48,7 +51,10 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   filteredCount,
   totalCount,
   onlyDeficit,
-  onToggleOnlyDeficit
+  onToggleOnlyDeficit,
+  onlyPendingRecount,
+  onToggleOnlyPendingRecount,
+  pendingRecountCount
 }) => {
   const [viewOpen, setViewOpen] = useState(false);
   const [colsOpen, setColsOpen] = useState(false);
@@ -123,6 +129,20 @@ export const FilterBar: React.FC<FilterBarProps> = ({
         >
           <span>⚠️ Solo Déficit</span>
           {onlyDeficit && <Check className="w-3 h-3 text-amber-400" />}
+        </button>
+
+        {/* Pendientes de Reconteo (>3D) Switch (Fase 9G) */}
+        <button
+          onClick={onToggleOnlyPendingRecount}
+          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border transition ${
+            onlyPendingRecount
+              ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-sm'
+              : 'bg-page border-borderSubtle text-slate-400 hover:text-slate-200 hover:border-slate-500'
+          }`}
+          title="Filtrar artículos sin auditar en más de 3 días (>3D) o nunca contados"
+        >
+          <span>🕒 Pendientes ({pendingRecountCount})</span>
+          {onlyPendingRecount && <Check className="w-3 h-3 text-amber-400" />}
         </button>
 
         {/* Mobile toolbar toggle */}

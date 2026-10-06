@@ -13,6 +13,8 @@ import {
   Loader2,
   ArrowRight,
   ClipboardCheck,
+  Eye,
+  EyeOff,
   Info
 } from 'lucide-react';
 import { InventoryItem } from '../types/inventory';
@@ -51,17 +53,40 @@ export const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
   const [materialSearch, setMaterialSearch] = useState('');
   const [isSearchingMaterial, setIsSearchingMaterial] = useState(false);
 
-  // 2. Conteo Físico Real
+  // 2. Modo Conteo Ciego (Blind Audit Mode)
+  const [blindMode, setBlindMode] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('sanesca_count_blind_mode') === 'true';
+    }
+    return false;
+  });
+  const [blindRevealed, setBlindRevealed] = useState<boolean>(false);
+
+  const toggleBlindMode = () => {
+    setBlindMode(prev => {
+      const next = !prev;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('sanesca_count_blind_mode', next ? 'true' : 'false');
+      }
+      return next;
+    });
+    setBlindRevealed(false);
+  };
+
+  // 3. Conteo Físico Real
   const [conteoFisico, setConteoFisico] = useState<number | string>('');
 
-  // 3. Motivo y Justificación
+  // 4. Costo Referencial Estimado (para insumos con costo catalogado <= 0)
+  const [costoReferencial, setCostoReferencial] = useState<number | string>('');
+
+  // 5. Motivo y Justificación
   const [motivo, setMotivo] = useState<StockAdjustmentReason>('Diferencia de Conteo Cíclico');
   const [justificacion, setJustificacion] = useState('');
 
-  // 4. Seguridad y PIN de Supervisor
+  // 6. Seguridad y PIN de Supervisor
   const [supervisorPin, setSupervisorPin] = useState('');
 
-  // 5. Estado Transaccional
+  // 7. Estado Transaccional
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -71,23 +96,29 @@ export const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
       setErrorMessage(null);
       if (preselectedItem) {
         setSelectedItem(preselectedItem);
-        setConteoFisico(preselectedItem.stockBase ?? 0);
+        setConteoFisico(blindMode ? '' : (preselectedItem.stockBase ?? 0));
+        setBlindRevealed(!blindMode);
+        setCostoReferencial(preselectedItem.costoUnitarioUSD && preselectedItem.costoUnitarioUSD > 0 ? preselectedItem.costoUnitarioUSD : '');
         setIsSearchingMaterial(false);
       } else {
         setSelectedItem(null);
         setConteoFisico('');
+        setBlindRevealed(false);
+        setCostoReferencial('');
         setIsSearchingMaterial(true);
       }
       setMotivo('Diferencia de Conteo Cíclico');
       setJustificacion('');
       setSupervisorPin('');
     }
-  }, [isOpen, preselectedItem]);
+  }, [isOpen, preselectedItem, blindMode]);
 
-  // Si cambia el ítem seleccionado, pre-llenar conteo físico con el stock actual
+  // Si cambia el ítem seleccionado
   const handleSelectItem = (item: InventoryItem) => {
     setSelectedItem(item);
-    setConteoFisico(item.stockBase ?? 0);
+    setConteoFisico(blindMode ? '' : (item.stockBase ?? 0));
+    setBlindRevealed(!blindMode);
+    setCostoReferencial(item.costoUnitarioUSD && item.costoUnitarioUSD > 0 ? item.costoUnitarioUSD : '');
     setIsSearchingMaterial(false);
     setMaterialSearch('');
     setErrorMessage(null);
@@ -110,11 +141,13 @@ export const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
   // Cálculos Reactivos del Ajuste
   const currentStock = selectedItem?.stockBase ?? 0;
   const numConteo = typeof conteoFisico === 'number' ? conteoFisico : (conteoFisico === '' ? 0 : Number(conteoFisico));
-  const isValidCount = !isNaN(numConteo) && numConteo >= 0;
+  const isValidCount = !isNaN(numConteo) && numConteo >= 0 && conteoFisico !== '';
 
   const delta = isValidCount && selectedItem ? Math.round((numConteo - currentStock) * 100) / 100 : 0;
-  const unitCostUSD = selectedItem?.costoUnitarioUSD || 0;
-  const impactoUSD = Math.round(Math.abs(delta) * unitCostUSD * 100) / 100;
+  const catalogCostUSD = selectedItem?.costoUnitarioUSD || 0;
+  const parsedRefCost = Number(costoReferencial) || 0;
+  const effectiveUnitCostUSD = parsedRefCost > 0 ? parsedRefCost : catalogCostUSD;
+  const impactoUSD = Math.round(Math.abs(delta) * effectiveUnitCostUSD * 100) / 100;
   const effectiveBcvRate = bcvRate > 0 ? bcvRate : 36.50;
   const impactoBs = Math.round(impactoUSD * effectiveBcvRate * 100) / 100;
 
@@ -132,9 +165,12 @@ export const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
   const requiresPinInput = isCriticalThreshold && !isSupervisorSession;
 
   // Validación del Formulario
+  const isBlindReady = !blindMode || blindRevealed;
+  const requiresCostEntry = catalogCostUSD <= 0 && delta !== 0;
+  const isCostValid = !requiresCostEntry || parsedRefCost > 0;
   const isJustificationValid = justificacion.trim().length >= 10;
   const isPinValid = !requiresPinInput || supervisorPin.trim().length === 4;
-  const canSubmit = selectedItem && isValidCount && isJustificationValid && isPinValid && !isSubmitting;
+  const canSubmit = selectedItem && isValidCount && isJustificationValid && isPinValid && isBlindReady && isCostValid && !isSubmitting;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -152,7 +188,8 @@ export const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
         stockActual: currentStock,
         motivo,
         justificacion: justificacion.trim(),
-        costoUnitarioUSD: unitCostUSD,
+        costoUnitarioUSD: effectiveUnitCostUSD,
+        costoReferencialUSD: parsedRefCost > 0 ? parsedRefCost : undefined,
         tasaBCV: effectiveBcvRate,
         unidad: selectedItem.unidad || 'Und',
         supervisorPin: requiresPinInput ? supervisorPin.trim() : undefined
@@ -201,13 +238,28 @@ export const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 text-zinc-400 hover:text-zinc-100 rounded-lg hover:bg-zinc-800 transition-colors"
-            title="Cerrar ventana"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={toggleBlindMode}
+              className={`px-2.5 py-1 text-xs font-semibold rounded-lg border transition-all flex items-center gap-1.5 ${
+                blindMode
+                  ? 'bg-purple-500/20 text-purple-300 border-purple-500/40 shadow-sm shadow-purple-500/20'
+                  : 'bg-zinc-800 text-zinc-400 border-zinc-700 hover:text-zinc-200'
+              }`}
+              title={blindMode ? 'Modo Ciego Activo: Stock del sistema oculto para evitar sesgo' : 'Activar Modo Ciego'}
+            >
+              {blindMode ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+              <span>{blindMode ? 'Modo Ciego' : 'Normal'}</span>
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2 text-zinc-400 hover:text-zinc-100 rounded-lg hover:bg-zinc-800 transition-colors"
+              title="Cerrar ventana"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Formulario Principal */}
@@ -304,14 +356,15 @@ export const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
                     <span>{selectedItem.categoriaMaterial || 'Insumo'}</span>
                     <span>·</span>
                     <span className="text-emerald-400 font-mono font-medium">
-                      Costo: ${unitCostUSD.toFixed(2)} USD / {selectedItem.unidad || 'und'}
+                      Costo: ${effectiveUnitCostUSD.toFixed(2)} USD / {selectedItem.unidad || 'und'}
+                      {catalogCostUSD <= 0 && parsedRefCost > 0 ? ' (Referencial)' : ''}
                     </span>
                   </div>
                 </div>
                 <div className="text-right pl-4 border-l border-zinc-800">
                   <span className="text-xs text-zinc-500 block">Stock Actual</span>
                   <span className="text-lg font-mono font-bold text-zinc-200">
-                    {currentStock} {selectedItem.unidad || 'und'}
+                    {blindMode && !blindRevealed ? '••••' : `${currentStock} ${selectedItem.unidad || 'und'}`}
                   </span>
                 </div>
               </div>
@@ -320,91 +373,163 @@ export const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
 
           {/* 2. Cuadrícula Comparativa: Stock Teórico vs Conteo Físico Real */}
           {selectedItem && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {/* Columna 1: Teórico en Sistema */}
-              <div className="p-4 rounded-xl bg-zinc-950/40 border border-zinc-800 flex flex-col justify-between">
-                <div>
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 block">
-                    1. Stock en Sistema
-                  </span>
-                  <p className="text-2xl font-mono font-bold text-zinc-300 mt-2">
-                    {currentStock}
-                  </p>
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {/* Columna 1: Teórico en Sistema */}
+                <div className="p-4 rounded-xl bg-zinc-950/40 border border-zinc-800 flex flex-col justify-between">
+                  <div>
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 block">
+                      1. Stock en Sistema
+                    </span>
+                    {blindMode && !blindRevealed ? (
+                      <div className="flex items-center gap-2 mt-2">
+                        <EyeOff className="w-5 h-5 text-purple-400" />
+                        <span className="text-base font-mono font-bold text-purple-300">•••• Oculto</span>
+                      </div>
+                    ) : (
+                      <p className="text-2xl font-mono font-bold text-zinc-300 mt-2">
+                        {currentStock}
+                      </p>
+                    )}
+                  </div>
+                  <div className="mt-3 pt-2 border-t border-zinc-850 flex items-center justify-between text-xs text-zinc-400">
+                    <span>Mínimo: {selectedItem.stockMinimo || 0}</span>
+                    <span className="font-mono">{selectedItem.unidad || 'und'}</span>
+                  </div>
                 </div>
-                <div className="mt-3 pt-2 border-t border-zinc-850 flex items-center justify-between text-xs text-zinc-400">
-                  <span>Mínimo: {selectedItem.stockMinimo || 0}</span>
-                  <span className="font-mono">{selectedItem.unidad || 'und'}</span>
+
+                {/* Columna 2: Conteo Físico Real (Input) */}
+                <div className="p-4 rounded-xl bg-zinc-900 border-2 border-amber-500/40 focus-within:border-amber-400 transition-colors flex flex-col justify-between shadow-lg shadow-amber-500/5">
+                  <div>
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-amber-400 block">
+                      2. Conteo Físico Real *
+                    </span>
+                    <div className="flex items-center gap-2 mt-2">
+                      <input
+                        type="number"
+                        step="any"
+                        min="0"
+                        value={conteoFisico}
+                        onChange={e => setConteoFisico(e.target.value === '' ? '' : Number(e.target.value))}
+                        placeholder="0"
+                        className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-1.5 text-2xl font-mono font-bold text-amber-300 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 text-center"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-2 border-t border-zinc-800 flex items-center justify-between text-xs text-zinc-400">
+                    <span>Gaveta / Pasillo</span>
+                    <span className="font-mono">{selectedItem.unidad || 'und'}</span>
+                  </div>
+                </div>
+
+                {/* Columna 3: Discrepancia Reactiva */}
+                <div className={`p-4 rounded-xl border flex flex-col justify-between transition-colors ${
+                  blindMode && !blindRevealed
+                    ? 'bg-zinc-950/40 border-zinc-800 text-zinc-400'
+                    : delta === 0 
+                      ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-300'
+                      : delta < 0
+                        ? 'bg-rose-950/20 border-rose-500/30 text-rose-300'
+                        : 'bg-cyan-950/20 border-cyan-500/30 text-cyan-300'
+                }`}>
+                  <div>
+                    <span className="text-[11px] font-semibold uppercase tracking-wider opacity-80 block">
+                      3. Discrepancia (Δ)
+                    </span>
+                    {blindMode && !blindRevealed ? (
+                      <div className="flex items-center gap-2 mt-2">
+                        <Lock className="w-5 h-5 text-zinc-500" />
+                        <span className="text-sm font-mono text-zinc-400">•••• Pendiente</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-baseline gap-2 mt-2">
+                        <span className="text-2xl font-mono font-bold">
+                          {delta > 0 ? `+${delta}` : delta}
+                        </span>
+                        <span className="text-xs font-mono opacity-80">{selectedItem.unidad || 'und'}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-3 pt-2 border-t border-current/15 text-xs font-medium flex items-center justify-between">
+                    {blindMode && !blindRevealed ? (
+                      <span className="flex items-center gap-1 text-purple-400">
+                        <EyeOff className="w-3.5 h-3.5" /> Modo Ciego
+                      </span>
+                    ) : delta === 0 ? (
+                      <span className="flex items-center gap-1 text-emerald-400">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Stock Cuadrado
+                      </span>
+                    ) : delta < 0 ? (
+                      <span className="flex items-center gap-1 text-rose-400">
+                        <AlertTriangle className="w-3.5 h-3.5" /> Faltante / Merma
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-cyan-400">
+                        <ArrowRight className="w-3.5 h-3.5" /> Sobrante Físico
+                      </span>
+                    )}
+                    <span className="text-[11px] opacity-75">
+                      {blindMode && !blindRevealed ? 'Conteo Oculto' : delta === 0 ? 'Conforme' : 'Asiento Kardex'}
+                    </span>
+                  </div>
                 </div>
               </div>
 
-              {/* Columna 2: Conteo Físico Real (Input) */}
-              <div className="p-4 rounded-xl bg-zinc-900 border-2 border-amber-500/40 focus-within:border-amber-400 transition-colors flex flex-col justify-between shadow-lg shadow-amber-500/5">
-                <div>
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-amber-400 block">
-                    2. Conteo Físico Real *
-                  </span>
-                  <div className="flex items-center gap-2 mt-2">
+              {/* Botón Revelar en Modo Ciego */}
+              {blindMode && !blindRevealed && (
+                <div className="p-3.5 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-between animate-in fade-in">
+                  <div className="flex items-center gap-2.5 text-xs text-purple-300">
+                    <Info className="w-4 h-4 text-purple-400 flex-shrink-0" />
+                    <span>Modo Ciego activo: Ingresa el conteo físico y pulsa revelar para comparar contra el saldo del sistema.</span>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={conteoFisico === '' || !isValidCount}
+                    onClick={() => setBlindRevealed(true)}
+                    className="px-4 py-2 rounded-lg text-xs font-bold bg-purple-600 hover:bg-purple-500 disabled:bg-zinc-800 disabled:text-zinc-500 disabled:cursor-not-allowed text-white flex items-center gap-1.5 transition-all shadow-md shadow-purple-600/20 flex-shrink-0 ml-3"
+                  >
+                    <Eye className="w-4 h-4" />
+                    <span>Revelar Balance</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Alerta y Entrada de Costo Referencial si costo en catálogo es <= 0 */}
+              {(!blindMode || blindRevealed) && delta !== 0 && catalogCostUSD <= 0 && (
+                <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 flex items-center justify-between gap-3 animate-in fade-in">
+                  <div className="flex items-center gap-2.5">
+                    <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0" />
+                    <div>
+                      <span className="text-xs font-bold text-amber-200 block">
+                        Material sin costo base en catálogo ($0.00 USD)
+                      </span>
+                      <p className="text-[11px] text-amber-400/80 mt-0.5">
+                        Ingrese el costo unitario referencial estimado para calcular el impacto y enriquecer la ficha técnica.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <span className="font-mono font-bold text-amber-400 text-sm">$</span>
                     <input
                       type="number"
-                      step="any"
-                      min="0"
-                      value={conteoFisico}
-                      onChange={e => setConteoFisico(e.target.value === '' ? '' : Number(e.target.value))}
-                      placeholder="0"
-                      className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-1.5 text-2xl font-mono font-bold text-amber-300 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 text-center"
+                      step="0.01"
+                      min="0.01"
+                      value={costoReferencial}
+                      onChange={e => setCostoReferencial(e.target.value)}
+                      placeholder="0.00"
+                      className="w-24 bg-zinc-950 border border-amber-500/40 rounded-lg px-2.5 py-1.5 text-right font-mono text-sm font-bold text-amber-200 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400"
                       required
                     />
+                    <span className="text-xs font-mono text-zinc-400">USD</span>
                   </div>
                 </div>
-                <div className="mt-3 pt-2 border-t border-zinc-800 flex items-center justify-between text-xs text-zinc-400">
-                  <span>Gaveta / Pasillo</span>
-                  <span className="font-mono">{selectedItem.unidad || 'und'}</span>
-                </div>
-              </div>
-
-              {/* Columna 3: Discrepancia Reactiva */}
-              <div className={`p-4 rounded-xl border flex flex-col justify-between transition-colors ${
-                delta === 0 
-                  ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-300'
-                  : delta < 0
-                    ? 'bg-rose-950/20 border-rose-500/30 text-rose-300'
-                    : 'bg-cyan-950/20 border-cyan-500/30 text-cyan-300'
-              }`}>
-                <div>
-                  <span className="text-[11px] font-semibold uppercase tracking-wider opacity-80 block">
-                    3. Discrepancia (Δ)
-                  </span>
-                  <div className="flex items-baseline gap-2 mt-2">
-                    <span className="text-2xl font-mono font-bold">
-                      {delta > 0 ? `+${delta}` : delta}
-                    </span>
-                    <span className="text-xs font-mono opacity-80">{selectedItem.unidad || 'und'}</span>
-                  </div>
-                </div>
-                <div className="mt-3 pt-2 border-t border-current/15 text-xs font-medium flex items-center justify-between">
-                  {delta === 0 ? (
-                    <span className="flex items-center gap-1 text-emerald-400">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> Stock Cuadrado
-                    </span>
-                  ) : delta < 0 ? (
-                    <span className="flex items-center gap-1 text-rose-400">
-                      <AlertTriangle className="w-3.5 h-3.5" /> Faltante / Merma
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-1 text-cyan-400">
-                      <ArrowRight className="w-3.5 h-3.5" /> Sobrante Físico
-                    </span>
-                  )}
-                  <span className="text-[11px] opacity-75">
-                    {delta === 0 ? 'Conforme' : 'Asiento Kardex'}
-                  </span>
-                </div>
-              </div>
+              )}
             </div>
           )}
 
           {/* 3. Panel de Impacto Financiero Bimonetario */}
-          {selectedItem && delta !== 0 && (
+          {selectedItem && (!blindMode || blindRevealed) && delta !== 0 && (
             <div className="p-3.5 rounded-xl bg-zinc-950/80 border border-zinc-800 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
@@ -434,7 +559,7 @@ export const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
           )}
 
           {/* 4. Selector de Motivo Estandarizado */}
-          {selectedItem && (
+          {selectedItem && (!blindMode || blindRevealed) && (
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
                 Motivo Estandarizado de Ajuste *
@@ -454,7 +579,7 @@ export const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
           )}
 
           {/* 5. Justificación Técnica Obligatoria */}
-          {selectedItem && (
+          {selectedItem && (!blindMode || blindRevealed) && (
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
@@ -484,7 +609,7 @@ export const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
           )}
 
           {/* 6. Barrera de Seguridad: PIN de Supervisor si supera Umbral Crítico */}
-          {selectedItem && isCriticalThreshold && (
+          {selectedItem && (!blindMode || blindRevealed) && isCriticalThreshold && (
             <div className="p-4 rounded-xl bg-amber-500/5 border border-amber-500/20 space-y-3">
               <div className="flex items-start gap-2.5 text-xs text-amber-300">
                 <Lock className="w-4 h-4 flex-shrink-0 text-amber-400 mt-0.5" />
