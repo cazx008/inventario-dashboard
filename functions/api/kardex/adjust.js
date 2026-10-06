@@ -291,11 +291,14 @@ export async function onRequest(context) {
     }
 
     // 6. Actualización Atómica en BD_Control_Stock_Existencias (Aplica para Δ = 0 y Δ != 0)
-    let nuevoEstadoStock = '🟢 En Stock';
+    let nuevoEstadoStockLimpio = 'En Stock';
+    let nuevoEstadoStockConEmoji = '🟢 En Stock';
     if (physicalCount === 0) {
-      nuevoEstadoStock = '🔴 Sin Stock';
+      nuevoEstadoStockLimpio = 'Sin Stock';
+      nuevoEstadoStockConEmoji = '🔴 Sin Stock';
     } else if (physicalCount < stockMinimo) {
-      nuevoEstadoStock = '🟠 Bajo Mínimo';
+      nuevoEstadoStockLimpio = 'Bajo Mínimo';
+      nuevoEstadoStockConEmoji = '🟠 Bajo Mínimo';
     }
 
     const patchDashRes = await fetch(`https://api.notion.com/v1/pages/${dashboardId}`, {
@@ -304,13 +307,20 @@ export async function onRequest(context) {
       body: JSON.stringify({
         properties: {
           'Stock (base)': { number: physicalCount },
-          'Estado de Stock': { select: { name: nuevoEstadoStock } }
+          'Estado de Stock': { status: { name: nuevoEstadoStockLimpio } }
         }
       })
     });
 
     if (!patchDashRes.ok) {
-      console.error('Alerta crítica: Falló PATCH de stock en Dashboard:', await patchDashRes.text());
+      const errTxt = await patchDashRes.text();
+      console.error('Alerta crítica: Falló PATCH de stock en Dashboard:', errTxt);
+      return new Response(JSON.stringify({
+        error: `Error persistiendo saldo en Notion (BD_Control_Stock_Existencias): ${errTxt}`
+      }), {
+        status: 502,
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+      });
     }
 
     // 6.1 Enriquecimiento de Catálogo (BD_Catalogo_Insumos) si se suministró costo referencial
@@ -376,12 +386,15 @@ export async function onRequest(context) {
         : `Ajuste de inventario procesado con éxito (${delta > 0 ? '+' : ''}${delta} ${unidad}). Folio ${folioCorrelativo}.`,
       folio: folioCorrelativo,
       kardexId: kardexDataId,
+      dashboardId,
+      insumoId: targetInsumoId || insumoId,
+      itemNombre: itemActualName,
       previousStock: currentStock,
       newStock: physicalCount,
       delta,
       impactoUSD,
       impactoBs,
-      nuevoEstadoStock,
+      nuevoEstadoStock: nuevoEstadoStockConEmoji,
       timestamp: isoVzla
     };
 

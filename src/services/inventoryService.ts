@@ -7,6 +7,46 @@ export interface InventoryDataResponse {
   lastSyncDisplay: string;
 }
 
+// Persistencia de Ajustes Recientes en Almacenamiento Local (Fase 9H - Decisión D3)
+const STOCK_OVERRIDES_KEY = 'sanesca_stock_overrides';
+
+export function saveStockOverride(dashboardId: string, newStock: number, nuevoEstadoStock?: string) {
+  try {
+    if (typeof window === 'undefined') return;
+    const raw = localStorage.getItem(STOCK_OVERRIDES_KEY);
+    const overrides = raw ? JSON.parse(raw) : {};
+    overrides[dashboardId] = {
+      stock: newStock,
+      estadoStock: nuevoEstadoStock,
+      timestamp: Date.now()
+    };
+    localStorage.setItem(STOCK_OVERRIDES_KEY, JSON.stringify(overrides));
+  } catch (e) {
+    console.warn('Error guardando override de stock:', e);
+  }
+}
+
+export function getStockOverrides(): Record<string, { stock: number; estadoStock?: string; timestamp: number }> {
+  try {
+    if (typeof window === 'undefined') return {};
+    const raw = localStorage.getItem(STOCK_OVERRIDES_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    const now = Date.now();
+    const clean: Record<string, { stock: number; estadoStock?: string; timestamp: number }> = {};
+    // Mantener overrides de las últimas 48 horas
+    for (const [id, data] of Object.entries(parsed)) {
+      const d = data as any;
+      if (now - d.timestamp < 48 * 3600 * 1000) {
+        clean[id] = d;
+      }
+    }
+    return clean;
+  } catch {
+    return {};
+  }
+}
+
 export async function loadInventoryData(): Promise<InventoryDataResponse> {
   const ts = Date.now();
   let items: InventoryItem[] = [];
@@ -45,17 +85,47 @@ export async function loadInventoryData(): Promise<InventoryDataResponse> {
     console.warn('Fallo cargando data estática local:', err);
   }
 
-  // Enriquecer items con enTransitoOAB y stockProyectado
+  // Leer sobreescrituras locales recientes de ajustes físicos (Fase 9H - Decisión D3)
+  const overrides = typeof window !== 'undefined' ? getStockOverrides() : {};
+
+  // Enriquecer items con enTransitoOAB, stockProyectado y aplicar overrides locales recientes
   items = items.map(item => {
+    const override = overrides[item.id];
+    const baseStock = override !== undefined ? override.stock : (item.stockBase || 0);
+    const estado = override?.estadoStock ? override.estadoStock : item.estadoStock;
     const enTransito = item.enTransitoOAB || 0;
-    const proyectado = (item.stockBase || 0) + enTransito;
+    const proyectado = baseStock + enTransito;
+    const deficit = Math.max(0, (item.stockMinimo || 0) - baseStock);
     return {
       ...item,
+      stockBase: baseStock,
+      deficit,
+      estadoStock: estado,
       enTransitoOAB: enTransito,
       stockProyectado: proyectado,
       costoUnitarioUSD: item.costoUnitarioUSD || 0
     };
   });
+
+  // Si hay overrides aplicados, actualizar los conteos de estado en kpis
+  if (Object.keys(overrides).length > 0 && items.length > 0) {
+    const sinStock = items.filter(i => (i.stockBase || 0) === 0).length;
+    const bajoMinimo = items.filter(i => (i.stockBase || 0) > 0 && (i.stockBase || 0) < i.stockMinimo).length;
+    const enStock = items.filter(i => (i.stockBase || 0) >= i.stockMinimo).length;
+    const reconteo3D = items.filter(i => i.seReconto3D).length;
+    kpis = {
+      ...kpis,
+      total: items.length,
+      estado: {
+        ...kpis.estado,
+        sinStock,
+        bajoMinimo,
+        enStock
+      },
+      auditados3D: reconteo3D,
+      auditados3DPct: items.length > 0 ? Math.round((reconteo3D / items.length) * 100) : 0
+    };
+  }
 
   return {
     items,

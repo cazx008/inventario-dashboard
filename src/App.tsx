@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { InventoryItem, KpiSummary, ColumnDef, SortLevel } from './types/inventory';
 import { OABLineItem } from './types/oab';
-import { loadInventoryData, fetchBCVRate, revalidateInventoryLive } from './services/inventoryService';
+import { loadInventoryData, fetchBCVRate, revalidateInventoryLive, saveStockOverride } from './services/inventoryService';
 import { Header } from './components/Header';
 import { KpiCards } from './components/KpiCards';
 import { FilterBar } from './components/FilterBar';
@@ -345,33 +345,75 @@ export default function App() {
     auth.triggerHaptic('success');
 
     if (result.newStock !== undefined) {
-      setItems(prevItems => prevItems.map(item => {
-        const isTarget = (adjustmentPreselectedItem && item.id === adjustmentPreselectedItem.id) ||
-                         (result.kardexId && adjustmentPreselectedItem && item.nombre === adjustmentPreselectedItem.nombre);
-        if (isTarget) {
-          const newStock = result.newStock!;
-          const newDeficit = Math.max(0, item.stockMinimo - newStock);
-          let newEstado = '🟢 En Stock';
-          if (newStock === 0) newEstado = '🔴 Sin Stock';
-          else if (newStock < item.stockMinimo) newEstado = '🟠 Bajo Mínimo';
+      const targetDashboardId = result.dashboardId;
+      const targetInsumoId = result.insumoId;
+      const targetName = result.itemNombre;
+      const preselectedId = adjustmentPreselectedItem?.id;
 
-          return {
-            ...item,
-            stockBase: newStock,
-            deficit: newDeficit,
-            estadoStock: result.nuevoEstadoStock || newEstado,
-            stockProyectado: newStock + (item.enTransitoOAB || 0),
-            seReconto3D: true,
-            seRecontoHoy: true,
-            diasDesdeReconteo: 0,
-            ultimaFechaReconteo: new Date().toISOString().split('T')[0],
-            necesitaReconteo: false
-          };
-        }
-        return item;
-      }));
+      let matchedDashboardId: string | null = null;
+
+      setItems(prevItems => {
+        const nextItems = prevItems.map(item => {
+          const isTarget = (targetDashboardId && item.id === targetDashboardId) ||
+                           (preselectedId && item.id === preselectedId) ||
+                           (targetInsumoId && item.insumoId === targetInsumoId) ||
+                           (targetName && item.nombre.toLowerCase().trim() === targetName.toLowerCase().trim());
+          if (isTarget) {
+            matchedDashboardId = item.id;
+            const newStock = result.newStock!;
+            const newDeficit = Math.max(0, item.stockMinimo - newStock);
+            let newEstado = '🟢 En Stock';
+            if (newStock === 0) newEstado = '🔴 Sin Stock';
+            else if (newStock < item.stockMinimo) newEstado = '🟠 Bajo Mínimo';
+
+            return {
+              ...item,
+              stockBase: newStock,
+              deficit: newDeficit,
+              estadoStock: result.nuevoEstadoStock || newEstado,
+              stockProyectado: newStock + (item.enTransitoOAB || 0),
+              seReconto3D: true,
+              seRecontoHoy: true,
+              diasDesdeReconteo: 0,
+              ultimaFechaReconteo: new Date().toISOString().split('T')[0],
+              necesitaReconteo: false
+            };
+          }
+          return item;
+        });
+
+        // Recalcular baseKpis en caliente (Fase 9H)
+        const total = nextItems.length;
+        const sinStock = nextItems.filter(i => (i.stockBase || 0) === 0).length;
+        const bajoMinimo = nextItems.filter(i => (i.stockBase || 0) > 0 && (i.stockBase || 0) < i.stockMinimo).length;
+        const enStock = nextItems.filter(i => (i.stockBase || 0) >= i.stockMinimo).length;
+        const reconteo3D = nextItems.filter(i => i.seReconto3D).length;
+        const reconteo3DPct = total > 0 ? Math.round((reconteo3D / total) * 100) : 0;
+
+        setBaseKpis(prev => ({
+          ...prev,
+          total,
+          estado: {
+            ...prev.estado,
+            sinStock,
+            bajoMinimo,
+            enStock,
+          },
+          auditados3D: reconteo3D,
+          auditados3DPct: reconteo3DPct,
+        }));
+
+        return nextItems;
+      });
+
+      // Persistir override en localStorage para sobrevivir recargas F5 (Decisión D3)
+      const finalIdForOverride = targetDashboardId || matchedDashboardId || preselectedId;
+      if (finalIdForOverride) {
+        saveStockOverride(finalIdForOverride, result.newStock, result.nuevoEstadoStock);
+      }
     }
 
+    setAdjustmentPreselectedItem(null);
     refreshOfflineCount();
 
     // Reconciliar con Notion en segundo plano tras 2.5 segundos (SWR anti-flicker Fase 9G)

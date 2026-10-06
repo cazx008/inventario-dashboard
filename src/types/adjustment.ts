@@ -36,6 +36,9 @@ export interface StockAdjustmentResult {
   message: string;
   folio?: string;
   kardexId?: string;
+  dashboardId?: string;
+  insumoId?: string;
+  itemNombre?: string;
   previousStock?: number;
   newStock?: number;
   delta?: number;
