@@ -1,0 +1,7 @@
+name = "sanesca-inventario"
+pages_build_output_dir = "dist"
+compatibility_date = "2024-09-01"
+
+[[kv_namespaces]]
+binding = "INVENTORY_KV"
+id = "3426df82fd7144ab84096d1aaf936535"

@@ -17,6 +17,7 @@
 import { requirePermission } from '../auth/_guard.js';
 import { recordAuditLog, executeRedis, getVzlaTime } from '../auth/_audit.js';
 import { sendTelegramAlert } from '../telegram/notify.js';
+import { setLiveStockDelta } from '../_kv.js';
 
 const KARDEX_DB_ID = '26286805-4e27-803b-91ce-ef8f121d622d';
 const DASHBOARD_DB_ID = '2b586805-4e27-80fe-b6e8-e4c6dc325696';
@@ -328,15 +329,18 @@ export async function onRequest(context) {
       });
     }
 
-    // 6.0 Sincronización Multi-Dispositivo en Tiempo Real: Saldo en vivo en Redis para SWR
-    executeRedis(env, 'HSET', 'inventory:live_stock', dashboardId, JSON.stringify({
+    // 6.0 Sincronización Multi-Dispositivo en Edge KV (Zero-Quota, 100k reads/día gratis)
+    const kvPromise = setLiveStockDelta(env, dashboardId, {
       stock: physicalCount,
       estadoStock: nuevoEstadoStockLimpio,
       unitCost: unitCost,
-      timestamp: Date.now()
-    })).catch(err => {
-      console.warn('Advertencia guardando live_stock en Redis:', err);
+      source: 'ADJUST'
     });
+    if (context?.waitUntil) {
+      context.waitUntil(kvPromise);
+    } else {
+      await kvPromise;
+    }
 
     // 6.1 Enriquecimiento Condicional de Catálogo Maestro (BD_Catalogo_Insumos) (Fase 9I - Decisión D4)
     const targetInsumoId = insumoId || dashPage.properties?.['Producto']?.relation?.[0]?.id || dashPage.properties?.['Insumos']?.relation?.[0]?.id;

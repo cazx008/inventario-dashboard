@@ -15,6 +15,7 @@ const OAB_DB_ID = '3eb86805-4e27-81f9-860a-c51fc794ebb0';
 
 import { sendTelegramAlert } from '../telegram/notify.js';
 import { requirePermission } from '../auth/_guard.js';
+import { setLiveStockDelta } from '../_kv.js';
 
 export async function onRequest(context) {
   const { request, env } = context;
@@ -308,7 +309,7 @@ export async function onRequest(context) {
             const currentStock = dashPage.properties?.['Stock (base)']?.number || 0;
             const newStock = currentStock + receivedNum;
 
-            await fetch(`https://api.notion.com/v1/pages/${dashboardId}`, {
+            const patchDashRes = await fetch(`https://api.notion.com/v1/pages/${dashboardId}`, {
               method: 'PATCH',
               headers,
               body: JSON.stringify({
@@ -317,6 +318,19 @@ export async function onRequest(context) {
                 }
               })
             });
+
+            if (patchDashRes.ok) {
+              const kvPromise = setLiveStockDelta(env, dashboardId, {
+                stock: newStock,
+                unitCost: unitCost > 0 ? unitCost : undefined,
+                source: 'RECEIVE_RAMP'
+              });
+              if (context?.waitUntil) {
+                context.waitUntil(kvPromise);
+              } else {
+                await kvPromise;
+              }
+            }
           }
         } catch (stockErr) {
           console.error('Error incrementando stock en Dashboard:', stockErr);

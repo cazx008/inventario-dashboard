@@ -16,6 +16,7 @@
 import { requirePermission } from '../auth/_guard.js';
 import { executeRedis } from '../auth/_audit.js';
 import { sendTelegramAlert } from '../telegram/notify.js';
+import { setLiveStockDelta } from '../_kv.js';
 
 const KARDEX_DB_ID = '26286805-4e27-803b-91ce-ef8f121d622d';
 const DASHBOARD_DB_ID = '2b586805-4e27-80fe-b6e8-e4c6dc325696';
@@ -230,10 +231,15 @@ export async function onRequest(context) {
     if (!patchDashRes.ok) {
       console.error('Alerta crítica: Se registró Kardex pero falló PATCH de stock en Dashboard:', await patchDashRes.text());
     } else {
-      executeRedis(env, 'HSET', 'inventory:live_stock', dashboardId, JSON.stringify({
+      const kvPromise = setLiveStockDelta(env, dashboardId, {
         stock: newStock,
-        timestamp: Date.now()
-      })).catch(e => console.warn('Advertencia actualizando live_stock en Redis:', e));
+        source: 'DISPATCH'
+      });
+      if (context?.waitUntil) {
+        context.waitUntil(kvPromise);
+      } else {
+        await kvPromise;
+      }
     }
 
     // 6. Notificación Operativa en Telegram (Inactiva temporalmente según gobernanza)

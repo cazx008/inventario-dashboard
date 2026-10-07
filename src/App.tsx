@@ -312,9 +312,14 @@ export default function App() {
   useEffect(() => {
     fetchData();
 
-    // SWR Reactivo Multi-Dispositivo: Revalidar automáticamente al enfocar ventana o desbloquear pantalla
+    let lastSyncTime = Date.now();
+
+    // SWR Reactivo Multi-Dispositivo: Revalidar bajo interacción real (al enfocar ventana o desbloquear pantalla)
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
+      const now = Date.now();
+      // Debounce de seguridad: al menos 15 segundos entre revalidaciones automáticas
+      if (document.visibilityState === 'visible' && now - lastSyncTime > 15000) {
+        lastSyncTime = now;
         setItems(current => {
           revalidateInventoryLive(current).then(res => {
             if (res.synced) setItems(res.updatedItems);
@@ -324,23 +329,10 @@ export default function App() {
       }
     };
 
-    // Polling ligero cada 45s cuando la pantalla esté activa
-    const pollInterval = setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        setItems(current => {
-          revalidateInventoryLive(current).then(res => {
-            if (res.synced) setItems(res.updatedItems);
-          });
-          return current;
-        });
-      }
-    }, 45000);
-
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('focus', handleVisibilityChange);
 
     return () => {
-      clearInterval(pollInterval);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleVisibilityChange);
     };

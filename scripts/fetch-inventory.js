@@ -534,6 +534,39 @@ async function main() {
     console.log(`  💾 Guardado en: ${dir}`);
   }
 
+  // 5. Purga de Residuos en Edge KV (Erradicación de Doble Verdad)
+  try {
+    let cfToken = process.env.CLOUDFLARE_API_TOKEN || process.env.CF_TOKEN || '';
+    if (!cfToken) {
+      const candidatePaths = [
+        path.join(__dirname, '..', '.env'),
+        path.join(__dirname, '..', '..', '..', 'apps', 'despacho', '.env'),
+        path.join(__dirname, '..', '..', '..', '06_Scripts_Automatizacion', 'bot_produccion', '.env')
+      ];
+      for (const p of candidatePaths) {
+        if (fs.existsSync(p)) {
+          const match = fs.readFileSync(p, 'utf8').match(/(?:CLOUDFLARE_API_TOKEN|CF_TOKEN)\s*=\s*(.+)/);
+          if (match && match[1]) {
+            cfToken = match[1].trim().replace(/^['"]|['"]$/g, '');
+            break;
+          }
+        }
+      }
+    }
+    const accountId = process.env.CLOUDFLARE_ACCOUNT_ID || '98ee9f66220ad7147392ace5bb911953';
+    const kvId = '3426df82fd7144ab84096d1aaf936535';
+
+    if (cfToken && accountId && kvId) {
+      await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/storage/kv/namespaces/${kvId}/values/live_stock_deltas`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${cfToken}` }
+      });
+      console.log('  🧹 Cloudflare Edge KV purgado con éxito (live_stock_deltas reseteado).');
+    }
+  } catch (purgeErr) {
+    console.warn('  ⚠️ Advertencia purgando deltas en Edge KV:', purgeErr.message);
+  }
+
   console.log('─'.repeat(60));
   console.log(`✅ Snapshot 100% sincronizado con Notion:`);
   console.log(`   📦 Total ítems: ${items.length}`);

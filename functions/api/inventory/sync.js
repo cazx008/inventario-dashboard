@@ -8,7 +8,7 @@
  * 3. Devolver un payload ultraligero que permita a la UI reconciliar el estado sin recargar la página.
  */
 
-import { executeRedis } from '../auth/_audit.js';
+import { getLiveStockDeltas } from '../_kv.js';
 
 const SOLICITUDES_DB_ID = '2bc86805-4e27-8036-ba88-d52ec84742ba';
 const KARDEX_DB_ID = '26286805-4e27-803b-91ce-ef8f121d622d';
@@ -27,52 +27,23 @@ export async function onRequest(context) {
     });
   }
 
-  // 0. Consultar saldos y costos en caliente desde Upstash Redis (Ajustes y Despachos multi-dispositivo)
-  let liveStockRaw = null;
-  try {
-    liveStockRaw = await executeRedis(env, 'HGETALL', 'inventory:live_stock');
-  } catch (redisErr) {
-    console.warn('Advertencia consultando live_stock en Redis:', redisErr);
-  }
-
+  // 0. Consultar deltas en caliente desde Cloudflare Edge KV (100k lecturas/día gratis, latencia sub-5ms)
+  const deltas = await getLiveStockDeltas(env);
   const liveStockByDashboardId = {};
   const liveCostByDashboardId = {};
 
-  if (liveStockRaw) {
-    if (Array.isArray(liveStockRaw)) {
-      for (let i = 0; i < liveStockRaw.length; i += 2) {
-        const dashId = liveStockRaw[i];
-        const valStr = liveStockRaw[i + 1];
-        if (dashId && valStr) {
-          try {
-            const parsed = typeof valStr === 'string' ? JSON.parse(valStr) : valStr;
-            if (parsed && typeof parsed.stock === 'number') {
-              liveStockByDashboardId[dashId] = parsed.stock;
-            }
-            if (parsed && typeof parsed.unitCost === 'number' && parsed.unitCost > 0) {
-              liveCostByDashboardId[dashId] = parsed.unitCost;
-            }
-          } catch (_) {}
-        }
-      }
-    } else if (typeof liveStockRaw === 'object') {
-      for (const [dashId, val] of Object.entries(liveStockRaw)) {
-        try {
-          const parsed = typeof val === 'string' ? JSON.parse(val) : val;
-          if (parsed && typeof parsed.stock === 'number') {
-            liveStockByDashboardId[dashId] = parsed.stock;
-          }
-          if (parsed && typeof parsed.unitCost === 'number' && parsed.unitCost > 0) {
-            liveCostByDashboardId[dashId] = parsed.unitCost;
-          }
-        } catch (_) {}
-      }
+  for (const [dashId, entry] of Object.entries(deltas)) {
+    if (entry && typeof entry.stock === 'number') {
+      liveStockByDashboardId[dashId] = entry.stock;
+    }
+    if (entry && typeof entry.unitCost === 'number' && entry.unitCost > 0) {
+      liveCostByDashboardId[dashId] = entry.unitCost;
     }
   }
 
   const notionApiKey = env.NOTION_API_KEY;
   if (!notionApiKey) {
-    // Si no hay API key en local, responder con payload de sincronización con liveStock de Redis
+    // Si no hay API key en local, responder con payload de sincronización con liveStock de KV
     return new Response(JSON.stringify({
       status: 'offline_or_unconfigured',
       enTransitoByDashboardId: {},
@@ -81,7 +52,7 @@ export async function onRequest(context) {
       liveCostByDashboardId,
       activeOrdersCount: 0,
       timestamp: Date.now(),
-      message: 'NOTION_API_KEY no configurada; operando con snapshot local y Redis live.'
+      message: 'NOTION_API_KEY no configurada; operando con snapshot local y Edge KV live.'
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
@@ -212,7 +183,7 @@ export async function onRequest(context) {
       headers: {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*',
-        'Cache-Control': 'public, s-maxage=5, stale-while-revalidate=10',
+        'Cache-Control': 'public, s-maxage=20, stale-while-revalidate=10',
         'X-Sync-Overflow': isOverflow ? 'true' : 'false'
       }
     });

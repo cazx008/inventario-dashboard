@@ -15,6 +15,7 @@
 
 import { requirePermission } from '../auth/_guard.js';
 import { recordAuditLog, executeRedis, getVzlaTime } from '../auth/_audit.js';
+import { setLiveStockDelta } from '../_kv.js';
 
 const KARDEX_DB_ID = '26286805-4e27-803b-91ce-ef8f121d622d';
 const SUPERVISOR_PIN_DEFAULT = '1234';
@@ -321,6 +322,18 @@ export async function onRequest(context) {
         status: 502,
         headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
       });
+    }
+
+    // 7.1 Sincronización en Edge KV
+    const kvPromise = setLiveStockDelta(env, dashboardId, {
+      stock: newStock,
+      estadoStock: nuevoEstadoStockLimpio,
+      source: 'REVERSE'
+    });
+    if (context?.waitUntil) {
+      context.waitUntil(kvPromise);
+    } else {
+      await kvPromise;
     }
 
     // 8. Marcar idempotencia en Redis (TTL 48h)
