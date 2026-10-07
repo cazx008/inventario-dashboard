@@ -20,6 +20,8 @@
 | **Fase 9B-9D** | ✅ Completada | Auditoría Ex-Post de Mermas BOM (9B), Alertas Reactivas Supervisadas (9C), Resiliencia R2 Backoff y Factura SENIAT (9D) — Desplegada y Certificada en vivo (`https://sanesca-inventario.pages.dev/`) |
 | **Fase 9E** | ✅ Completada | Cierre de Ciclo BOM: Costos Unitarios USD (441 insumos), Transaccionalidad ERP (`BD_Pedidos`), Tolerancias Editables, Reintegro de Retazos y Blindaje de Despacho — Desplegada y Certificada en vivo (`https://sanesca-inventario.pages.dev/`) |
 | **Fase 9F** | ✅ Completada | Conteo Cíclico en Vivo, Ajustes Físico-Financieros y Libro Mayor Kardex (Odoo 18 Quant) — Desplegada y Certificada en vivo (`https://sanesca-inventario.pages.dev/`) |
+| **Fase 9L** | ✅ Completada | Costos en Ajustes de Stock, Conmutador de Silencio de Alertas y Telegram RBAC Callback Privado (`https://sanesca-inventario.pages.dev/`) |
+| **Fase 9M** | ✅ Completada | Sincronización Edge KV Zero-Quota (`INVENTORY_KV` + SWR Edge Cache) y Erradicación del "Dual Truth" Multi-Dispositivo (`https://sanesca-inventario.pages.dev/`) |
 | **Fase 10** | ✅ Completada | Identidad WebApp con HMAC-SHA256, RBAC en Notion, 2FA Telegram, Anti-Fuerza Bruta y Auditoría Forense Dual — Desplegada en vivo en Cloudflare Pages (`https://sanesca-inventario.pages.dev/`) |
 
 ---
@@ -276,7 +278,8 @@
 | `functions/api/auth/_audit.js` | Módulo serverless de telemetría y auditoría: Redis buffer + ctx.waitUntil hacia Notion |
 | `functions/api/auth/audit-logs.js` | Cloudflare Pages Function: consulta paginada de logs de auditoría y métricas de seguridad |
 | `functions/api/notion/[[path]].js` | Cloudflare Pages Function: proxy seguro Notion API con secretos de entorno |
-| `functions/api/inventory/sync.js` | Cloudflare Pages Function: cálculo dinámico en vivo de insumos en tránsito con paginación cursor |
+| `functions/api/_kv.js` | Helper modular Cloudflare KV (`INVENTORY_KV`) para gestión de deltas en caliente sin consumo de Redis |
+| `functions/api/inventory/sync.js` | Cloudflare Pages Function: SWR Edge KV sync de deltas en caliente y cálculo dinámico de insumos en tránsito |
 | `functions/api/kardex/list.js` | Cloudflare Pages Function: consulta paginada y filtrada del histórico de Kardex |
 | `functions/api/kardex/dispatch.js` | Cloudflare Pages Function: decremento atómico de stock, asiento de salida a taller en Kardex y alerta Telegram |
 | `functions/api/kardex/adjust.js` | Cloudflare Pages Function: ajuste atómico Odoo 18 en existencias, doble partida en Kardex y pista forense |

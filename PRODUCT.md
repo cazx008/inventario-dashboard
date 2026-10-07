@@ -24,7 +24,8 @@ El sistema erradica la compra reactiva a ciegas y la manipulación estática del
 ### 1. Monitoreo y Diagnóstico en Tiempo Real
 - 21 columnas operativas con vistas compacta y ampliada, selector personalizado, ordenamiento multi-nivel (3 niveles) y agrupación flexible.
 - KPIs semáforo reactivos (Sin Stock, Bajo Mínimo, En Stock, En Reconteo, % Auditados 3D).
-- Stock proyectado en vivo con revalidación asíncrona SWR (`functions/api/inventory/sync.js`).
+- Stock proyectado en vivo con revalidación asíncrona SWR debounced (`functions/api/inventory/sync.js`) ante eventos reales (`visibilitychange` a 15s y refresh manual, erradicando el polling ciego).
+- Sincronización Edge KV Zero-Quota (`INVENTORY_KV` en Cloudflare Edge): consolidación de deltas en caliente de los 4 eventos de almacén (Ajuste, Despacho, Recepción en Rampa, Anulación) con latencia sub-5ms, purga atómica al generar nuevos snapshots estáticos y eliminación total del consumo de Upstash Redis en lecturas.
 
 ### 2. Emisión de Abastecimiento (OAB)
 - Detección automática de déficit y algoritmo de sugerencia por empaque comercial (`computePackagingSuggestion`).
@@ -62,6 +63,8 @@ El sistema erradica la compra reactiva a ciegas y la manipulación estática del
 - Alerta bimonetaria instantánea ante emisión de OAB con desglose de ítems, montos totales y botón interactivo al dashboard.
 - Alerta pericial de rampa ante incidencias operativas (rechazos, faltantes y sobrecostos detectados) con deep-link directo al visor de Kardex.
 - Alerta instantánea ante salidas de materiales a producción con detalle de pedido, tienda, mobiliario y motivo.
+- Conmutador táctil de silencio de alerta en ajustes de inventario para permitir calibración técnica de costos y stock sin saturar los canales de producción.
+- Callback RBAC nativo en Telegram (`functions/api/telegram/webhook.js` y `sanesca-api-worker`): botón inline *"Consultar Costo Financiero (Mando)"* que responde con modal privado `answerCallbackQuery` (`show_alert: true`) exclusivo para Dirección/Superadmin (`1143226405`), denegando la visualización de montos confidenciales al resto del personal.
 - Resiliencia serverless con timeout defensivo `AbortController` (3.5s).
 
 ### 8. Terminal de Despacho Físico a Taller (Fase 9A)
