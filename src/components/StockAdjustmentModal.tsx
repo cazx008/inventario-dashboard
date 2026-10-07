@@ -16,7 +16,8 @@ import {
   Eye,
   EyeOff,
   Info,
-  RefreshCw
+  RefreshCw,
+  BellOff
 } from 'lucide-react';
 import { InventoryItem } from '../types/inventory';
 import {
@@ -26,6 +27,7 @@ import {
 } from '../types/adjustment';
 import { submitStockAdjustment } from '../services/kardexService';
 import { saveOfflineAdjustment } from '../services/offlineStorageService';
+import { saveCostOverride } from '../services/inventoryService';
 
 interface StockAdjustmentModalProps {
   isOpen: boolean;
@@ -91,6 +93,23 @@ export const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
   // 7. Estado Transaccional
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // 8. Silenciador de Notificaciones Telegram para Superadmin (Modo Regularización Masiva)
+  const isSuperadmin = useMemo(() => {
+    if (!currentUser) return false;
+    const perms = currentUser.permissions || [];
+    if (perms.includes('Superadmin')) return true;
+    const puestos = currentUser.puestos || [];
+    return puestos.some(p => p.toLowerCase().includes('superadmin') || p.toLowerCase().includes('director') || p.toLowerCase().includes('sistemas'));
+  }, [currentUser]);
+
+  const [silenceTelegram, setSilenceTelegram] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem('sanesca_silence_telegram_session');
+      return saved === null ? true : saved === 'true'; // Por defecto activo durante regularización masiva
+    }
+    return true;
+  });
 
   // Sincronizar preselectedItem cuando cambia o se abre el modal
   useEffect(() => {
@@ -238,17 +257,27 @@ export const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
         costoReferencialUSD: parsedRefCost > 0 ? parsedRefCost : undefined,
         tasaBCV: effectiveBcvRate,
         unidad: selectedItem.unidad || 'Und',
-        supervisorPin: requiresPinInput ? supervisorPin.trim() : undefined
+        supervisorPin: requiresPinInput ? supervisorPin.trim() : undefined,
+        silenceTelegram: isSuperadmin ? silenceTelegram : undefined
       };
 
       const result = await submitStockAdjustment(payload);
 
-      // Callback enriquecido al padre para feedback y refresco reactivo inmediato (Fase 9H)
+      // Resguardo reactivo en caliente del costo ingresado (Fase 1 - v1.1.0)
+      if (effectiveUnitCostUSD > 0) {
+        saveCostOverride(selectedItem.id, effectiveUnitCostUSD);
+      }
+
+      // Callback enriquecido al padre para feedback y refresco reactivo inmediato (Fase 9H/Fase 1)
       const enrichedResult: StockAdjustmentResult = {
         ...result,
         dashboardId: result.dashboardId || selectedItem.id,
         insumoId: result.insumoId || selectedItem.insumoId,
-        itemNombre: result.itemNombre || selectedItem.nombre
+        itemNombre: result.itemNombre || selectedItem.nombre,
+        newCost: effectiveUnitCostUSD > 0 ? effectiveUnitCostUSD : undefined,
+        message: result.telegramSilenced
+          ? `${result.message} 🔕 (Alerta de Telegram silenciada por modo regularización).`
+          : result.message
       };
       onAdjustmentSuccess(enrichedResult);
       onClose();
@@ -751,6 +780,37 @@ export const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
                     </span>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* 7. Modo Silencioso para Superadmin (Regularización Masiva sin Alertas a Telegram) */}
+            {selectedItem && isSuperadmin && (
+              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-between transition-all">
+                <div className="flex items-center gap-2.5">
+                  <BellOff className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                  <div>
+                    <span className="text-xs font-semibold text-amber-200 block">
+                      Silenciar alerta a Telegram
+                    </span>
+                    <span className="text-[10px] text-amber-400/80 block">
+                      Modo regularización masiva de inventario (Activo en esta sesión)
+                    </span>
+                  </div>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={silenceTelegram}
+                    onChange={e => {
+                      setSilenceTelegram(e.target.checked);
+                      if (typeof window !== 'undefined') {
+                        sessionStorage.setItem('sanesca_silence_telegram_session', e.target.checked ? 'true' : 'false');
+                      }
+                    }}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
+                </label>
               </div>
             )}
           </div>

@@ -18,8 +18,35 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // --- Configuration ---
-const NOTION_TOKEN = process.env.SANESCATOKEN || process.env.NOTION_TOKEN || '';
+function resolveNotionToken() {
+  if (process.env.SANESCATOKEN) return process.env.SANESCATOKEN;
+  if (process.env.NOTION_TOKEN) return process.env.NOTION_TOKEN;
+  if (process.env.NOTION_API_KEY) return process.env.NOTION_API_KEY;
+
+  const candidateEnvPaths = [
+    path.join(__dirname, '..', '.env'),
+    path.join(__dirname, '..', '..', '..', 'apps', 'despacho', '.env'),
+    path.join(__dirname, '..', '..', '..', '06_Scripts_Automatizacion', 'bot_produccion', '.env')
+  ];
+
+  for (const envPath of candidateEnvPaths) {
+    if (fs.existsSync(envPath)) {
+      try {
+        const content = fs.readFileSync(envPath, 'utf8');
+        const match = content.match(/(?:NOTION_API_KEY|NOTION_TOKEN|SANESCATOKEN)\s*=\s*(.+)/);
+        if (match && match[1]) {
+          return match[1].trim().replace(/^['"]|['"]$/g, '');
+        }
+      } catch (_) {}
+    }
+  }
+
+  return '';
+}
+
+const NOTION_TOKEN = resolveNotionToken();
 const DASHBOARD_DB_ID = process.env.NOTION_DASHBOARD_DB_ID || '2b586805-4e27-80fe-b6e8-e4c6dc325696';
+const CATALOGO_INSUMOS_DB_ID = process.env.NOTION_CATALOGO_INSUMOS_DB_ID || '26286805-4e27-8067-8847-d39de1bf0bde';
 
 const OUTPUT_DIRS = [
   path.join(__dirname, '..', 'data'),
@@ -211,6 +238,59 @@ async function queryDashboard() {
   return allPages;
 }
 
+// --- Query BD_Catalogo_Insumos para extracción de Costos Base USD ---
+
+async function queryCatalogoInsumos() {
+  const costMapById = new Map();
+  const costMapByCode = new Map();
+  let cursor = undefined;
+
+  console.log('📡 Consultando BD Catálogo de Insumos en Notion (Costos Base USD)...');
+
+  do {
+    const res = await fetch(`https://api.notion.com/v1/databases/${CATALOGO_INSUMOS_DB_ID}/query`, {
+      method: 'POST',
+      headers: NOTION_HEADERS,
+      body: JSON.stringify({
+        start_cursor: cursor,
+        page_size: 100,
+      })
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.warn(`  ⚠️ Aviso en Catálogo Insumos (${res.status}): ${errText}`);
+      break;
+    }
+
+    const data = await res.json();
+    for (const page of data.results) {
+      const p = page.properties;
+      const cost = p['Costo_Unitario_Base_USD']?.number ?? p['Costo Unitario ($ USD)']?.number ?? p['Costo']?.number ?? 0;
+      costMapById.set(page.id, cost);
+
+      const codeProp = p['Codigo'] || p['Código'];
+      let code = null;
+      if (codeProp?.rich_text?.[0]?.plain_text) {
+        code = codeProp.rich_text[0].plain_text.trim();
+      } else if (codeProp?.title?.[0]?.plain_text) {
+        code = codeProp.title[0].plain_text.trim();
+      }
+      if (code) {
+        costMapByCode.set(code, cost);
+      }
+    }
+
+    cursor = data.has_more ? data.next_cursor : undefined;
+    if (cursor) {
+      await new Promise(r => setTimeout(r, 60));
+    }
+  } while (cursor);
+
+  console.log(`  ✅ Catálogo Insumos indexado: ${costMapById.size} IDs, ${costMapByCode.size} códigos.`);
+  return { costMapById, costMapByCode };
+}
+
 // --- Helper: Format dimensions (L × A × E) ---
 
 function parseDimension(val) {
@@ -239,7 +319,7 @@ function formatDimensiones(largo, ancho, espesor) {
 
 // --- Transform a Notion page into a normalized inventory item ---
 
-async function transformItem(page) {
+async function transformItem(page, costData = { costMapById: new Map(), costMapByCode: new Map() }) {
   const p = page.properties;
 
   // --- Direct properties from Dashboard ---
@@ -310,11 +390,26 @@ async function transformItem(page) {
 
   const necesitaReconteo = diasDesdeReconteo !== null ? diasDesdeReconteo > 7 && !seReconto3D : null;
 
+  // Extracción y cruce de costos desde BD_Catalogo_Insumos
+  const insumoRelation = extractProperty(p['Producto']) || extractProperty(p['Insumos']) || [];
+  const insumoId = Array.isArray(insumoRelation) ? insumoRelation[0] : (typeof insumoRelation === 'string' ? insumoRelation : null);
+
+  const codigoClean = typeof codigo === 'string' ? codigo.trim() : (Array.isArray(codigo) ? codigo[0]?.trim() : null);
+
+  let costoUnitarioUSD = 0;
+  if (insumoId && costData?.costMapById?.has(insumoId)) {
+    costoUnitarioUSD = costData.costMapById.get(insumoId);
+  } else if (codigoClean && costData?.costMapByCode?.has(codigoClean)) {
+    costoUnitarioUSD = costData.costMapByCode.get(codigoClean);
+  }
+
   return {
     id: page.id,
     nombre,
     codigo: typeof codigo === 'string' ? codigo : (Array.isArray(codigo) ? codigo[0] : null),
     marca: typeof marca === 'string' ? marca : (Array.isArray(marca) ? marca[0] : null),
+    insumoId: insumoId || null,
+    costoUnitarioUSD: Number(costoUnitarioUSD) || 0,
     stockBase,
     stockMinimo,
     deficit,
@@ -390,14 +485,20 @@ async function main() {
 
   const startTime = Date.now();
 
-  const pages = await queryDashboard();
+  const [pages, costData] = await Promise.all([
+    queryDashboard(),
+    queryCatalogoInsumos().catch(err => {
+      console.warn('  ⚠️ Error cargando Catálogo Insumos:', err);
+      return { costMapById: new Map(), costMapByCode: new Map() };
+    })
+  ]);
 
-  console.log('🔄 Transformando datos y resolviendo relaciones...');
+  console.log('🔄 Transformando datos, cruzando costos y resolviendo relaciones...');
   const items = [];
   const BATCH_SIZE = 10;
   for (let i = 0; i < pages.length; i += BATCH_SIZE) {
     const batch = pages.slice(i, i + BATCH_SIZE);
-    const batchItems = await Promise.all(batch.map(p => transformItem(p)));
+    const batchItems = await Promise.all(batch.map(p => transformItem(p, costData)));
     items.push(...batchItems);
     process.stdout.write(`  📦 ${items.length}/${pages.length} procesados...\r`);
     await new Promise(r => setTimeout(r, 40));

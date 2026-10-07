@@ -29,6 +29,7 @@ export interface StockAdjustmentPayload {
   idempotencyKey?: string;
   stockTeoricoAlCapturar?: number;
   isOfflineSync?: boolean;
+  silenceTelegram?: boolean;
 }
 
 export interface StockAdjustmentResult {
@@ -41,11 +42,13 @@ export interface StockAdjustmentResult {
   itemNombre?: string;
   previousStock?: number;
   newStock?: number;
+  newCost?: number;
   delta?: number;
   impactoUSD?: number;
   impactoBs?: number;
   nuevoEstadoStock?: string;
   requiresSupervisorPin?: boolean;
+  telegramSilenced?: boolean;
   timestamp?: string;
   error?: string;
 }

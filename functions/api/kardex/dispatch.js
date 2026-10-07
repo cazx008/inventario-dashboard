@@ -14,10 +14,15 @@
  */
 
 import { requirePermission } from '../auth/_guard.js';
+import { executeRedis } from '../auth/_audit.js';
 import { sendTelegramAlert } from '../telegram/notify.js';
 
 const KARDEX_DB_ID = '26286805-4e27-803b-91ce-ef8f121d622d';
 const DASHBOARD_DB_ID = '2b586805-4e27-80fe-b6e8-e4c6dc325696';
+
+// Flags operativas de Telegram (Temporalmente inactivas según directriz de planta)
+const ENABLE_ROUTINE_DISPATCH_ALERTS = false;
+const ENABLE_BOM_OVERCONSUMPTION_ALERTS = false;
 
 export async function onRequest(context) {
   const { request, env } = context;
@@ -224,26 +229,37 @@ export async function onRequest(context) {
 
     if (!patchDashRes.ok) {
       console.error('Alerta crítica: Se registró Kardex pero falló PATCH de stock en Dashboard:', await patchDashRes.text());
+    } else {
+      executeRedis(env, 'HSET', 'inventory:live_stock', dashboardId, JSON.stringify({
+        stock: newStock,
+        timestamp: Date.now()
+      })).catch(e => console.warn('Advertencia actualizando live_stock en Redis:', e));
     }
 
-    // 6. Notificación Operativa en Telegram
-    const telegramMessage = [
-      `📤 <b>DESPACHO A PRODUCCIÓN / TALLER</b>`,
-      payload.sobreconsumoFlag ? `⚠️ <b>ALERTA SOBRECONSUMO:</b> Acumulado > 115% de Receta BOM (${payload.porcentajeDemanda || '>115%'})` : null,
-      `📦 <b>Material:</b> ${itemActualName}`,
-      `📉 <b>Cantidad Despachada:</b> -${qty} ${unidad}`,
-      `📊 <b>Stock Anterior:</b> ${currentStock} → <b>Nuevo Saldo:</b> ${newStock} ${unidad}`,
-      `🎯 <b>Nivel Imputación:</b> ${nivelImputacion}`,
-      `🏭 <b>Destino:</b> ${destinoLabel}`,
-      `👷‍♂️ <b>Operario Receptor:</b> ${operarioReceptor}`,
-      `🏷️ <b>Área / Motivo:</b> ${areaDestino} · ${motivoSalida}`,
-      `👤 <b>Despachado por:</b> ${authCheck.user?.name || 'Almacén'}`,
-      `📅 <b>Fecha:</b> ${todayStr}`
-    ].filter(Boolean).join('\n');
+    // 6. Notificación Operativa en Telegram (Inactiva temporalmente según gobernanza)
+    const isSobreconsumo = Boolean(payload.sobreconsumoFlag);
+    const shouldSendTelegram = (isSobreconsumo && ENABLE_BOM_OVERCONSUMPTION_ALERTS) ||
+                               (!isSobreconsumo && ENABLE_ROUTINE_DISPATCH_ALERTS);
 
-    sendTelegramAlert({ env, text: telegramMessage }).catch(e => {
-      console.warn('Advertencia despachando alerta Telegram:', e);
-    });
+    if (shouldSendTelegram) {
+      const telegramMessage = [
+        `📤 <b>DESPACHO A PRODUCCIÓN / TALLER</b>`,
+        isSobreconsumo ? `⚠️ <b>ALERTA SOBRECONSUMO:</b> Acumulado > 115% de Receta BOM (${payload.porcentajeDemanda || '>115%'})` : null,
+        `📦 <b>Material:</b> ${itemActualName}`,
+        `📉 <b>Cantidad Despachada:</b> -${qty} ${unidad}`,
+        `📊 <b>Stock Anterior:</b> ${currentStock} → <b>Nuevo Saldo:</b> ${newStock} ${unidad}`,
+        `🎯 <b>Nivel Imputación:</b> ${nivelImputacion}`,
+        `🏭 <b>Destino:</b> ${destinoLabel}`,
+        `👷‍♂️ <b>Operario Receptor:</b> ${operarioReceptor}`,
+        `🏷️ <b>Área / Motivo:</b> ${areaDestino} · ${motivoSalida}`,
+        `👤 <b>Despachado por:</b> ${authCheck.user?.name || 'Almacén'}`,
+        `📅 <b>Fecha:</b> ${todayStr}`
+      ].filter(Boolean).join('\n');
+
+      sendTelegramAlert({ env, text: telegramMessage, threadId: 146 }).catch(e => {
+        console.warn('Advertencia despachando alerta Telegram:', e);
+      });
+    }
 
     return new Response(JSON.stringify({
       status: 'success',

@@ -37,6 +37,21 @@ function localApiMiddlewarePlugin(): Plugin {
       }));
     }
 
+    if (pathname === '/api/auth/pin-verify') {
+      res.statusCode = 200;
+      return res.end(JSON.stringify({
+        status: 'success',
+        token: 'dev-jwt-superadmin-token',
+        profile: {
+          id: 'emp-1',
+          name: 'Mikel Itriago',
+          puestos: ['Dirección General', 'Sistemas', 'Supervisor'],
+          permissions: ['Superadmin', 'Auditoria_Kardex', 'Despacho_Taller', 'Ver_Kardex', 'Crear_OAB', 'Recibir_OAB'],
+          authMethod: 'pin'
+        }
+      }));
+    }
+
     if (pathname === '/api/orders/active') {
       res.statusCode = 200;
       return res.end(JSON.stringify({
@@ -186,6 +201,21 @@ function localApiMiddlewarePlugin(): Plugin {
         message: 'Salida a taller registrada con éxito.',
         newStock: 45,
         kardexId: 'kardex-e2e-ok'
+      }));
+    }
+
+    if (pathname === '/api/kardex/adjust') {
+      res.statusCode = 200;
+      return res.end(JSON.stringify({
+        status: 'success',
+        message: 'Ajuste de inventario procesado con éxito (Local Dev).',
+        folio: 'ADJ-DEV-LOCAL',
+        newStock: 12,
+        delta: 2,
+        impactoUSD: 3.6,
+        unitCost: 1.8,
+        newCost: 1.8,
+        telegramSilenced: true
       }));
     }
 

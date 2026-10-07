@@ -311,6 +311,39 @@ export default function App() {
 
   useEffect(() => {
     fetchData();
+
+    // SWR Reactivo Multi-Dispositivo: Revalidar automáticamente al enfocar ventana o desbloquear pantalla
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        setItems(current => {
+          revalidateInventoryLive(current).then(res => {
+            if (res.synced) setItems(res.updatedItems);
+          });
+          return current;
+        });
+      }
+    };
+
+    // Polling ligero cada 45s cuando la pantalla esté activa
+    const pollInterval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        setItems(current => {
+          revalidateInventoryLive(current).then(res => {
+            if (res.synced) setItems(res.updatedItems);
+          });
+          return current;
+        });
+      }
+    }, 45000);
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleVisibilityChange);
+
+    return () => {
+      clearInterval(pollInterval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleVisibilityChange);
+    };
   }, [fetchData]);
 
   const handleRefresh = () => {
@@ -433,6 +466,7 @@ export default function App() {
             return {
               ...item,
               stockBase: newStock,
+              costoUnitarioUSD: result.newCost !== undefined ? result.newCost : item.costoUnitarioUSD,
               deficit: newDeficit,
               estadoStock: result.nuevoEstadoStock || newEstado,
               stockProyectado: newStock + (item.enTransitoOAB || 0),

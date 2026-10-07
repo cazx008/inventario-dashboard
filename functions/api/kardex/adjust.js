@@ -81,7 +81,8 @@ export async function onRequest(context) {
       unidad = 'Und',
       supervisorPin = null,
       stockTeoricoAlCapturar = null,
-      isOfflineSync = false
+      isOfflineSync = false,
+      silenceTelegram: rawSilenceTelegram = false
     } = payload;
 
     const idempotencyKey = request.headers.get('x-idempotency-key') || payload.idempotencyKey;
@@ -185,6 +186,10 @@ export async function onRequest(context) {
     } else if (isSupervisor && esCritico) {
       supervisorAutorizo = `${authCheck.user?.name || 'Supervisor'} (Sesión de Mando)`;
     }
+
+    // Modo Regularización: Solo Superadmin o supervisor autenticado pueden silenciar Telegram
+    const isPrivilegedAdmin = isSuperadmin || Boolean(supervisorAutorizo);
+    const silenceTelegram = Boolean(rawSilenceTelegram) && isPrivilegedAdmin;
 
     const { isoVzla, readable } = getVzlaTime();
     const todayStr = isoVzla.split('T')[0];
@@ -323,6 +328,16 @@ export async function onRequest(context) {
       });
     }
 
+    // 6.0 Sincronización Multi-Dispositivo en Tiempo Real: Saldo en vivo en Redis para SWR
+    executeRedis(env, 'HSET', 'inventory:live_stock', dashboardId, JSON.stringify({
+      stock: physicalCount,
+      estadoStock: nuevoEstadoStockLimpio,
+      unitCost: unitCost,
+      timestamp: Date.now()
+    })).catch(err => {
+      console.warn('Advertencia guardando live_stock en Redis:', err);
+    });
+
     // 6.1 Enriquecimiento Condicional de Catálogo Maestro (BD_Catalogo_Insumos) (Fase 9I - Decisión D4)
     const targetInsumoId = insumoId || dashPage.properties?.['Producto']?.relation?.[0]?.id || dashPage.properties?.['Insumos']?.relation?.[0]?.id;
     if (refCost > 0 && targetInsumoId) {
@@ -360,7 +375,7 @@ export async function onRequest(context) {
     const eventType = delta === 0 ? 'INVENTORY_COUNT_VERIFIED' : 'INVENTORY_ADJUSTMENT';
     const auditDetails = delta === 0
       ? `VERIFICACIÓN CONFORME | ${itemActualName} | Saldo Ratificado: ${physicalCount} ${unidad} | Auditor: ${authCheck.user?.name || 'Almacén'} | Obs: ${cleanJustificacion}`
-      : `${folioCorrelativo} | ${itemActualName} | Δ: ${delta > 0 ? '+' : ''}${delta} ${unidad} | Saldo: ${currentStock} ➔ ${physicalCount} | Impacto: $${impactoUSD.toFixed(2)} USD | Motivo: ${motivo} | Justif: ${cleanJustificacion}${supervisorAutorizo ? ` | Aprobó: ${supervisorAutorizo}` : ''}`;
+      : `${folioCorrelativo} | ${itemActualName} | Δ: ${delta > 0 ? '+' : ''}${delta} ${unidad} | Saldo: ${currentStock} ➔ ${physicalCount} | Impacto: $${impactoUSD.toFixed(2)} USD | Motivo: ${motivo} | Justif: ${cleanJustificacion}${supervisorAutorizo ? ` | Aprobó: ${supervisorAutorizo}` : ''}${silenceTelegram ? ' | 🔕 MODO_REGULARIZACION' : ''}`;
 
     recordAuditLog({
       env,
@@ -377,11 +392,35 @@ export async function onRequest(context) {
     });
 
     // 8. Notificación Push en Telegram ante Pérdida Crítica (Δ < 0 e Impacto >= $10.00 USD)
-    if (delta < 0 && impactoUSD >= 10.00) {
+    // Silenciable por Superadmin durante tareas de regularización / carga masiva
+    if (!silenceTelegram && delta < 0 && impactoUSD >= 10.00) {
+      // Congelar snapshot financiero en Redis por 7 días para auditoría confidencial privada
+      const costSnapshot = {
+        folio: folioCorrelativo,
+        itemNombre: itemActualName,
+        delta,
+        unidad,
+        unitCost,
+        impactoUSD,
+        impactoBs,
+        currentStock,
+        physicalCount,
+        motivo,
+        justificacion: cleanJustificacion,
+        auditor: authCheck.user?.name || 'Almacén',
+        supervisor: supervisorAutorizo || 'N/A',
+        timestamp: isoVzla
+      };
+
+      executeRedis(env, 'SETEX', `telegram:adj_cost:${folioCorrelativo}`, 604800, JSON.stringify(costSnapshot)).catch(err => {
+        console.warn('Advertencia guardando snapshot de costo en Redis:', err);
+      });
+
+      // Mensaje sanitizado para el grupo de producción (Sin cifras monetarias en chat público)
       const alertMsg = [
-        `⚠️ <b>ALERTA DE DESCUADRE CRÍTICO EN ALMACÉN</b>`,
+        `⚠️ <b>ALERTA DE DESCUADRE FÍSICO EN ALMACÉN</b>`,
         `📦 <b>Material:</b> ${itemActualName}`,
-        `📉 <b>Pérdida / Faltante:</b> ${delta} ${unidad} (<b>-$${impactoUSD.toFixed(2)} USD</b>${impactoBs > 0 ? ` · Bs ${impactoBs.toLocaleString('es-VE', { minimumFractionDigits: 2 })}` : ''})`,
+        `📉 <b>Pérdida / Faltante Físico:</b> ${delta} ${unidad}`,
         `📊 <b>Stock Teórico:</b> ${currentStock} → <b>Conteo Físico:</b> ${physicalCount} ${unidad}`,
         `🏷️ <b>Motivo:</b> ${motivo}`,
         `📝 <b>Justificación:</b> ${cleanJustificacion}`,
@@ -391,7 +430,17 @@ export async function onRequest(context) {
         `⏱️ <b>Fecha/Hora:</b> ${readable}`
       ].filter(Boolean).join('\n');
 
-      sendTelegramAlert({ env, text: alertMsg }).catch(e => {
+      const buttons = [
+        [
+          {
+            text: '🔒 Consultar Costo Financiero (Mando)',
+            callback_data: `cost_audit:${folioCorrelativo}`
+          }
+        ]
+      ];
+
+      // Enrutar al Tópico 146 (Inventario) con botón interactivo de popup privado
+      sendTelegramAlert({ env, text: alertMsg, buttons, threadId: 146 }).catch(e => {
         console.warn('Advertencia despachando alerta Telegram de ajuste:', e);
       });
     }
@@ -411,6 +460,9 @@ export async function onRequest(context) {
       delta,
       impactoUSD,
       impactoBs,
+      unitCost,
+      newCost: unitCost,
+      telegramSilenced: silenceTelegram,
       nuevoEstadoStock: nuevoEstadoStockConEmoji,
       timestamp: isoVzla
     };

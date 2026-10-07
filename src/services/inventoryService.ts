@@ -9,6 +9,7 @@ export interface InventoryDataResponse {
 
 // Persistencia de Ajustes Recientes en Almacenamiento Local (Fase 9H - Decisión D3)
 const STOCK_OVERRIDES_KEY = 'sanesca_stock_overrides';
+const COST_OVERRIDES_KEY = 'sanesca_cost_overrides';
 
 export function saveStockOverride(dashboardId: string, newStock: number, nuevoEstadoStock?: string) {
   try {
@@ -23,6 +24,22 @@ export function saveStockOverride(dashboardId: string, newStock: number, nuevoEs
     localStorage.setItem(STOCK_OVERRIDES_KEY, JSON.stringify(overrides));
   } catch (e) {
     console.warn('Error guardando override de stock:', e);
+  }
+}
+
+export function saveCostOverride(dashboardId: string, newCost: number) {
+  try {
+    if (typeof window === 'undefined') return;
+    if (!newCost || newCost <= 0) return;
+    const raw = localStorage.getItem(COST_OVERRIDES_KEY);
+    const overrides = raw ? JSON.parse(raw) : {};
+    overrides[dashboardId] = {
+      cost: newCost,
+      timestamp: Date.now()
+    };
+    localStorage.setItem(COST_OVERRIDES_KEY, JSON.stringify(overrides));
+  } catch (e) {
+    console.warn('Error guardando override de costo:', e);
   }
 }
 
@@ -48,6 +65,26 @@ export function getStockOverrides(): Record<string, { stock: number; estadoStock
     const now = Date.now();
     const clean: Record<string, { stock: number; estadoStock?: string; timestamp: number }> = {};
     // Mantener overrides de las últimas 48 horas
+    for (const [id, data] of Object.entries(parsed)) {
+      const d = data as any;
+      if (now - d.timestamp < 48 * 3600 * 1000) {
+        clean[id] = d;
+      }
+    }
+    return clean;
+  } catch {
+    return {};
+  }
+}
+
+export function getCostOverrides(): Record<string, { cost: number; timestamp: number }> {
+  try {
+    if (typeof window === 'undefined') return {};
+    const raw = localStorage.getItem(COST_OVERRIDES_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    const now = Date.now();
+    const clean: Record<string, { cost: number; timestamp: number }> = {};
     for (const [id, data] of Object.entries(parsed)) {
       const d = data as any;
       if (now - d.timestamp < 48 * 3600 * 1000) {
@@ -98,9 +135,11 @@ export async function loadInventoryData(): Promise<InventoryDataResponse> {
     console.warn('Fallo cargando data estática local:', err);
   }
 
-  // Leer sobreescrituras locales recientes de ajustes físicos (Fase 9H/9I - Decisión D5)
+  // Leer sobreescrituras locales recientes de ajustes físicos y costos (Fase 9H/9I - Decisión D5)
   const overrides = typeof window !== 'undefined' ? getStockOverrides() : {};
+  const costOverrides = typeof window !== 'undefined' ? getCostOverrides() : {};
   let overridesModified = false;
+  let costOverridesModified = false;
 
   // Enriquecer items con enTransitoOAB, stockProyectado y reconciliar/evictar overrides locales
   items = items.map(item => {
@@ -120,6 +159,18 @@ export async function loadInventoryData(): Promise<InventoryDataResponse> {
       }
     }
 
+    // Reconciliación reactiva de Costo Unitario
+    const costOverride = costOverrides[item.id];
+    let unitCost = item.costoUnitarioUSD || 0;
+    if (costOverride !== undefined && costOverride.cost > 0) {
+      if (item.costoUnitarioUSD === costOverride.cost) {
+        delete costOverrides[item.id];
+        costOverridesModified = true;
+      } else {
+        unitCost = costOverride.cost;
+      }
+    }
+
     const enTransito = item.enTransitoOAB || 0;
     const proyectado = baseStock + enTransito;
     const deficit = Math.max(0, (item.stockMinimo || 0) - baseStock);
@@ -130,7 +181,7 @@ export async function loadInventoryData(): Promise<InventoryDataResponse> {
       estadoStock: estado,
       enTransitoOAB: enTransito,
       stockProyectado: proyectado,
-      costoUnitarioUSD: item.costoUnitarioUSD || 0
+      costoUnitarioUSD: unitCost
     };
   });
 
@@ -139,7 +190,15 @@ export async function loadInventoryData(): Promise<InventoryDataResponse> {
     try {
       localStorage.setItem(STOCK_OVERRIDES_KEY, JSON.stringify(overrides));
     } catch (e) {
-      console.warn('Error persistiendo evicción de overrides:', e);
+      console.warn('Error persistiendo evicción de stock overrides:', e);
+    }
+  }
+
+  if (costOverridesModified && typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(COST_OVERRIDES_KEY, JSON.stringify(costOverrides));
+    } catch (e) {
+      console.warn('Error persistiendo evicción de cost overrides:', e);
     }
   }
 
@@ -201,26 +260,57 @@ export async function revalidateInventoryLive(currentItems: InventoryItem[]): Pr
     }
 
     const data = await res.json();
-    if (!data || data.status !== 'synced') {
+    if (!data || (data.status !== 'synced' && data.status !== 'offline_or_unconfigured')) {
       return { updatedItems: currentItems, activeOrdersCount: data.activeOrdersCount || 0, synced: false };
     }
 
     const transitoByDash = data.enTransitoByDashboardId || {};
     const transitoByName = data.enTransitoByName || {};
+    const liveStockByDash = data.liveStockByDashboardId || {};
+    const liveCostByDash = data.liveCostByDashboardId || {};
 
     const updated = currentItems.map(item => {
-      // Prioridad 1: buscar por dashboardId
+      // 1. Prioridad Tránsito OAB
       let transit = transitoByDash[item.id];
-      // Prioridad 2: buscar por nombre normalizado si no se encontró
       if (transit === undefined && item.nombre) {
         transit = transitoByName[item.nombre.toLowerCase().trim()];
       }
-
       const enTransito = transit !== undefined ? transit : (item.enTransitoOAB || 0);
-      const stockProyectado = (item.stockBase || 0) + enTransito;
+
+      // 2. Stock Base en Vivo (Ajustes de inventario y Despachos en tiempo real)
+      let baseStock = item.stockBase || 0;
+      let estado = item.estadoStock;
+      if (liveStockByDash[item.id] !== undefined) {
+        const liveVal = Number(liveStockByDash[item.id]);
+        if (!isNaN(liveVal)) {
+          baseStock = liveVal;
+          if (baseStock === 0) {
+            estado = 'Sin Stock';
+          } else if (baseStock < (item.stockMinimo || 0)) {
+            estado = 'Bajo Mínimo';
+          } else {
+            estado = 'En Stock';
+          }
+          saveStockOverride(item.id, baseStock, estado);
+        }
+      }
+
+      // 3. Costo Unitario en Vivo
+      let unitCost = item.costoUnitarioUSD || 0;
+      if (liveCostByDash[item.id] !== undefined && Number(liveCostByDash[item.id]) > 0) {
+        unitCost = Number(liveCostByDash[item.id]);
+        saveCostOverride(item.id, unitCost);
+      }
+
+      const stockProyectado = baseStock + enTransito;
+      const deficit = Math.max(0, (item.stockMinimo || 0) - baseStock);
 
       return {
         ...item,
+        stockBase: baseStock,
+        costoUnitarioUSD: unitCost,
+        estadoStock: estado,
+        deficit,
         enTransitoOAB: enTransito,
         stockProyectado,
         isOptimisticSync: false,
