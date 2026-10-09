@@ -13,7 +13,8 @@ import {
   Image as ImageIcon,
   Trash2,
   Search,
-  Plus
+  Plus,
+  Tag
 } from 'lucide-react';
 import { OABLineItem } from '../types/oab';
 import { InventoryItem } from '../types/inventory';
@@ -31,6 +32,7 @@ import {
   getPendingPhotosCount 
 } from '../services/offlineReceptionStorage';
 import { compressImageFile } from '../utils/imageCompressor';
+import { PrintSheetProjectLabels, ProjectLabelItem } from './PrintSheetProjectLabels';
 
 interface ReceptionTerminalModalProps {
   isOpen: boolean;
@@ -71,6 +73,10 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
   const [numeroControlFiscal, setNumeroControlFiscal] = useState('');
   const [showFiscalInputs, setShowFiscalInputs] = useState(false);
   const [pendingPhotosCount, setPendingPhotosCount] = useState<number>(0);
+
+  // Estados de Rotulado Físico MTO y Etiquetas Duales (Fase 10B)
+  const [labelsToPrint, setLabelsToPrint] = useState<ProjectLabelItem[]>([]);
+  const [showLabelModal, setShowLabelModal] = useState<boolean>(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -129,6 +135,8 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
     setShowCompletedAccordion(false);
     setSearchItemQuery(initialSearchTerm || '');
     setItemsToReceive([]);
+    setLabelsToPrint([]);
+    setShowLabelModal(false);
 
     // Cargar órdenes pendientes desde Notion
     fetchPendingOABs().then(orders => {
@@ -194,7 +202,12 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
         costoUnitarioUSD: item.costoUnitarioUSD || 0,
         costoAprobadoUSD: item.costoUnitarioUSD || 0,
         subtotalUSD: item.costoUnitarioUSD || 0,
-        prioridad: item.prioridad || 'Media'
+        prioridad: item.prioridad || 'Media',
+        codigo: item.codigo,
+        categoriaMaterial: item.categoriaMaterial,
+        rotularEtiqueta: false,
+        bultos: 1,
+        cantEnBulto: 1
       };
       return [newLine, ...prev];
     });
@@ -253,7 +266,10 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
             costoAprobadoUSD: line.costoUnitarioUSD,
             subtotalUSD: line.subtotalUSD,
             prioridad: line.prioridad || 'Alta',
-            proyectoNombre: line.proyectoNombre
+            proyectoNombre: line.proyectoNombre,
+            rotularEtiqueta: Boolean(line.proyectoNombre),
+            bultos: 1,
+            cantEnBulto: pendingBalance > 0 ? pendingBalance : 1
           };
 
           if (pendingBalance > 0) {
@@ -300,12 +316,14 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
       const approved = copy[idx].cantidadAprobada || copy[idx].cantidadSolicitada || 0;
       const prevRec = copy[idx].cantidadRecibidaPrevia || 0;
       const pending = Math.max(0, approved - prevRec);
+      const bultos = copy[idx].bultos || 1;
       copy[idx] = {
         ...copy[idx],
         cantidadRecibida: pending,
         cantidadRecibidaHoy: pending,
         cantidadRechazada: 0,
-        backorderPendiente: 0
+        backorderPendiente: 0,
+        cantEnBulto: Math.max(1, Math.ceil(pending / bultos))
       };
       return copy;
     });
@@ -377,8 +395,57 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
         const prevRec = copy[idx].cantidadRecibidaPrevia || 0;
         const pending = Math.max(0, approved - prevRec);
         copy[idx].backorderPendiente = Math.max(0, pending - val);
+        const bultos = copy[idx].bultos || 1;
+        copy[idx].cantEnBulto = Math.max(1, Math.ceil(val / bultos));
       }
 
+      return copy;
+    });
+  };
+
+  // Handlers ergonómicos de rotulado y bultos (Micro-Fase 10B)
+  const handleToggleRotulado = (idx: number) => {
+    setItemsToReceive(prev => {
+      const copy = [...prev];
+      const current = copy[idx].rotularEtiqueta ?? Boolean(copy[idx].proyectoNombre);
+      copy[idx] = { ...copy[idx], rotularEtiqueta: !current };
+      return copy;
+    });
+  };
+
+  const handleBultosChange = (idx: number, bultosVal: number) => {
+    setItemsToReceive(prev => {
+      const copy = [...prev];
+      const item = copy[idx];
+      const received = item.cantidadRecibidaHoy ?? item.cantidadRecibida ?? 1;
+      const safeBultos = Math.max(1, bultosVal);
+      copy[idx] = {
+        ...item,
+        bultos: safeBultos,
+        cantEnBulto: Math.max(1, Math.ceil(received / safeBultos))
+      };
+      return copy;
+    });
+  };
+
+  const handleCantEnBultoChange = (idx: number, cantVal: number) => {
+    setItemsToReceive(prev => {
+      const copy = [...prev];
+      copy[idx] = { ...copy[idx], cantEnBulto: Math.max(1, cantVal) };
+      return copy;
+    });
+  };
+
+  const handleResetLoteCompleto = (idx: number) => {
+    setItemsToReceive(prev => {
+      const copy = [...prev];
+      const item = copy[idx];
+      const received = item.cantidadRecibidaHoy ?? item.cantidadRecibida ?? 1;
+      copy[idx] = {
+        ...item,
+        bultos: 1,
+        cantEnBulto: Math.max(1, received)
+      };
       return copy;
     });
   };
@@ -465,9 +532,46 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
         costoUnitarioUSD: l.costoUnitarioUSD || 0,
         costoAprobadoUSD: l.costoAprobadoUSD || l.costoUnitarioUSD || 0,
         toleranciaExcedente: l.toleranciaExcedente,
-        notasDiscrepancia: l.notasDiscrepancia
+        notasDiscrepancia: l.notasDiscrepancia,
+        proyectoId: l.proyectoId,
+        proyectoNombre: l.proyectoNombre
       }))
     };
+
+    // Preparar etiquetas físicas para impresión (Micro-Fase 10B)
+    const generatedLabels: ProjectLabelItem[] = [];
+    itemsToReceive.forEach(l => {
+      const isRotular = l.rotularEtiqueta ?? Boolean(l.proyectoNombre);
+      const receivedToday = l.cantidadRecibidaHoy ?? l.cantidadRecibida ?? 0;
+      if (isRotular && receivedToday > 0) {
+        const approved = l.cantidadAprobada || l.cantidadSolicitada || receivedToday;
+        const prev = l.cantidadRecibidaPrevia || 0;
+        const totalCum = prev + receivedToday;
+        const isParcial = totalCum < approved;
+        const pending = Math.max(0, approved - totalCum);
+        const bultos = Math.max(1, l.bultos || 1);
+        const cantEnBulto = l.cantEnBulto || Math.ceil(receivedToday / bultos);
+
+        generatedLabels.push({
+          id: l.id || `lbl_${l.dashboardId || l.nombre}`,
+          insumoId: l.insumoId,
+          dashboardId: l.dashboardId,
+          nombre: l.nombre,
+          codigo: l.codigo,
+          categoria: l.categoriaMaterial,
+          folioOAB: activeFolio,
+          fechaRecepcion,
+          proyectoNombre: l.proyectoNombre || 'Stock Fábrica',
+          cantidadRecibidaHoy: receivedToday,
+          cantidadTotalAprobada: approved,
+          backorderPendiente: pending,
+          isParcial,
+          bultos,
+          cantEnBulto
+        });
+      }
+    });
+    setLabelsToPrint(generatedLabels);
 
     // Caso 1: Dispositivo offline
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
@@ -601,7 +705,17 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
                 </div>
               )}
             </div>
-            <div className="pt-2 flex justify-center gap-3">
+            <div className="pt-2 flex flex-wrap justify-center gap-3">
+              {labelsToPrint.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowLabelModal(true)}
+                  className="flex items-center gap-2 px-5 py-2 text-xs font-bold rounded-lg bg-emerald-500 hover:bg-emerald-600 text-slate-950 transition shadow active:scale-95"
+                >
+                  <Tag className="w-4 h-4" />
+                  <span>Imprimir Etiquetas de Proyecto ({labelsToPrint.reduce((acc, l) => acc + l.bultos, 0)} bultos)</span>
+                </button>
+              )}
               <button
                 onClick={onClose}
                 className="px-6 py-2 text-xs font-semibold rounded-lg bg-brand-500 hover:bg-brand-600 text-slate-950 transition"
@@ -1064,6 +1178,68 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
                         />
                       </div>
                     </div>
+
+                    {/* Barra Ergonómica de Rotulado de Proyecto / Bultos (Micro-Fase 10B) */}
+                    <div className="mt-2.5 pt-2 border-t border-borderSubtle/60 flex flex-wrap items-center justify-between gap-2 bg-surface/50 p-2 rounded">
+                      <div className="flex items-center gap-2">
+                        <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-slate-200">
+                          <input
+                            type="checkbox"
+                            checked={item.rotularEtiqueta ?? Boolean(item.proyectoNombre)}
+                            onChange={() => handleToggleRotulado(idx)}
+                            className="rounded border-borderSubtle text-brand-500 focus:ring-0"
+                          />
+                          <Tag className="w-3.5 h-3.5 text-brand-400" />
+                          <span>Rotular Etiqueta</span>
+                        </label>
+                        {item.proyectoNombre ? (
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-brand-500/20 text-brand-300 border border-brand-500/30 font-bold">
+                            Obra: {item.proyectoNombre}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">
+                            📦 Stock Fábrica
+                          </span>
+                        )}
+                      </div>
+
+                      {(item.rotularEtiqueta ?? Boolean(item.proyectoNombre)) && (
+                        <div className="flex items-center gap-2 text-xs">
+                          <div className="flex items-center gap-1">
+                            <span className="text-[10px] text-slate-400 uppercase font-semibold">Bultos:</span>
+                            <input
+                              type="number"
+                              min="1"
+                              max="99"
+                              value={item.bultos || 1}
+                              onChange={(e) => handleBultosChange(idx, Math.max(1, parseInt(e.target.value) || 1))}
+                              className="w-12 px-1.5 py-0.5 text-center font-mono font-bold text-xs bg-surface border border-borderSubtle rounded text-slate-100"
+                            />
+                          </div>
+
+                          <div className="flex items-center gap-1">
+                            <span className="text-[10px] text-slate-400 uppercase font-semibold">Cant/Bulto:</span>
+                            <input
+                              type="number"
+                              min="1"
+                              value={item.cantEnBulto || Math.ceil((item.cantidadRecibidaHoy ?? item.cantidadRecibida ?? 1) / (item.bultos || 1))}
+                              onChange={(e) => handleCantEnBultoChange(idx, Math.max(1, parseInt(e.target.value) || 1))}
+                              className="w-16 px-1.5 py-0.5 text-center font-mono font-bold text-xs bg-surface border border-borderSubtle rounded text-emerald-400"
+                            />
+                            <span className="text-[10px] text-slate-500 font-mono">und</span>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleResetLoteCompleto(idx)}
+                            className="px-2 py-0.5 text-[10px] font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded transition active:scale-95"
+                            title="1 Etiqueta por el lote total recibido"
+                          >
+                            1 Lote Completo
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 );
               }))}
@@ -1146,6 +1322,13 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
           </>
         )}
       </div>
+
+      {showLabelModal && (
+        <PrintSheetProjectLabels
+          items={labelsToPrint}
+          onClose={() => setShowLabelModal(false)}
+        />
+      )}
     </div>
   );
 };

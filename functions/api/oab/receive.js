@@ -15,7 +15,7 @@ const OAB_DB_ID = '3eb86805-4e27-81f9-860a-c51fc794ebb0';
 
 import { sendTelegramAlert } from '../telegram/notify.js';
 import { requirePermission } from '../auth/_guard.js';
-import { setLiveStockDelta } from '../_kv.js';
+import { setLiveStockDelta, getLiveAllocations, setLiveAllocations } from '../_kv.js';
 
 export async function onRequest(context) {
   const { request, env } = context;
@@ -188,12 +188,24 @@ export async function onRequest(context) {
         cantidadRechazada = 0,
         costoUnitarioUSD = 0,
         costoAprobadoUSD = 0,
-        notasDiscrepancia = ''
+        notasDiscrepancia = '',
+        proyectoId = null,
+        proyectoNombre = null
       } = item;
 
       if (solicitudId) {
         processedSolicitudIds.add(solicitudId);
       }
+
+      // Resolver Proyecto MTO desde payload o desde la línea de Notion
+      const notionLine = solicitudId ? oabLinesById.get(solicitudId) : null;
+      const resolvedProyectoNombre = proyectoNombre ||
+        notionLine?.properties?.['Proyecto (Texto)']?.rich_text?.[0]?.plain_text ||
+        notionLine?.properties?.['Proyecto']?.title?.[0]?.plain_text ||
+        null;
+      const resolvedProyectoId = proyectoId ||
+        notionLine?.properties?.['Proyecto']?.relation?.[0]?.id ||
+        null;
 
       // Delta físico que baja hoy del camión
       const receivedNum = Number(cantidadRecibidaHoy !== null ? cantidadRecibidaHoy : cantidadRecibida) || 0;
@@ -202,7 +214,6 @@ export async function onRequest(context) {
       const approvedCost = Number(costoAprobadoUSD) || unitCost;
 
       // Cantidad recibida en fletes anteriores y cantidad total aprobada desde Notion o payload
-      const notionLine = solicitudId ? oabLinesById.get(solicitudId) : null;
       const prevReceived = notionLine
         ? (notionLine.properties?.['Cantidad Recibida']?.number || 0)
         : (Number(cantidadRecibidaPrevia) || 0);
@@ -270,6 +281,9 @@ export async function onRequest(context) {
         }
         if (fotoPendienteSync) {
           extraDetails.push(`[FOTO_PENDIENTE_R2]`);
+        }
+        if (resolvedProyectoNombre) {
+          extraDetails.push(`[RESERVA_MTO: ${resolvedProyectoNombre}]`);
         }
         if (extraDetails.length > 0) {
           kardexProps['Detalle (ext)'] = {
@@ -393,6 +407,52 @@ export async function onRequest(context) {
           }
         } catch (stockErr) {
           console.error('Error incrementando stock en Dashboard:', stockErr);
+        }
+      }
+
+      // 3.05 Transmutación Atómica MTO en Edge KV (Fase 10B)
+      if (dashboardId && receivedNum > 0 && resolvedProyectoNombre) {
+        try {
+          const liveAllocData = await getLiveAllocations(env);
+          const allocationsList = Array.isArray(liveAllocData.allocations) ? liveAllocData.allocations : [];
+          const existingAlloc = allocationsList.find(a =>
+            a.dashboardId === dashboardId && (
+              (resolvedProyectoId && a.proyectoId === resolvedProyectoId) ||
+              (a.proyectoNombre && a.proyectoNombre.trim().toLowerCase() === resolvedProyectoNombre.trim().toLowerCase())
+            )
+          );
+
+          if (existingAlloc) {
+            existingAlloc.cantidadApartada = (existingAlloc.cantidadApartada || 0) + receivedNum;
+            existingAlloc.cantidadTransito = Math.max(0, (existingAlloc.cantidadTransito || 0) - receivedNum);
+            if (unitCost > 0) existingAlloc.costoUnitarioUSD = unitCost;
+            existingAlloc.updatedAt = Date.now();
+          } else {
+            allocationsList.push({
+              id: `alloc_${dashboardId}_${resolvedProyectoId || Date.now()}`,
+              dashboardId,
+              insumoId: insumoId || undefined,
+              insumoNombre: nombre,
+              proyectoId: resolvedProyectoId || undefined,
+              proyectoNombre: resolvedProyectoNombre,
+              cantidadApartada: receivedNum,
+              cantidadTransito: 0,
+              cantidadConsumida: 0,
+              costoUnitarioUSD: unitCost,
+              createdAt: Date.now(),
+              updatedAt: Date.now()
+            });
+          }
+
+          liveAllocData.allocations = allocationsList;
+          const allocPromise = setLiveAllocations(env, liveAllocData);
+          if (context?.waitUntil) {
+            context.waitUntil(allocPromise);
+          } else {
+            await allocPromise;
+          }
+        } catch (allocErr) {
+          console.warn('Advertencia transmutando asignación MTO en Edge KV:', allocErr);
         }
       }
 

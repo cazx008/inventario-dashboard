@@ -13,6 +13,8 @@ export interface OABHeader {
 export interface OABLineItem {
   id?: string;
   nombre: string;
+  codigo?: string;
+  categoriaMaterial?: string;
   insumoId?: string;
   dashboardId?: string;
   cantidadStock: number;
@@ -38,6 +40,9 @@ export interface OABLineItem {
   factorEmpaque?: number;
   paquetesSugeridos?: number;
   cantidadComercialSugerida?: number;
+  rotularEtiqueta?: boolean;
+  bultos?: number;
+  cantEnBulto?: number;
 }
 
 export interface PackagingSuggestion {

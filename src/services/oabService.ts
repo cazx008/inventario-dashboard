@@ -25,6 +25,8 @@ export interface ReceptionItemPayload {
   costoAprobadoUSD?: number;
   toleranciaExcedente?: boolean;
   notasDiscrepancia?: string;
+  proyectoId?: string;
+  proyectoNombre?: string;
 }
 
 export interface RegisterReceptionPayload {
