@@ -36,6 +36,7 @@ interface ReceptionTerminalModalProps {
   isOpen: boolean;
   onClose: () => void;
   inventoryItems: InventoryItem[];
+  initialSearchTerm?: string;
   onReceptionSuccess?: (receivedLines?: OABLineItem[]) => void;
 }
 
@@ -43,6 +44,7 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
   isOpen,
   onClose,
   inventoryItems,
+  initialSearchTerm,
   onReceptionSuccess
 }) => {
   const [pendingOrders, setPendingOrders] = useState<any[]>([]);
@@ -58,6 +60,9 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [receptionComplete, setReceptionComplete] = useState<any | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [completedLines, setCompletedLines] = useState<OABLineItem[]>([]);
+  const [showCompletedAccordion, setShowCompletedAccordion] = useState<boolean>(false);
   const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
   const [searchItemQuery, setSearchItemQuery] = useState('');
 
@@ -119,7 +124,10 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
     setPhotoPreview(null);
     setReceptionComplete(null);
     setErrorMessage(null);
-    setSearchItemQuery('');
+    setValidationError(null);
+    setCompletedLines([]);
+    setShowCompletedAccordion(false);
+    setSearchItemQuery(initialSearchTerm || '');
     setItemsToReceive([]);
 
     // Cargar órdenes pendientes desde Notion
@@ -202,6 +210,7 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
     setSelectedFolio(folio);
     setIsSearching(true);
     setErrorMessage(null);
+    setValidationError(null);
 
     try {
       const data = await fetchOABDetails(folio);
@@ -214,28 +223,48 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
           setTasaBCV(data.oab.tasaBCV);
         }
 
-        const mappedLines: OABLineItem[] = data.lines.map(line => ({
-          id: line.solicitudId,
-          nombre: line.nombre,
-          insumoId: line.insumoId,
-          dashboardId: line.dashboardId,
-          cantidadStock: 0,
-          stockMinimo: 0,
-          deficit: 0,
-          cantidadSugerida: line.cantidadSolicitada,
-          cantidadSolicitada: line.cantidadSolicitada,
-          cantidadAprobada: line.cantidadAprobada,
-          cantidadRecibida: line.cantidadAprobada, // Pre-cargar con la cantidad aprobada por Magaly
-          cantidadRechazada: 0,
-          backorderPendiente: 0,
-          costoUnitarioUSD: line.costoUnitarioUSD,
-          costoAprobadoUSD: line.costoUnitarioUSD,
-          subtotalUSD: line.subtotalUSD,
-          prioridad: line.prioridad || 'Alta',
-          proyectoNombre: line.proyectoNombre
-        }));
+        const pendingList: OABLineItem[] = [];
+        const finishedList: OABLineItem[] = [];
 
-        setItemsToReceive(mappedLines);
+        data.lines.forEach(line => {
+          const approved = line.cantidadAprobada ?? line.cantidadSolicitada ?? 0;
+          const prevReceived = line.cantidadRecibidaPrevia ?? 0;
+          const pendingBalance = line.backorderPendiente !== undefined
+            ? line.backorderPendiente
+            : Math.max(0, approved - prevReceived);
+
+          const itemObj: OABLineItem = {
+            id: line.solicitudId,
+            nombre: line.nombre,
+            insumoId: line.insumoId,
+            dashboardId: line.dashboardId,
+            cantidadStock: 0,
+            stockMinimo: 0,
+            deficit: 0,
+            cantidadSugerida: line.cantidadSolicitada,
+            cantidadSolicitada: line.cantidadSolicitada,
+            cantidadAprobada: approved,
+            cantidadRecibidaPrevia: prevReceived,
+            cantidadRecibida: pendingBalance,
+            cantidadRecibidaHoy: pendingBalance,
+            cantidadRechazada: 0,
+            backorderPendiente: 0,
+            costoUnitarioUSD: line.costoUnitarioUSD,
+            costoAprobadoUSD: line.costoUnitarioUSD,
+            subtotalUSD: line.subtotalUSD,
+            prioridad: line.prioridad || 'Alta',
+            proyectoNombre: line.proyectoNombre
+          };
+
+          if (pendingBalance > 0) {
+            pendingList.push(itemObj);
+          } else {
+            finishedList.push(itemObj);
+          }
+        });
+
+        setItemsToReceive(pendingList.length > 0 ? pendingList : finishedList);
+        setCompletedLines(pendingList.length > 0 ? finishedList : []);
       }
     } catch (err: any) {
       console.warn('No se pudo cargar detalle de OAB, usando fallback:', err);
@@ -269,9 +298,12 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
     setItemsToReceive(prev => {
       const copy = [...prev];
       const approved = copy[idx].cantidadAprobada || copy[idx].cantidadSolicitada || 0;
+      const prevRec = copy[idx].cantidadRecibidaPrevia || 0;
+      const pending = Math.max(0, approved - prevRec);
       copy[idx] = {
         ...copy[idx],
-        cantidadRecibida: approved,
+        cantidadRecibida: pending,
+        cantidadRecibidaHoy: pending,
         cantidadRechazada: 0,
         backorderPendiente: 0
       };
@@ -279,15 +311,52 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
     });
   };
 
+  const handleSetNextFreight = (idx: number) => {
+    setItemsToReceive(prev => {
+      const copy = [...prev];
+      const approved = copy[idx].cantidadAprobada || copy[idx].cantidadSolicitada || 0;
+      const prevRec = copy[idx].cantidadRecibidaPrevia || 0;
+      const pending = Math.max(0, approved - prevRec);
+      copy[idx] = {
+        ...copy[idx],
+        cantidadRecibida: 0,
+        cantidadRecibidaHoy: 0,
+        cantidadRechazada: 0,
+        backorderPendiente: pending
+      };
+      return copy;
+    });
+  };
+
+  const handleSetAllRemainingAsNextFreight = () => {
+    setItemsToReceive(prev => {
+      return prev.map(item => {
+        const approved = item.cantidadAprobada || item.cantidadSolicitada || 0;
+        const prevRec = item.cantidadRecibidaPrevia || 0;
+        const pending = Math.max(0, approved - prevRec);
+        return {
+          ...item,
+          cantidadRecibida: 0,
+          cantidadRecibidaHoy: 0,
+          cantidadRechazada: 0,
+          backorderPendiente: pending
+        };
+      });
+    });
+  };
+
   const handleSetZero = (idx: number) => {
     setItemsToReceive(prev => {
       const copy = [...prev];
       const approved = copy[idx].cantidadAprobada || copy[idx].cantidadSolicitada || 0;
+      const prevRec = copy[idx].cantidadRecibidaPrevia || 0;
+      const pending = Math.max(0, approved - prevRec);
       copy[idx] = {
         ...copy[idx],
         cantidadRecibida: 0,
-        cantidadRechazada: approved,
-        backorderPendiente: approved
+        cantidadRecibidaHoy: 0,
+        cantidadRechazada: pending,
+        backorderPendiente: pending
       };
       return copy;
     });
@@ -302,10 +371,12 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
         [field]: val
       };
 
-      if (field === 'cantidadRecibida' || field === 'cantidadRechazada') {
+      if (field === 'cantidadRecibida') {
+        copy[idx].cantidadRecibidaHoy = val;
         const approved = copy[idx].cantidadAprobada || copy[idx].cantidadSolicitada || 0;
-        const rec = field === 'cantidadRecibida' ? val : (copy[idx].cantidadRecibida || 0);
-        copy[idx].backorderPendiente = Math.max(0, approved - rec);
+        const prevRec = copy[idx].cantidadRecibidaPrevia || 0;
+        const pending = Math.max(0, approved - prevRec);
+        copy[idx].backorderPendiente = Math.max(0, pending - val);
       }
 
       return copy;
@@ -334,14 +405,15 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
   // Confirmar recepción con tolerancia a fallas y soporte offline
   const handleConfirmReception = async () => {
     if (!notaEntrega.trim()) {
-      alert('Por favor indica el Número de Nota de Entrega física o Remisión del camión.');
+      setValidationError('Por favor indica el Número de Nota de Entrega física o pulsa el botón [Sin Guía (S/N)].');
       return;
     }
 
     if (itemsToReceive.length === 0) {
-      alert('Debe agregar al menos un material a recibir.');
+      setValidationError('Debe haber al menos un material activo para asentar la recepción.');
       return;
     }
+    setValidationError(null);
 
     setIsProcessing(true);
     setErrorMessage(null);
@@ -385,7 +457,10 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
         insumoId: l.insumoId,
         nombre: l.nombre,
         cantidadAprobada: l.cantidadAprobada || l.cantidadSolicitada,
-        cantidadRecibida: l.cantidadRecibida || 0,
+        cantidadRecibida: l.cantidadRecibidaHoy ?? l.cantidadRecibida ?? 0,
+        cantidadRecibidaHoy: l.cantidadRecibidaHoy ?? l.cantidadRecibida ?? 0,
+        cantidadRecibidaPrevia: l.cantidadRecibidaPrevia || 0,
+        backorderPendiente: l.backorderPendiente ?? 0,
         cantidadRechazada: l.cantidadRechazada || 0,
         costoUnitarioUSD: l.costoUnitarioUSD || 0,
         costoAprobadoUSD: l.costoAprobadoUSD || l.costoUnitarioUSD || 0,
@@ -559,15 +634,32 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-[10px] uppercase text-slate-400 font-semibold mb-1">
-                  N° Nota de Entrega / Guía *
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[10px] uppercase text-slate-400 font-semibold">
+                    N° Nota de Entrega / Guía *
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNotaEntrega('S/N');
+                      setValidationError(null);
+                    }}
+                    className="text-[10px] font-mono font-bold text-cyan-400 hover:text-cyan-300 underline"
+                  >
+                    Sin Guía (S/N)
+                  </button>
+                </div>
                 <input
                   type="text"
-                  placeholder="Ej: NE-9941 / FAC-8201"
+                  placeholder="Ej: NE-9941 / FAC-8201 o S/N"
                   value={notaEntrega}
-                  onChange={(e) => setNotaEntrega(e.target.value)}
-                  className="w-full px-2.5 py-1.5 text-xs font-mono font-bold bg-surface border border-borderSubtle rounded text-slate-100 placeholder-slate-500"
+                  onChange={(e) => {
+                    setNotaEntrega(e.target.value);
+                    if (validationError) setValidationError(null);
+                  }}
+                  className={`w-full px-2.5 py-1.5 text-xs font-mono font-bold bg-surface border rounded text-slate-100 placeholder-slate-500 transition ${
+                    validationError && !notaEntrega.trim() ? 'border-red-500 ring-1 ring-red-500' : 'border-borderSubtle'
+                  }`}
                   required
                 />
               </div>
@@ -693,6 +785,22 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
               </div>
             )}
 
+            {validationError && (
+              <div className="m-3 p-3 bg-red-500/15 border border-red-500/40 rounded-lg text-xs text-red-300 flex items-center justify-between animate-pulse">
+                <div className="flex items-center gap-2">
+                  <AlertOctagon className="w-4 h-4 text-red-400 shrink-0" />
+                  <span>{validationError}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setValidationError(null)}
+                  className="p-1 text-red-400 hover:text-white rounded"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
             {/* Buscador de Insumos para Ingreso Directo en Rampa */}
             <div className="px-4 py-2.5 bg-surfaceHigh/40 border-b border-borderSubtle">
               <div className="relative">
@@ -758,11 +866,23 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
 
             {/* Listado de Materiales a Recibir */}
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400 mb-1">
                 <span>Materiales a verificar ({itemsToReceive.length}):</span>
-                <span className="text-[11px] text-slate-500 font-mono">
-                  {itemsToReceive.length > 0 ? 'Toca "Todo" si el bulto llegó íntegro o ajusta cantidades ante faltantes' : 'Terminal lista para ingreso'}
-                </span>
+                <div className="flex items-center gap-2">
+                  {selectedFolio && itemsToReceive.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleSetAllRemainingAsNextFreight}
+                      className="px-2.5 py-1 text-[11px] font-semibold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded transition active:scale-95"
+                      title="Marca todos los ítems en 0 recibidos (quedan pendientes para el próximo flete)"
+                    >
+                      ⏳ Marcar todos como Próximo Flete
+                    </button>
+                  )}
+                  <span className="text-[11px] text-slate-500 font-mono hidden sm:inline">
+                    {itemsToReceive.length > 0 ? 'Indica las unidades físicas que están bajando del camión hoy' : 'Terminal lista para ingreso'}
+                  </span>
+                </div>
               </div>
 
               {itemsToReceive.length === 0 ? (
@@ -775,15 +895,16 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
                   </h4>
                   <p className="text-xs text-slate-400 max-w-md mx-auto mt-1">
                     {selectedFolio
-                      ? 'Esta orden no tiene renglones pendientes por recibir.'
+                      ? 'Esta orden no tiene renglones pendientes por recibir en este momento.'
                       : 'Usa el buscador superior para agregar los insumos físicos que están ingresando directamente a la planta sin OAB.'}
                   </p>
                 </div>
               ) : (
                 itemsToReceive.map((item, idx) => {
-                  const isFromOAB = Boolean(item.cantidadAprobada && item.cantidadAprobada > 0);
+                  const isFromOAB = Boolean(item.id || (item.cantidadAprobada && item.cantidadAprobada > 0));
                   const approvedQty = isFromOAB ? (item.cantidadAprobada || 0) : 0;
-                  const receivedQty = item.cantidadRecibida ?? (isFromOAB ? approvedQty : 1);
+                  const prevRecQty = item.cantidadRecibidaPrevia || 0;
+                  const pendingBalance = Math.max(0, approvedQty - prevRecQty);
                   const hasDiscrepancy = (item.cantidadRechazada || 0) > 0 || (item.backorderPendiente || 0) > 0;
 
                   return (
@@ -798,23 +919,26 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
                         <div>
                           <span className="font-semibold text-sm text-slate-100">{item.nombre}</span>
-                          <span className="text-xs text-slate-400 ml-2">
-                            {isFromOAB ? (
-                              <>
-                                Aprobado en OAB:{' '}
-                                <strong className="text-slate-200 font-mono">
-                                  {approvedQty} und @ ${(item.costoAprobadoUSD || item.costoUnitarioUSD || 0).toFixed(2)} USD
-                                </strong>
-                              </>
-                            ) : (
-                              <>
-                                Ingreso Directo · Stock actual en planta:{' '}
-                                <strong className="text-slate-200 font-mono">
-                                  {item.cantidadStock ?? 0} und
-                                </strong>
-                              </>
-                            )}
-                          </span>
+                          {isFromOAB ? (
+                            <div className="flex flex-wrap items-center gap-1.5 mt-1 text-xs text-slate-400">
+                              <span className="bg-surfaceHigh px-1.5 py-0.5 rounded border border-borderSubtle">
+                                Aprobado: <strong className="text-slate-200 font-mono">{approvedQty}</strong>
+                              </span>
+                              <span className="bg-blue-950/40 px-1.5 py-0.5 rounded border border-blue-500/30 text-blue-300">
+                                Recibido Previo: <strong className="font-mono">{prevRecQty}</strong>
+                              </span>
+                              <span className="bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-500/30 text-amber-300">
+                                Saldo Pendiente: <strong className="font-mono">{pendingBalance}</strong>
+                              </span>
+                              <span className="text-slate-400 font-mono text-[11px] ml-1">
+                                @ ${(item.costoAprobadoUSD || item.costoUnitarioUSD || 0).toFixed(2)} USD
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-400 ml-2">
+                              Ingreso Directo · Stock actual en planta: <strong className="text-slate-200 font-mono">{item.cantidadStock ?? 0} und</strong>
+                            </span>
+                          )}
                           {item.proyectoNombre && (
                             <span className="text-[10px] text-brand-400 font-mono ml-2">
                               [{item.proyectoNombre}]
@@ -822,31 +946,44 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
                           )}
                         </div>
 
-                        {/* Botones táctiles de acción rápida y eliminación */}
+                        {/* Botones táctiles de acción rápida y eliminación (papelera SOLO para ingreso manual) */}
                         <div className="flex items-center gap-1.5 self-end sm:self-auto">
-                          {isFromOAB && (
+                          {isFromOAB ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleSetFull(idx)}
+                                className="px-2 py-1 text-[11px] font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/40 rounded transition active:scale-95"
+                                title="Marcar todo el saldo pendiente como recibido"
+                              >
+                                Todo ({pendingBalance})
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleSetNextFreight(idx)}
+                                className="px-2 py-1 text-[11px] font-semibold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded transition active:scale-95"
+                                title="Marcar como Próximo Flete (0 recibidos hoy, se mantiene el saldo pendiente)"
+                              >
+                                ⏳ Próx. Flete
+                              </button>
+                            </>
+                          ) : (
                             <button
                               type="button"
-                              onClick={() => handleSetFull(idx)}
-                              className="px-2 py-1 text-[11px] font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/40 rounded transition active:scale-95"
+                              onClick={() => handleRemoveItem(idx)}
+                              title="Quitar este material de la rampa"
+                              className="p-1 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded transition"
                             >
-                              Todo ({approvedQty})
+                              <Trash2 className="w-4 h-4" />
                             </button>
                           )}
                           <button
                             type="button"
                             onClick={() => handleSetZero(idx)}
                             className="px-2 py-1 text-[11px] font-semibold bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/40 rounded transition active:scale-95"
+                            title="Registrar como rechazo / 0 recibidos"
                           >
                             0
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveItem(idx)}
-                            title="Quitar este material de la rampa"
-                            className="p-1 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded transition"
-                          >
-                            <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                       </div>
@@ -855,12 +992,12 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
                     <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
                       <div>
                         <label className="block text-[10px] text-emerald-400 uppercase font-semibold mb-1">
-                          Conforme:
+                          Conforme Hoy:
                         </label>
                         <input
                           type="number"
                           min="0"
-                          value={item.cantidadRecibida}
+                          value={item.cantidadRecibidaHoy !== undefined ? item.cantidadRecibidaHoy : item.cantidadRecibida}
                           onChange={(e) => handleQuantityChange(idx, 'cantidadRecibida', Number(e.target.value))}
                           className="w-full px-2.5 py-1 text-center font-mono font-bold text-sm bg-surface border border-emerald-500/40 rounded text-emerald-400"
                         />
@@ -868,7 +1005,7 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
 
                       <div>
                         <label className="block text-[10px] text-red-400 uppercase font-semibold mb-1">
-                          Rechazo:
+                          Rechazo Hoy:
                         </label>
                         <input
                           type="number"
@@ -930,6 +1067,37 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
                   </div>
                 );
               }))}
+
+              {/* Acordeón informativo de insumos completados en fletes previos */}
+              {completedLines.length > 0 && (
+                <div className="mt-4 border border-emerald-500/30 rounded-lg overflow-hidden bg-emerald-950/10">
+                  <button
+                    type="button"
+                    onClick={() => setShowCompletedAccordion(prev => !prev)}
+                    className="w-full px-4 py-2 flex items-center justify-between text-xs font-semibold text-emerald-400 hover:bg-emerald-950/20 transition"
+                  >
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      <span>{completedLines.length} insumo(s) completados al 100% en fletes anteriores</span>
+                    </div>
+                    <span className="text-[11px] underline">
+                      {showCompletedAccordion ? 'Ocultar' : 'Ver detalle'}
+                    </span>
+                  </button>
+                  {showCompletedAccordion && (
+                    <div className="p-3 border-t border-emerald-500/20 space-y-1.5 bg-surface/50">
+                      {completedLines.map((cItem, cIdx) => (
+                        <div key={cItem.id || cIdx} className="flex items-center justify-between text-xs py-1 px-2 rounded bg-surface border border-borderSubtle">
+                          <span className="text-slate-200 font-medium">{cItem.nombre}</span>
+                          <span className="font-mono text-emerald-400 font-bold">
+                            {cItem.cantidadAprobada} und recibidas ✓
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Terminal Footer */}

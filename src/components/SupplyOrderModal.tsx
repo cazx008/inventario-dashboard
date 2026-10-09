@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { ShoppingCart, X, Plus, Trash2, Printer, CheckCircle, AlertTriangle, Link2, DollarSign, Search } from 'lucide-react';
+import { ShoppingCart, X, Plus, Trash2, Printer, CheckCircle, AlertTriangle, Link2, DollarSign, Search, ArrowUpDown } from 'lucide-react';
 import { InventoryItem } from '../types/inventory';
 import { OABLineItem, OABHeader, OrderReference, computePackagingSuggestion } from '../types/oab';
-import { generateFolioOAB, createOABSheet } from '../services/oabService';
+import { generateFolioOAB, fetchNextFolioOAB, createOABSheet } from '../services/oabService';
 import { OrderSearchModal } from './OrderSearchModal';
 import { PrintSheetOAB } from './PrintSheetOAB';
 
@@ -14,6 +14,66 @@ interface SupplyOrderModalProps {
   initialDraftItems?: InventoryItem[];
   onOrderCreated?: (createdLines: OABLineItem[]) => void;
 }
+
+type PriorityType = 'Urgente' | 'Alta' | 'Media' | 'Baja' | 'Por Pedido';
+type SortCriterion = 'nombre' | 'costo' | 'subtotal';
+type SortDirection = 'asc' | 'desc';
+
+function normalizePriority(p?: string): PriorityType {
+  if (!p) return 'Media';
+  const lower = p.toLowerCase().trim();
+  if (lower.includes('urgente')) return 'Urgente';
+  if (lower.includes('alta')) return 'Alta';
+  if (lower.includes('baja')) return 'Baja';
+  if (lower.includes('pedido')) return 'Por Pedido';
+  return 'Media';
+}
+
+const PRIORITY_ORDER: PriorityType[] = ['Urgente', 'Alta', 'Media', 'Baja', 'Por Pedido'];
+
+const PRIORITY_THEME: Record<PriorityType, {
+  label: string;
+  icon: string;
+  badgeClass: string;
+  borderClass: string;
+  headerBg: string;
+}> = {
+  Urgente: {
+    label: 'URGENTE',
+    icon: '🔴',
+    badgeClass: 'bg-rose-500/20 text-rose-300 border-rose-500/40',
+    borderClass: 'border-rose-500/30',
+    headerBg: 'bg-rose-950/30',
+  },
+  Alta: {
+    label: 'ALTA',
+    icon: '🟠',
+    badgeClass: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
+    borderClass: 'border-amber-500/30',
+    headerBg: 'bg-amber-950/30',
+  },
+  Media: {
+    label: 'MEDIA',
+    icon: '🟡',
+    badgeClass: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40',
+    borderClass: 'border-yellow-500/30',
+    headerBg: 'bg-yellow-950/20',
+  },
+  Baja: {
+    label: 'BAJA',
+    icon: '🟢',
+    badgeClass: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
+    borderClass: 'border-emerald-500/30',
+    headerBg: 'bg-emerald-950/20',
+  },
+  'Por Pedido': {
+    label: 'POR PEDIDO',
+    icon: '🔵',
+    badgeClass: 'bg-sky-500/20 text-sky-300 border-sky-500/40',
+    borderClass: 'border-sky-500/30',
+    headerBg: 'bg-sky-950/30',
+  },
+};
 
 export const SupplyOrderModal: React.FC<SupplyOrderModalProps> = ({
   isOpen,
@@ -29,11 +89,15 @@ export const SupplyOrderModal: React.FC<SupplyOrderModalProps> = ({
   const [notas, setNotas] = useState('');
   const [lines, setLines] = useState<OABLineItem[]>([]);
   const [orderModalOpen, setOrderModalOpen] = useState(false);
-  const [activeLineIndexForOrder, setActiveLineIndexForOrder] = useState<number | null>(null);
+  const [activeLineIdForOrder, setActiveLineIdForOrder] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedHeader, setSubmittedHeader] = useState<OABHeader | null>(null);
   const [showPrintSheet, setShowPrintSheet] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+
+  // Criterios de ordenamiento dentro de cada grupo
+  const [sortCriterion, setSortCriterion] = useState<SortCriterion>('subtotal');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
   // Estados para el Buscador Reactivo (Flujo Rápido de Taller)
   const [searchTerm, setSearchTerm] = useState('');
@@ -58,6 +122,11 @@ export const SupplyOrderModal: React.FC<SupplyOrderModalProps> = ({
     if (!isOpen) return;
 
     setFolio(generateFolioOAB());
+    fetchNextFolioOAB(true).then(nextFolio => {
+      if (nextFolio) setFolio(nextFolio);
+    }).catch(err => {
+      console.warn('Error obteniendo folio atómico previo:', err);
+    });
     setFechaEmision(new Date().toISOString().split('T')[0]);
     setTasa(Number((bcvRate || 36.50).toFixed(2)));
     setSubmittedHeader(null);
@@ -95,44 +164,90 @@ export const SupplyOrderModal: React.FC<SupplyOrderModalProps> = ({
     setLines(generatedLines);
   }, [isOpen, inventoryItems, initialDraftItems, bcvRate]);
 
+  // Agrupación reactiva por Prioridad Operativa con numeración global correlativa
+  const groupedLines = useMemo(() => {
+    let globalCounter = 1;
+    const groups: {
+      priority: PriorityType;
+      subtotal: number;
+      items: { line: OABLineItem; globalIndex: number }[];
+    }[] = [];
+
+    const sortFn = (items: OABLineItem[]) => {
+      return [...items].sort((a, b) => {
+        if (sortCriterion === 'nombre') {
+          const cmp = a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' });
+          return sortDirection === 'asc' ? cmp : -cmp;
+        }
+        if (sortCriterion === 'costo') {
+          const diff = (a.costoUnitarioUSD || 0) - (b.costoUnitarioUSD || 0);
+          return sortDirection === 'asc' ? diff : -diff;
+        }
+        if (sortCriterion === 'subtotal') {
+          const diff = (a.subtotalUSD || 0) - (b.subtotalUSD || 0);
+          return sortDirection === 'asc' ? diff : -diff;
+        }
+        return 0;
+      });
+    };
+
+    for (const prio of PRIORITY_ORDER) {
+      const matching = lines.filter(l => normalizePriority(l.prioridad) === prio);
+      if (matching.length > 0) {
+        const sorted = sortFn(matching);
+        const itemsWithIndex = sorted.map(line => ({
+          line,
+          globalIndex: globalCounter++
+        }));
+        const subtotal = matching.reduce((sum, l) => sum + (l.subtotalUSD || 0), 0);
+        groups.push({
+          priority: prio,
+          subtotal,
+          items: itemsWithIndex
+        });
+      }
+    }
+
+    return groups;
+  }, [lines, sortCriterion, sortDirection]);
+
   if (!isOpen) return null;
 
-  const handleQuantityChange = (idx: number, qty: number) => {
-    setLines(prev => {
-      const copy = [...prev];
+  const getLineKey = (line: OABLineItem): string => line.dashboardId || line.insumoId || line.nombre;
+
+  const handleQuantityChange = (lineId: string, qty: number) => {
+    setLines(prev => prev.map(line => {
+      if (getLineKey(line) !== lineId) return line;
       const validQty = Math.max(0, qty);
-      copy[idx] = {
-        ...copy[idx],
+      return {
+        ...line,
         cantidadSolicitada: validQty,
-        subtotalUSD: validQty * (copy[idx].costoUnitarioUSD || 0)
+        subtotalUSD: validQty * (line.costoUnitarioUSD || 0)
       };
-      return copy;
-    });
+    }));
   };
 
-  const handleCostChange = (idx: number, cost: number) => {
-    setLines(prev => {
-      const copy = [...prev];
+  const handleCostChange = (lineId: string, cost: number) => {
+    setLines(prev => prev.map(line => {
+      if (getLineKey(line) !== lineId) return line;
       const validCost = Math.max(0, cost);
-      copy[idx] = {
-        ...copy[idx],
+      return {
+        ...line,
         costoUnitarioUSD: validCost,
-        subtotalUSD: (copy[idx].cantidadSolicitada || 0) * validCost
+        subtotalUSD: (line.cantidadSolicitada || 0) * validCost
       };
-      return copy;
-    });
+    }));
   };
 
-  const handlePriorityChange = (idx: number, prio: string) => {
-    setLines(prev => {
-      const copy = [...prev];
-      copy[idx] = { ...copy[idx], prioridad: prio };
-      return copy;
-    });
+  const handlePriorityChange = (lineId: string, prio: string) => {
+    setLines(prev => prev.map(line => {
+      if (getLineKey(line) !== lineId) return line;
+      return { ...line, prioridad: prio };
+    }));
   };
 
-  const handleRemoveLine = (idx: number) => {
-    setLines(prev => prev.filter((_, i) => i !== idx));
+  const handleRemoveLine = (lineId: string) => {
+    setLines(prev => prev.filter(line => getLineKey(line) !== lineId));
   };
 
   const handleAddManualItem = (item: InventoryItem) => {
@@ -164,17 +279,16 @@ export const SupplyOrderModal: React.FC<SupplyOrderModalProps> = ({
   };
 
   const handleSelectOrderForLine = (order: OrderReference) => {
-    if (activeLineIndexForOrder !== null) {
-      setLines(prev => {
-        const copy = [...prev];
-        copy[activeLineIndexForOrder] = {
-          ...copy[activeLineIndexForOrder],
+    if (activeLineIdForOrder !== null) {
+      setLines(prev => prev.map(line => {
+        if (getLineKey(line) !== activeLineIdForOrder) return line;
+        return {
+          ...line,
           proyectoId: order.id,
           proyectoNombre: `${order.codigo} - ${order.proyecto}`
         };
-        return copy;
-      });
-      setActiveLineIndexForOrder(null);
+      }));
+      setActiveLineIdForOrder(null);
     }
   };
 
@@ -312,10 +426,35 @@ export const SupplyOrderModal: React.FC<SupplyOrderModalProps> = ({
 
           {/* Lines Table */}
           <div className="flex-1 overflow-y-auto custom-scrollbar p-3 sm:p-4 space-y-2">
-            <div className="flex items-center justify-between pb-1">
-              <span className="text-xs uppercase font-semibold text-slate-400 tracking-wider">
-                Ítems Seleccionados ({lines.length})
-              </span>
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-1">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="text-xs uppercase font-semibold text-slate-400 tracking-wider">
+                  Ítems Seleccionados ({lines.length})
+                </span>
+
+                {/* Control de Ordenamiento Multi-Criterio */}
+                <div className="flex items-center gap-1.5 text-[11px] bg-surface border border-borderSubtle rounded-md px-2 py-0.5">
+                  <span className="text-slate-500 font-semibold text-[10px]">Ordenar por:</span>
+                  <select
+                    value={sortCriterion}
+                    onChange={(e) => setSortCriterion(e.target.value as SortCriterion)}
+                    className="bg-transparent text-slate-200 font-medium focus:outline-none cursor-pointer"
+                  >
+                    <option value="subtotal" className="bg-surface">Subtotal ($)</option>
+                    <option value="costo" className="bg-surface">Costo Unitario ($)</option>
+                    <option value="nombre" className="bg-surface">Nombre (A-Z)</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')}
+                    className="p-1 text-slate-400 hover:text-white rounded hover:bg-surfaceHigh transition"
+                    title={sortDirection === 'asc' ? 'Ascendente (menor a mayor)' : 'Descendente (mayor a menor)'}
+                  >
+                    <ArrowUpDown className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+
               {/* Buscador Reactivo de Insumos (Flujo Rápido de Taller) */}
               <div className="relative w-72 sm:w-80">
                 <div className="relative flex items-center">
@@ -436,138 +575,170 @@ export const SupplyOrderModal: React.FC<SupplyOrderModalProps> = ({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-borderSubtle/50">
-                    {lines.map((line, idx) => (
-                      <tr key={idx} className="hover:bg-surfaceHigh/30 transition">
-                        <td className="p-2 text-center text-slate-500 font-mono">{idx + 1}</td>
-                        <td className="p-2">
-                          <span className="font-semibold text-slate-200 block">{line.nombre}</span>
-                          {line.empaqueComercial && (
-                            <span className="text-[10px] text-amber-400 font-mono flex items-center gap-1 mt-0.5">
-                              <span>📦 {line.empaqueComercial}</span>
-                              {line.paquetesSugeridos && line.factorEmpaque && line.factorEmpaque > 1 && (
-                                <span className="text-slate-400">
-                                  ({line.paquetesSugeridos} {line.paquetesSugeridos === 1 ? 'paquete' : 'paquetes'})
-                                </span>
-                              )}
-                            </span>
-                          )}
-                        </td>
-                        <td className="p-2 text-right font-mono text-slate-400">{line.cantidadStock}</td>
-                        <td className="p-2 text-right font-mono text-orange-400 font-bold">
-                          {line.deficit > 0 ? `-${line.deficit}` : '0'}
-                        </td>
-                        <td className="p-2 text-right">
-                          <div className="flex flex-col items-end gap-1">
-                            {line.deficit <= 0 && (
-                              <span className="text-[8px] font-mono text-amber-400 bg-amber-500/10 px-1 py-0.5 rounded border border-amber-500/30 font-semibold whitespace-nowrap">
-                                ⚠️ Definir cant.
-                              </span>
-                            )}
-                            <input
-                              type="number"
-                              min="1"
-                              value={line.cantidadSolicitada}
-                              onChange={(e) => handleQuantityChange(idx, Number(e.target.value))}
-                              className={`w-24 px-2 py-1 text-right font-mono font-bold bg-page border rounded text-brand-400 focus:border-brand-400 focus:outline-none ${
-                                line.deficit <= 0
-                                  ? 'border-amber-500/60 ring-1 ring-amber-500/30'
-                                  : 'border-borderSubtle'
-                              }`}
-                            />
-                            {line.cantidadComercialSugerida && line.cantidadSugerida && line.cantidadComercialSugerida !== line.cantidadSugerida && (
-                              <div className="flex items-center gap-1 text-[9px] font-mono">
-                                <button
-                                  type="button"
-                                  onClick={() => handleQuantityChange(idx, line.cantidadComercialSugerida!)}
-                                  title="Redondear al empaque cerrado sugerido"
-                                  className={`px-1 py-0.5 rounded transition ${
-                                    line.cantidadSolicitada === line.cantidadComercialSugerida
-                                      ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40'
-                                      : 'text-slate-400 hover:text-slate-200 bg-surfaceHigh'
-                                  }`}
-                                >
-                                  Empaque ({line.cantidadComercialSugerida})
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleQuantityChange(idx, line.cantidadSugerida)}
-                                  title="Cantidad neta calculada exacta"
-                                  className={`px-1 py-0.5 rounded transition ${
-                                    line.cantidadSolicitada === line.cantidadSugerida
-                                      ? 'bg-blue-500/20 text-blue-300 font-bold border border-blue-500/40'
-                                      : 'text-slate-400 hover:text-slate-200 bg-surfaceHigh'
-                                  }`}
-                                >
-                                  Neto ({line.cantidadSugerida})
-                                </button>
+                    {groupedLines.map(group => {
+                      const theme = PRIORITY_THEME[group.priority];
+                      return (
+                        <React.Fragment key={group.priority}>
+                          {/* Fila Encabezado de Prioridad con Subtotal en Pantalla */}
+                          <tr className={`${theme.headerBg} border-t-2 border-b ${theme.borderClass}`}>
+                            <td colSpan={10} className="py-1.5 px-3">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-bold border ${theme.badgeClass}`}>
+                                    <span>{theme.icon}</span>
+                                    <span>{theme.label}</span>
+                                  </span>
+                                  <span className="text-[11px] text-slate-400 font-mono">
+                                    ({group.items.length} {group.items.length === 1 ? 'insumo' : 'insumos'})
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2 font-mono text-[11px]">
+                                  <span className="text-slate-400 uppercase text-[10px] font-semibold">Subtotal Prioridad:</span>
+                                  <span className="font-bold text-emerald-400">${group.subtotal.toFixed(2)} USD</span>
+                                </div>
                               </div>
-                            )}
-                          </div>
-                        </td>
-                        <td className="p-2 text-right">
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={line.costoUnitarioUSD}
-                            onChange={(e) => handleCostChange(idx, Number(e.target.value))}
-                            className="w-16 px-1.5 py-1 text-right font-mono bg-page border border-borderSubtle rounded text-slate-200"
-                          />
-                        </td>
-                        <td className="p-2 text-right font-mono font-bold text-slate-100">
-                          ${line.subtotalUSD.toFixed(2)}
-                        </td>
-                        <td className="p-2">
-                          <select
-                            value={line.prioridad}
-                            onChange={(e) => handlePriorityChange(idx, e.target.value)}
-                            className="text-[11px] bg-page border border-borderSubtle rounded px-1.5 py-1 text-slate-300"
-                          >
-                            <option value="Urgente">🔴 Urgente</option>
-                            <option value="Alta">🟠 Alta</option>
-                            <option value="Media">🟡 Media</option>
-                            <option value="Baja">🟢 Baja</option>
-                            <option value="Por Pedido">🔵 Por Pedido</option>
-                          </select>
-                        </td>
-                        <td className="p-2">
-                          {line.proyectoNombre ? (
-                            <div className="flex items-center gap-1 text-[11px] text-brand-400 font-mono truncate max-w-[130px]">
-                              <span className="truncate">{line.proyectoNombre}</span>
-                              <button
-                                onClick={() => {
-                                  setActiveLineIndexForOrder(idx);
-                                  setOrderModalOpen(true);
-                                }}
-                                className="text-slate-400 hover:text-white"
-                              >
-                                ✎
-                              </button>
-                            </div>
-                          ) : (
-                            <button
-                              onClick={() => {
-                                setActiveLineIndexForOrder(idx);
-                                setOrderModalOpen(true);
-                              }}
-                              className="text-[10px] text-slate-400 hover:text-brand-400 flex items-center gap-1 underline"
-                            >
-                              <Link2 className="w-3 h-3" />
-                              <span>Vincular ERP</span>
-                            </button>
-                          )}
-                        </td>
-                        <td className="p-2 text-center">
-                          <button
-                            onClick={() => handleRemoveLine(idx)}
-                            className="text-red-400 hover:text-red-300 transition p-1"
-                            title="Eliminar línea"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                            </td>
+                          </tr>
+
+                          {/* Renglones de la Prioridad */}
+                          {group.items.map(({ line, globalIndex }) => {
+                            const lineKey = getLineKey(line);
+                            return (
+                              <tr key={lineKey} className="hover:bg-surfaceHigh/30 transition">
+                                <td className="p-2 text-center text-slate-500 font-mono">{globalIndex}</td>
+                                <td className="p-2">
+                                  <span className="font-semibold text-slate-200 block">{line.nombre}</span>
+                                  {line.empaqueComercial && (
+                                    <span className="text-[10px] text-amber-400 font-mono flex items-center gap-1 mt-0.5">
+                                      <span>📦 {line.empaqueComercial}</span>
+                                      {line.paquetesSugeridos && line.factorEmpaque && line.factorEmpaque > 1 && (
+                                        <span className="text-slate-400">
+                                          ({line.paquetesSugeridos} {line.paquetesSugeridos === 1 ? 'paquete' : 'paquetes'})
+                                        </span>
+                                      )}
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="p-2 text-right font-mono text-slate-400">{line.cantidadStock}</td>
+                                <td className="p-2 text-right font-mono text-orange-400 font-bold">
+                                  {line.deficit > 0 ? `-${line.deficit}` : '0'}
+                                </td>
+                                <td className="p-2 text-right">
+                                  <div className="flex flex-col items-end gap-1">
+                                    {line.deficit <= 0 && (
+                                      <span className="text-[8px] font-mono text-amber-400 bg-amber-500/10 px-1 py-0.5 rounded border border-amber-500/30 font-semibold whitespace-nowrap">
+                                        ⚠️ Definir cant.
+                                      </span>
+                                    )}
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      value={line.cantidadSolicitada}
+                                      onChange={(e) => handleQuantityChange(lineKey, Number(e.target.value))}
+                                      className={`w-24 px-2 py-1 text-right font-mono font-bold bg-page border rounded text-brand-400 focus:border-brand-400 focus:outline-none ${
+                                        line.deficit <= 0
+                                          ? 'border-amber-500/60 ring-1 ring-amber-500/30'
+                                          : 'border-borderSubtle'
+                                      }`}
+                                    />
+                                    {line.cantidadComercialSugerida && line.cantidadSugerida && line.cantidadComercialSugerida !== line.cantidadSugerida && (
+                                      <div className="flex items-center gap-1 text-[9px] font-mono">
+                                        <button
+                                          type="button"
+                                          onClick={() => handleQuantityChange(lineKey, line.cantidadComercialSugerida!)}
+                                          title="Redondear al empaque cerrado sugerido"
+                                          className={`px-1 py-0.5 rounded transition ${
+                                            line.cantidadSolicitada === line.cantidadComercialSugerida
+                                              ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40'
+                                              : 'text-slate-400 hover:text-slate-200 bg-surfaceHigh'
+                                          }`}
+                                        >
+                                          Empaque ({line.cantidadComercialSugerida})
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleQuantityChange(lineKey, line.cantidadSugerida)}
+                                          title="Cantidad neta calculada exacta"
+                                          className={`px-1 py-0.5 rounded transition ${
+                                            line.cantidadSolicitada === line.cantidadSugerida
+                                              ? 'bg-blue-500/20 text-blue-300 font-bold border border-blue-500/40'
+                                              : 'text-slate-400 hover:text-slate-200 bg-surfaceHigh'
+                                          }`}
+                                        >
+                                          Neto ({line.cantidadSugerida})
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="p-2 text-right">
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={line.costoUnitarioUSD}
+                                    onChange={(e) => handleCostChange(lineKey, Number(e.target.value))}
+                                    className="w-16 px-1.5 py-1 text-right font-mono bg-page border border-borderSubtle rounded text-slate-200"
+                                  />
+                                </td>
+                                <td className="p-2 text-right font-mono font-bold text-slate-100">
+                                  ${line.subtotalUSD.toFixed(2)}
+                                </td>
+                                <td className="p-2">
+                                  <select
+                                    value={line.prioridad}
+                                    onChange={(e) => handlePriorityChange(lineKey, e.target.value)}
+                                    className="text-[11px] bg-page border border-borderSubtle rounded px-1.5 py-1 text-slate-300"
+                                  >
+                                    <option value="Urgente">🔴 Urgente</option>
+                                    <option value="Alta">🟠 Alta</option>
+                                    <option value="Media">🟡 Media</option>
+                                    <option value="Baja">🟢 Baja</option>
+                                    <option value="Por Pedido">🔵 Por Pedido</option>
+                                  </select>
+                                </td>
+                                <td className="p-2">
+                                  {line.proyectoNombre ? (
+                                    <div className="flex items-center gap-1 text-[11px] text-brand-400 font-mono truncate max-w-[130px]">
+                                      <span className="truncate">{line.proyectoNombre}</span>
+                                      <button
+                                        onClick={() => {
+                                          setActiveLineIdForOrder(lineKey);
+                                          setOrderModalOpen(true);
+                                        }}
+                                        className="text-slate-400 hover:text-white"
+                                      >
+                                        ✎
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      onClick={() => {
+                                        setActiveLineIdForOrder(lineKey);
+                                        setOrderModalOpen(true);
+                                      }}
+                                      className="text-[10px] text-slate-400 hover:text-brand-400 flex items-center gap-1 underline"
+                                    >
+                                      <Link2 className="w-3 h-3" />
+                                      <span>Vincular ERP</span>
+                                    </button>
+                                  )}
+                                </td>
+                                <td className="p-2 text-center">
+                                  <button
+                                    onClick={() => handleRemoveLine(lineKey)}
+                                    className="text-red-400 hover:text-red-300 transition p-1"
+                                    title="Eliminar línea"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </React.Fragment>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -650,7 +821,7 @@ export const SupplyOrderModal: React.FC<SupplyOrderModalProps> = ({
           isOpen={orderModalOpen}
           onClose={() => {
             setOrderModalOpen(false);
-            setActiveLineIndexForOrder(null);
+            setActiveLineIdForOrder(null);
           }}
           onSelectOrder={handleSelectOrderForLine}
         />

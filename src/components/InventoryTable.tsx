@@ -14,6 +14,7 @@ interface InventoryTableProps {
   onOpenKardexItem?: (item: InventoryItem) => void;
   onOpenDispatchItem?: (item: InventoryItem) => void;
   onOpenAdjustmentItem?: (item: InventoryItem) => void;
+  onOpenReceptionItem?: (item: InventoryItem) => void;
   loading?: boolean;
   loadError?: boolean;
   onRetry?: () => void;
@@ -32,6 +33,7 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({
   onOpenKardexItem,
   onOpenDispatchItem,
   onOpenAdjustmentItem,
+  onOpenReceptionItem,
   loading = false,
   loadError = false,
   onRetry,
@@ -166,7 +168,22 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({
               />
             )}
             {(row.enTransitoOAB || 0) > 0 ? (
-              <span className="font-mono text-signal-blue font-semibold">+{row.enTransitoOAB}</span>
+              onOpenReceptionItem ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenReceptionItem(row);
+                  }}
+                  className="font-mono text-cyan-400 hover:text-cyan-200 font-bold px-1.5 py-0.5 rounded bg-cyan-950/50 hover:bg-cyan-900/70 border border-cyan-500/40 transition flex items-center gap-1 active:scale-95 shadow-sm"
+                  title={`Ver / Recibir ${row.nombre} en Rampa`}
+                >
+                  <span>+{row.enTransitoOAB}</span>
+                  <span className="text-[9px] text-cyan-300">📥</span>
+                </button>
+              ) : (
+                <span className="font-mono text-signal-blue font-semibold">+{row.enTransitoOAB}</span>
+              )
             ) : (
               <span className="font-mono text-slate-600">0</span>
             )}

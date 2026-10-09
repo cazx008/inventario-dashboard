@@ -107,6 +107,7 @@ export default function App() {
   const [supplyModalOpen, setSupplyModalOpen] = useState(false);
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
   const [receptionModalOpen, setReceptionModalOpen] = useState(false);
+  const [receptionInitialSearch, setReceptionInitialSearch] = useState<string | undefined>(undefined);
   const [kardexModalOpen, setKardexModalOpen] = useState(false);
   const [kardexTargetMaterial, setKardexTargetMaterial] = useState<{ id: string; nombre: string; stock: number } | null>(null);
   const [draftItemsForModal, setDraftItemsForModal] = useState<InventoryItem[]>([]);
@@ -297,6 +298,12 @@ export default function App() {
       revalidateInventoryLive(data.items).then(result => {
         if (result.synced) {
           setItems(result.updatedItems);
+          const now = new Date();
+          const formatted = now.toLocaleDateString('es-VE', { 
+            day: 'numeric', month: 'numeric', year: 'numeric', 
+            hour: '2-digit', minute: '2-digit' 
+          });
+          setLastSyncDisplay(formatted);
         }
       }).catch(swrErr => console.warn('Background SWR:', swrErr));
 
@@ -322,7 +329,15 @@ export default function App() {
         lastSyncTime = now;
         setItems(current => {
           revalidateInventoryLive(current).then(res => {
-            if (res.synced) setItems(res.updatedItems);
+            if (res.synced) {
+              setItems(res.updatedItems);
+              const nowTime = new Date();
+              const formattedTime = nowTime.toLocaleDateString('es-VE', { 
+                day: 'numeric', month: 'numeric', year: 'numeric', 
+                hour: '2-digit', minute: '2-digit' 
+              });
+              setLastSyncDisplay(formattedTime);
+            }
           });
           return current;
         });
@@ -427,6 +442,18 @@ export default function App() {
     }
     setAdjustmentPreselectedItem(preselected);
     setAdjustmentModalOpen(true);
+  }, [auth]);
+
+  // Handler para Atajo Contextual de Rampa desde Tránsito (+328) (Fase 9O)
+  const handleOpenReceptionForItem = useCallback((item: InventoryItem) => {
+    if (auth.hasPermission('Recepcion_Rampa') || auth.hasPermission('Superadmin')) {
+      setReceptionInitialSearch(item.nombre || item.codigo || '');
+      setReceptionModalOpen(true);
+    } else {
+      setDeniedTargetModule('Recepción en Rampa');
+      setDeniedModalOpen(true);
+      auth.triggerHaptic('error');
+    }
   }, [auth]);
 
   const handleAdjustmentSuccess = useCallback((result: StockAdjustmentResult) => {
@@ -962,6 +989,7 @@ export default function App() {
             }
           }}
           onOpenAdjustmentItem={(item) => handleOpenAdjustmentModal(item)}
+          onOpenReceptionItem={(item) => handleOpenReceptionForItem(item)}
           loading={loading}
           loadError={loadError}
           onRetry={handleRefresh}
@@ -1066,8 +1094,12 @@ export default function App() {
       {receptionModalOpen && (
         <ReceptionTerminalModal
           isOpen={receptionModalOpen}
-          onClose={() => setReceptionModalOpen(false)}
+          onClose={() => {
+            setReceptionModalOpen(false);
+            setReceptionInitialSearch(undefined);
+          }}
           inventoryItems={items}
+          initialSearchTerm={receptionInitialSearch}
           onReceptionSuccess={handleReceptionSuccess}
         />
       )}

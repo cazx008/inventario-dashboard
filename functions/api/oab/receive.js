@@ -88,23 +88,35 @@ export async function onRequest(context) {
     // Comprobar si ya existe algún asiento con este Folio OAB y este N° de Nota de Entrega
     const cleanNota = (numeroNotaEntrega || 'S/N').trim();
     const cleanFolio = (folioOAB || '').trim();
+    const receptionDate = fechaRecepcion || new Date().toISOString().split('T')[0];
 
     try {
+      const idempotencyFilters = [
+        {
+          property: 'Folio OAB',
+          rich_text: { equals: cleanFolio }
+        },
+        {
+          property: 'Código (Nota de entrega)',
+          rich_text: { equals: cleanNota }
+        }
+      ];
+
+      // Si la nota es 'S/N' (sin guía formal), requerir además coincidencia de fecha
+      // para no bloquear recepciones sucesivas sin nota en días distintos
+      if (cleanNota.toUpperCase() === 'S/N') {
+        idempotencyFilters.push({
+          property: 'Fecha de Recepción',
+          date: { equals: receptionDate }
+        });
+      }
+
       const idempotencyQuery = await fetch(`https://api.notion.com/v1/databases/${KARDEX_DB_ID}/query`, {
         method: 'POST',
         headers,
         body: JSON.stringify({
           filter: {
-            and: [
-              {
-                property: 'Folio OAB',
-                rich_text: { equals: cleanFolio }
-              },
-              {
-                property: 'Código (Nota de entrega)',
-                rich_text: { equals: cleanNota }
-              }
-            ]
+            and: idempotencyFilters
           },
           page_size: 5
         })
@@ -134,6 +146,35 @@ export async function onRequest(context) {
     const receptionDate = fechaRecepcion || new Date().toISOString().split('T')[0];
     const results = [];
     let hasBackorders = false;
+    const processedSolicitudIds = new Set();
+
+    // 0.1 Consulta Global de Líneas de la OAB en Notion para Reconciliación Integral de Saldos
+    const oabLinesById = new Map();
+    let allOABLines = [];
+    if (oabId) {
+      try {
+        const oabLinesRes = await fetch(`https://api.notion.com/v1/databases/${SOLICITUDES_DB_ID}/query`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            filter: {
+              property: 'Orden de Abastecimiento',
+              relation: { contains: oabId }
+            },
+            page_size: 100
+          })
+        });
+        if (oabLinesRes.ok) {
+          const oabLinesData = await oabLinesRes.json();
+          allOABLines = oabLinesData.results || [];
+          for (const line of allOABLines) {
+            oabLinesById.set(line.id, line);
+          }
+        }
+      } catch (errLines) {
+        console.warn('Advertencia consultando líneas completas de OAB en Notion:', errLines);
+      }
+    }
 
     for (const item of items) {
       const {
@@ -143,18 +184,37 @@ export async function onRequest(context) {
         nombre,
         cantidadAprobada = 0,
         cantidadRecibida = 0,
+        cantidadRecibidaHoy = null,
+        cantidadRecibidaPrevia = null,
         cantidadRechazada = 0,
         costoUnitarioUSD = 0,
         costoAprobadoUSD = 0,
         notasDiscrepancia = ''
       } = item;
 
-      const receivedNum = Number(cantidadRecibida) || 0;
-      const approvedNum = Number(cantidadAprobada) || 0;
+      if (solicitudId) {
+        processedSolicitudIds.add(solicitudId);
+      }
+
+      // Delta físico que baja hoy del camión
+      const receivedNum = Number(cantidadRecibidaHoy !== null ? cantidadRecibidaHoy : cantidadRecibida) || 0;
       const rejectedNum = Number(cantidadRechazada) || 0;
       const unitCost = Number(costoUnitarioUSD) || 0;
       const approvedCost = Number(costoAprobadoUSD) || unitCost;
-      const backorder = Math.max(0, approvedNum - receivedNum);
+
+      // Cantidad recibida en fletes anteriores y cantidad total aprobada desde Notion o payload
+      const notionLine = solicitudId ? oabLinesById.get(solicitudId) : null;
+      const prevReceived = notionLine
+        ? (notionLine.properties?.['Cantidad Recibida']?.number || 0)
+        : (Number(cantidadRecibidaPrevia) || 0);
+
+      const approvedNum = notionLine
+        ? (notionLine.properties?.['Cantidad Aprobada']?.number ?? Number(cantidadAprobada) || 0)
+        : (Number(cantidadAprobada) || 0);
+
+      // Total acumulado histórico y saldo de backorder
+      const totalReceived = prevReceived + receivedNum;
+      const backorder = Math.max(0, approvedNum - totalReceived);
 
       if (backorder > 0) hasBackorders = true;
 
@@ -362,7 +422,7 @@ export async function onRequest(context) {
           headers,
           body: JSON.stringify({
             properties: {
-              'Cantidad Recibida': { number: receivedNum },
+              'Cantidad Recibida': { number: totalReceived },
               'Backorder Pendiente': { number: backorder },
               'Estado Flujo': { select: { name: lineState } }
             }
@@ -372,7 +432,9 @@ export async function onRequest(context) {
 
       results.push({
         nombre,
+        solicitudId,
         receivedNum,
+        totalReceived,
         rejectedNum,
         backorder,
         unitCost,
@@ -385,7 +447,22 @@ export async function onRequest(context) {
 
     // 5. Actualizar Estado General en BD_Ordenes_Abastecimiento si se pasó oabId
     if (oabId) {
-      const overallState = hasBackorders ? 'Recepción Parcial' : 'Completada';
+      // Reconciliación con líneas de la OAB que NO vinieron en el payload de este flete
+      let globalPendingBackorders = results.reduce((sum, r) => sum + r.backorder, 0);
+      for (const line of allOABLines) {
+        if (!processedSolicitudIds.has(line.id)) {
+          const lp = line.properties;
+          const cantApr = lp['Cantidad Aprobada']?.number || lp['Cantidad Solicitada']?.number || 0;
+          const cantRec = lp['Cantidad Recibida']?.number || 0;
+          const bo = lp['Backorder Pendiente']?.number != null
+            ? lp['Backorder Pendiente'].number
+            : Math.max(0, cantApr - cantRec);
+          globalPendingBackorders += bo;
+          if (bo > 0) hasBackorders = true;
+        }
+      }
+
+      const overallState = (hasBackorders || globalPendingBackorders > 0) ? 'Recepción Parcial' : 'Completada';
       const oabUpdateProps = {
         'Estado General': { select: { name: overallState } }
       };
@@ -425,55 +502,81 @@ export async function onRequest(context) {
       });
     }
 
-    // 6. Disparar Alerta a Telegram ÚNICAMENTE ante incidencias operativas (rechazo, faltante o sobrecosto)
-    const incidents = results.filter(r => r.rejectedNum > 0 || r.backorder > 0 || r.isOvercost);
-    if (incidents.length > 0) {
-      try {
-        const dashboardBaseUrl = env.PUBLIC_DASHBOARD_URL || 'https://api.sanesca.cloud';
-        const cleanFolio = encodeURIComponent(folioOAB);
-        const kardexLink = `${dashboardBaseUrl}/?kardex=true&folio=${cleanFolio}`;
+    // 6. Notificaciones a Telegram: Clasificación Semántica (Incidencias vs Reporte de Recepción Parcial)
+    const criticalIncidents = results.filter(r => r.rejectedNum > 0 || r.isOvercost);
+    const partialDeliveries = results.filter(r => r.backorder > 0 && r.rejectedNum === 0 && !r.isOvercost);
 
-        const incidentRows = incidents.map(inc => {
+    const dashboardBaseUrl = env.PUBLIC_DASHBOARD_URL || 'https://api.sanesca.cloud';
+    const cleanFolioEncoded = encodeURIComponent(folioOAB);
+    const kardexLink = `${dashboardBaseUrl}/?kardex=true&folio=${cleanFolioEncoded}`;
+
+    const telegramButtons = [
+      [
+        {
+          text: '📱 Auditar Kardex (Mini App)',
+          web_app: { url: kardexLink }
+        }
+      ],
+      [
+        {
+          text: '🌐 Abrir en PC / Navegador',
+          url: kardexLink
+        }
+      ]
+    ];
+
+    if (criticalIncidents.length > 0) {
+      try {
+        const incidentRows = criticalIncidents.map(inc => {
           const parts = [];
           if (inc.rejectedNum > 0) parts.push(`❌ ${inc.rejectedNum} rechazo(s)`);
-          if (inc.backorder > 0) parts.push(`⏳ ${inc.backorder} faltante(s)`);
           if (inc.isOvercost) parts.push(`⚠️ +${inc.overcostPct.toFixed(1)}% sobrecosto ($${inc.unitCost.toFixed(2)} vs $${inc.approvedCost.toFixed(2)})`);
           return `• <b>${inc.nombre || 'Insumo'}</b>: ${parts.join(' | ')}`;
         }).join('\n');
 
         const evidenceLine = comprobanteUrl ? `\n📸 <b>Comprobante R2:</b> <a href="${comprobanteUrl}">Ver Foto de Nota</a>` : '';
 
-        const telegramText = `<b>🔴 ALERTA DE INCIDENCIA EN RAMPA (RECEPCIÓN)</b>\n\n` +
+        const telegramText = `<b>🔴 ALERTA DE INCIDENCIA EN RAMPA (DISCREPANCIA / SOBRECOSTO)</b>\n\n` +
           `<b>Folio OAB:</b> <code>${folioOAB}</code>\n` +
           `<b>N° Nota / Remisión:</b> <code>${numeroNotaEntrega || 'S/N'}</code>\n` +
           `<b>Fecha:</b> ${receptionDate}\n\n` +
-          `<b>Discrepancias Detectadas (${incidents.length}):</b>\n${incidentRows}\n` +
+          `<b>Discrepancias Detectadas (${criticalIncidents.length}):</b>\n${incidentRows}\n` +
           `${evidenceLine}\n\n` +
           `<i>Se requiere conciliación inmediata con el proveedor y ajuste en cuentas por pagar.</i>`;
-
-        const telegramButtons = [
-          [
-            {
-              text: '📱 Auditar Kardex (Mini App)',
-              web_app: { url: kardexLink }
-            }
-          ],
-          [
-            {
-              text: '🌐 Abrir en PC / Navegador',
-              url: kardexLink
-            }
-          ]
-        ];
 
         await sendTelegramAlert({
           env,
           text: telegramText,
           buttons: telegramButtons,
-          threadId: 146 // Tópico 'Inventario' en Supergrupo Sanesca - Producción (-1003139956223)
+          threadId: 146
         });
       } catch (tgErr) {
         console.warn('Advertencia despachando alerta Telegram para Incidencia en Rampa:', tgErr);
+      }
+    } else if (hasBackorders && partialDeliveries.length > 0) {
+      try {
+        const deliveryRows = partialDeliveries.map(p =>
+          `• <b>${p.nombre || 'Insumo'}</b>: Recibido hoy: <b>${p.receivedNum}</b> und | Pendiente (Backorder): <b>${p.backorder}</b> und`
+        ).join('\n');
+
+        const evidenceLine = comprobanteUrl ? `\n📸 <b>Comprobante R2:</b> <a href="${comprobanteUrl}">Ver Foto de Nota</a>` : '';
+
+        const telegramText = `<b>📦 REPORTE DE RECEPCIÓN PARCIAL EN RAMPA</b>\n\n` +
+          `<b>Folio OAB:</b> <code>${folioOAB}</code>\n` +
+          `<b>N° Nota / Remisión:</b> <code>${numeroNotaEntrega || 'S/N'}</code>\n` +
+          `<b>Fecha:</b> ${receptionDate}\n\n` +
+          `<b>Estado de Entrega:</b> La orden permanece en <i>Recepción Parcial</i> con fletes pendientes.\n\n` +
+          `<b>Balance de Renglones:</b>\n${deliveryRows}\n` +
+          `${evidenceLine}`;
+
+        await sendTelegramAlert({
+          env,
+          text: telegramText,
+          buttons: telegramButtons,
+          threadId: 146
+        });
+      } catch (tgErr) {
+        console.warn('Advertencia despachando reporte Telegram para Recepción Parcial:', tgErr);
       }
     }
 

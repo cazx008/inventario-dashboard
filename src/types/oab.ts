@@ -22,6 +22,8 @@ export interface OABLineItem {
   cantidadSolicitada: number;
   cantidadAprobada?: number;
   cantidadRecibida?: number;
+  cantidadRecibidaHoy?: number;
+  cantidadRecibidaPrevia?: number;
   cantidadRechazada?: number;
   backorderPendiente?: number;
   costoUnitarioUSD: number;

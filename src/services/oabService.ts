@@ -17,6 +17,9 @@ export interface ReceptionItemPayload {
   nombre: string;
   cantidadAprobada: number;
   cantidadRecibida: number;
+  cantidadRecibidaHoy?: number;
+  cantidadRecibidaPrevia?: number;
+  backorderPendiente?: number;
   cantidadRechazada: number;
   costoUnitarioUSD: number;
   costoAprobadoUSD?: number;
@@ -95,13 +98,29 @@ export async function registerReception(payload: RegisterReceptionPayload) {
   return await res.json();
 }
 
+export async function fetchNextFolioOAB(preview = true): Promise<string> {
+  try {
+    const res = await fetch(`/api/oab/next-folio?preview=${preview}`, {
+      headers: { ...getAuthHeader() }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.folio) {
+        return data.folio;
+      }
+    }
+  } catch (err) {
+    console.warn('Fallo consultando endpoint /api/oab/next-folio, usando fallback determinista:', err);
+  }
+  return generateFolioOAB();
+}
+
 export function generateFolioOAB(): string {
   const d = new Date();
   const yyyy = d.getFullYear();
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   const dd = String(d.getDate()).padStart(2, '0');
-  const randSeq = String(Math.floor(Math.random() * 90) + 10);
-  return `OAB-${yyyy}${mm}${dd}-${randSeq}`;
+  return `OAB-${yyyy}${mm}${dd}-01`;
 }
 
 export interface OABReviewLine {
@@ -109,6 +128,8 @@ export interface OABReviewLine {
   nombre: string;
   cantidadSolicitada: number;
   cantidadAprobada: number;
+  cantidadRecibidaPrevia?: number;
+  backorderPendiente?: number;
   costoUnitarioUSD: number;
   subtotalUSD: number;
   estadoFlujo?: string;
@@ -134,6 +155,8 @@ export interface OABReviewDetails {
     notasCompras?: string;
   };
   lines: OABReviewLine[];
+  pendingLines?: OABReviewLine[];
+  completedLines?: OABReviewLine[];
 }
 
 export interface SubmitReviewPayload {

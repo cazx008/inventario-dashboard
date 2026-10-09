@@ -108,6 +108,25 @@ export async function onRequest(context) {
     const oabPage = await oabPageRes.json();
     const oabId = oabPage.id;
 
+    // Actualizar la secuencia atómica en Cloudflare KV si el folio tiene formato OAB-YYYYMMDD-##
+    if (env.INVENTORY_KV && folio) {
+      const match = folio.match(/^OAB-(\d{8})-(\d+)/);
+      if (match) {
+        const dateCompact = match[1];
+        const seqNum = parseInt(match[2], 10);
+        const kvKey = `oab_seq:${dateCompact}`;
+        try {
+          const currentVal = await env.INVENTORY_KV.get(kvKey);
+          const currentSeq = currentVal ? parseInt(currentVal, 10) : 0;
+          if (seqNum > currentSeq) {
+            await env.INVENTORY_KV.put(kvKey, String(seqNum));
+          }
+        } catch (kvErr) {
+          console.warn('Advertencia actualizando secuencia KV en creación de OAB:', kvErr);
+        }
+      }
+    }
+
     // 2. Crear Líneas en Solicitudes de Insumos
     const createdLines = [];
     for (const linea of lineas) {

@@ -68,6 +68,9 @@ export const OABReviewModal: React.FC<OABReviewModalProps> = ({
   const [isCanceling, setIsCanceling] = useState(false);
   const [cancelSuccess, setCancelSuccess] = useState<string | null>(null);
 
+  // Token de control para mitigar carreras asíncronas
+  const activeRequestRef = useRef<string>('');
+
   // Cargar lista de órdenes pendientes al abrir
   useEffect(() => {
     if (!isOpen) return;
@@ -78,7 +81,7 @@ export const OABReviewModal: React.FC<OABReviewModalProps> = ({
     setPhotoPreview(null);
     setShowCancelModal(false);
     setCancelReason('');
-    const targetFolio = initialFolio || '';
+    const targetFolio = (initialFolio || '').trim();
     setSelectedFolio(targetFolio);
     setManualFolioInput(targetFolio);
 
@@ -95,12 +98,19 @@ export const OABReviewModal: React.FC<OABReviewModalProps> = ({
 
   const handleSelectFolio = async (folioToLoad: string) => {
     if (!folioToLoad) return;
-    setSelectedFolio(folioToLoad);
+    const cleanFolio = folioToLoad.trim();
+    setSelectedFolio(cleanFolio);
+    setManualFolioInput(cleanFolio);
     setLoadingDetails(true);
     setErrorMessage(null);
+    activeRequestRef.current = cleanFolio;
 
     try {
-      const data = await fetchOABDetails(folioToLoad);
+      const data = await fetchOABDetails(cleanFolio);
+      // Descartar si el usuario seleccionó otra orden mientras respondía Notion
+      if (activeRequestRef.current !== cleanFolio) {
+        return;
+      }
       if (data) {
         setDetails(data);
         setProveedorNombre(data.oab.proveedor || '');
@@ -110,37 +120,39 @@ export const OABReviewModal: React.FC<OABReviewModalProps> = ({
         setLines(data.lines);
       }
     } catch (err: any) {
-      setErrorMessage(err.message || 'Error cargando detalles de la OAB');
-      setDetails(null);
+      if (activeRequestRef.current === cleanFolio) {
+        setErrorMessage(err.message || 'Error cargando detalles de la OAB');
+        setDetails(null);
+      }
     } finally {
-      setLoadingDetails(false);
+      if (activeRequestRef.current === cleanFolio) {
+        setLoadingDetails(false);
+      }
     }
   };
 
-  const handleLineQtyChange = (index: number, newQty: number) => {
-    setLines(prev => {
-      const copy = [...prev];
+  const handleLineQtyChange = (solicitudId: string, newQty: number) => {
+    setLines(prev => prev.map(l => {
+      if (l.solicitudId !== solicitudId) return l;
       const validQty = Math.max(0, newQty);
-      copy[index] = {
-        ...copy[index],
+      return {
+        ...l,
         cantidadAprobada: validQty,
-        subtotalUSD: validQty * (copy[index].costoUnitarioUSD || 0)
+        subtotalUSD: validQty * (l.costoUnitarioUSD || 0)
       };
-      return copy;
-    });
+    }));
   };
 
-  const handleLineCostChange = (index: number, newCost: number) => {
-    setLines(prev => {
-      const copy = [...prev];
+  const handleLineCostChange = (solicitudId: string, newCost: number) => {
+    setLines(prev => prev.map(l => {
+      if (l.solicitudId !== solicitudId) return l;
       const validCost = Math.max(0, newCost);
-      copy[index] = {
-        ...copy[index],
+      return {
+        ...l,
         costoUnitarioUSD: validCost,
-        subtotalUSD: (copy[index].cantidadAprobada || 0) * validCost
+        subtotalUSD: (l.cantidadAprobada || 0) * validCost
       };
-      return copy;
-    });
+    }));
   };
 
   const handleApproveAll = () => {
@@ -329,14 +341,14 @@ export const OABReviewModal: React.FC<OABReviewModalProps> = ({
                   value={selectedFolio}
                   onChange={(e) => handleSelectFolio(e.target.value)}
                   className="flex-1 bg-surface border border-borderSubtle text-brand-400 font-mono text-xs px-2.5 py-1.5 rounded"
-                  disabled={loadingOrders}
+                  disabled={loadingOrders || loadingDetails}
                 >
                   {pendingOrders.length === 0 ? (
                     <option value="">No hay órdenes pendientes en Notion</option>
                   ) : (
                     pendingOrders.map(o => (
                       <option key={o.id} value={o.folio}>
-                        {o.folio} — {o.estadoGeneral} ({o.fechaEmision}) · ${o.totalUSD} USD
+                        {o.folio} — {o.estadoGeneral} ({o.fechaEmision}) · ${Number(o.totalUSD || 0).toFixed(2)} USD
                       </option>
                     ))
                   )}
@@ -349,12 +361,14 @@ export const OABReviewModal: React.FC<OABReviewModalProps> = ({
                   placeholder="Digitar folio o escanear QR..."
                   value={manualFolioInput}
                   onChange={(e) => setManualFolioInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSelectFolio(manualFolioInput)}
-                  className="bg-surface border border-borderSubtle text-xs px-2.5 py-1.5 rounded font-mono text-slate-200 w-48"
+                  onKeyDown={(e) => e.key === 'Enter' && !loadingDetails && handleSelectFolio(manualFolioInput)}
+                  disabled={loadingOrders || loadingDetails}
+                  className="bg-surface border border-borderSubtle text-xs px-2.5 py-1.5 rounded font-mono text-slate-200 w-48 disabled:opacity-50"
                 />
                 <button
                   onClick={() => handleSelectFolio(manualFolioInput)}
-                  className="px-3 py-1.5 bg-surfaceHigh hover:bg-surfaceHighest text-slate-300 text-xs rounded border border-borderSubtle flex items-center gap-1"
+                  disabled={loadingOrders || loadingDetails}
+                  className="px-3 py-1.5 bg-surfaceHigh hover:bg-surfaceHighest disabled:opacity-50 text-slate-300 text-xs rounded border border-borderSubtle flex items-center gap-1"
                 >
                   <Search className="w-3.5 h-3.5" />
                   Buscar
@@ -363,8 +377,41 @@ export const OABReviewModal: React.FC<OABReviewModalProps> = ({
             </div>
 
             {loadingDetails && (
-              <div className="py-12 text-center text-slate-400 text-xs animate-pulse">
-                Cargando renglones y solicitudes de la OAB desde Notion ERP...
+              <div className="space-y-4 p-2 animate-pulse">
+                {/* Skeleton Header Form */}
+                <div className="p-4 bg-surfaceHigh/40 rounded-xl border border-borderSubtle/60 grid grid-cols-1 sm:grid-cols-4 gap-3">
+                  {[1, 2, 3, 4].map(i => (
+                    <div key={i} className="space-y-2">
+                      <div className="h-2.5 bg-slate-700/50 rounded w-24"></div>
+                      <div className="h-8 bg-slate-800/80 rounded-lg border border-slate-700/30"></div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Skeleton Table Lines */}
+                <div className="border border-borderSubtle/60 rounded-xl overflow-hidden bg-surface">
+                  <div className="h-10 bg-surfaceHigh/60 border-b border-borderSubtle/60 flex items-center justify-between px-4">
+                    <div className="h-3 bg-slate-700/60 rounded w-32"></div>
+                    <div className="h-3 bg-slate-700/60 rounded w-48"></div>
+                  </div>
+                  <div className="divide-y divide-borderSubtle/30 p-2 space-y-2">
+                    {[1, 2, 3, 4].map(i => (
+                      <div key={i} className="flex items-center justify-between gap-4 py-2.5 px-3">
+                        <div className="space-y-1.5 flex-1">
+                          <div className="h-4 bg-slate-700/60 rounded w-2/5"></div>
+                          <div className="h-2.5 bg-slate-800/80 rounded w-1/4"></div>
+                        </div>
+                        <div className="h-4 bg-slate-700/40 rounded w-16"></div>
+                        <div className="h-7 bg-slate-800/90 rounded w-24 border border-slate-700/30"></div>
+                        <div className="h-7 bg-slate-800/90 rounded w-20 border border-slate-700/30"></div>
+                        <div className="h-4 bg-slate-700/60 rounded w-16"></div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="text-center text-[11px] text-slate-500 font-mono">
+                  Sincronizando líneas de la orden desde Notion ERP...
+                </div>
               </div>
             )}
 
@@ -538,7 +585,7 @@ export const OABReviewModal: React.FC<OABReviewModalProps> = ({
                                   type="number"
                                   min="0"
                                   value={line.cantidadAprobada}
-                                  onChange={(e) => handleLineQtyChange(idx, Number(e.target.value))}
+                                  onChange={(e) => handleLineQtyChange(line.solicitudId, Number(e.target.value))}
                                   className={`w-20 px-2 py-1 text-center font-mono font-bold text-xs rounded border ${
                                     isRejected
                                       ? 'bg-red-950/40 border-red-500/50 text-red-300'
@@ -549,7 +596,7 @@ export const OABReviewModal: React.FC<OABReviewModalProps> = ({
                                 />
                                 <button
                                   type="button"
-                                  onClick={() => handleLineQtyChange(idx, line.cantidadSolicitada)}
+                                  onClick={() => handleLineQtyChange(line.solicitudId, line.cantidadSolicitada)}
                                   title="Aprobar todo"
                                   className="px-1.5 py-0.5 text-[10px] bg-surfaceHigh hover:bg-surfaceHighest rounded text-slate-300"
                                 >
@@ -557,7 +604,7 @@ export const OABReviewModal: React.FC<OABReviewModalProps> = ({
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => handleLineQtyChange(idx, 0)}
+                                  onClick={() => handleLineQtyChange(line.solicitudId, 0)}
                                   title="Tachar / Rechazar"
                                   className="px-1.5 py-0.5 text-[10px] bg-red-900/30 hover:bg-red-800/40 rounded text-red-300"
                                 >
@@ -571,7 +618,7 @@ export const OABReviewModal: React.FC<OABReviewModalProps> = ({
                                 min="0"
                                 step="0.01"
                                 value={line.costoUnitarioUSD}
-                                onChange={(e) => handleLineCostChange(idx, Number(e.target.value))}
+                                onChange={(e) => handleLineCostChange(line.solicitudId, Number(e.target.value))}
                                 className="w-16 px-2 py-1 text-right font-mono text-xs bg-page border border-borderSubtle rounded text-slate-200"
                               />
                             </td>
