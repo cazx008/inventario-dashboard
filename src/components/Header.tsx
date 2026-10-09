@@ -235,11 +235,11 @@ export const Header: React.FC<HeaderProps> = ({
           {profile && (
             <div className="flex items-center gap-2 pl-1.5 pr-2 py-1 rounded-xl bg-slate-900 border border-slate-700/80 shadow-inner text-xs">
               <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-brand-600 to-indigo-600 flex items-center justify-center text-[10px] font-bold text-white shadow-sm">
-                {profile.name.split(' ').map(n => n[0]).slice(0, 2).join('')}
+                {(profile.name || 'Operador').split(' ').filter(Boolean).map(n => n[0]).slice(0, 2).join('')}
               </div>
               <div className="flex flex-col leading-tight">
                 <span className="font-semibold text-slate-200 text-[11px] truncate max-w-[110px] sm:max-w-[150px]">
-                  {profile.name}
+                  {profile.name || 'Operador'}
                 </span>
                 <span className="text-[9px] font-mono text-slate-400 truncate max-w-[110px]">
                   {profile.permissions.includes('Superadmin') ? (
