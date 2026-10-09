@@ -88,3 +88,54 @@ export async function clearLiveStockDeltas(env) {
     console.warn('[_kv.js] Error purgando deltas de KV:', err);
   }
 }
+
+// -------------------------------------------------------------
+// GESTIÓN DE ASIGNACIONES MTO Y DEUDAS OPERATIVAS (Fase 10A)
+// -------------------------------------------------------------
+export const LIVE_ALLOCATIONS_KEY = 'live_stock_allocations';
+export const ALLOCATION_TTL_SECONDS = 604800; // 7 días
+
+/**
+ * Obtiene el mapa completo de reservas MTO y deudas operativas desde Cloudflare KV
+ * @param {object} env Variables de entorno de Cloudflare Pages
+ * @returns {Promise<{ allocations: Array<object>, debts: Array<object> }>}
+ */
+export async function getLiveAllocations(env) {
+  if (!env?.INVENTORY_KV) {
+    return { allocations: [], debts: [] };
+  }
+  try {
+    const data = await env.INVENTORY_KV.get(LIVE_ALLOCATIONS_KEY, 'json');
+    if (data && typeof data === 'object') {
+      return {
+        allocations: Array.isArray(data.allocations) ? data.allocations : [],
+        debts: Array.isArray(data.debts) ? data.debts : []
+      };
+    }
+    return { allocations: [], debts: [] };
+  } catch (err) {
+    console.warn('[_kv.js] Error leyendo asignaciones de KV:', err);
+    return { allocations: [], debts: [] };
+  }
+}
+
+/**
+ * Guarda el mapa completo de asignaciones y deudas en Cloudflare KV
+ * @param {object} env Variables de entorno
+ * @param {{ allocations: Array<object>, debts: Array<object> }} data
+ */
+export async function setLiveAllocations(env, data) {
+  if (!env?.INVENTORY_KV) return;
+  try {
+    await env.INVENTORY_KV.put(LIVE_ALLOCATIONS_KEY, JSON.stringify({
+      allocations: data.allocations || [],
+      debts: data.debts || [],
+      updatedAt: Date.now()
+    }), {
+      expirationTtl: ALLOCATION_TTL_SECONDS
+    });
+  } catch (err) {
+    console.warn('[_kv.js] Error guardando asignaciones en KV:', err);
+  }
+}
+

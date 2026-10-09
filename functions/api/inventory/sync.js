@@ -8,7 +8,7 @@
  * 3. Devolver un payload ultraligero que permita a la UI reconciliar el estado sin recargar la página.
  */
 
-import { getLiveStockDeltas } from '../_kv.js';
+import { getLiveStockDeltas, getLiveAllocations } from '../_kv.js';
 
 const SOLICITUDES_DB_ID = '2bc86805-4e27-8036-ba88-d52ec84742ba';
 const KARDEX_DB_ID = '26286805-4e27-803b-91ce-ef8f121d622d';
@@ -27,8 +27,12 @@ export async function onRequest(context) {
     });
   }
 
-  // 0. Consultar deltas en caliente desde Cloudflare Edge KV (100k lecturas/día gratis, latencia sub-5ms)
-  const deltas = await getLiveStockDeltas(env);
+  // 0. Consultar deltas y reservas MTO en caliente desde Cloudflare Edge KV
+  const [deltas, allocationsData] = await Promise.all([
+    getLiveStockDeltas(env),
+    getLiveAllocations(env)
+  ]);
+
   const liveStockByDashboardId = {};
   const liveCostByDashboardId = {};
 
@@ -41,6 +45,21 @@ export async function onRequest(context) {
     }
   }
 
+  const apartadoByDashboardId = {};
+  const apartadoDesgloseByDashboardId = {};
+  for (const a of (allocationsData.allocations || [])) {
+    if (a && a.dashboardId && (a.cantidadApartada > 0 || a.cantidadTransito > 0)) {
+      if (a.cantidadApartada > 0) {
+        apartadoByDashboardId[a.dashboardId] = (apartadoByDashboardId[a.dashboardId] || 0) + a.cantidadApartada;
+      }
+      if (!apartadoDesgloseByDashboardId[a.dashboardId]) {
+        apartadoDesgloseByDashboardId[a.dashboardId] = [];
+      }
+      apartadoDesgloseByDashboardId[a.dashboardId].push(a);
+    }
+  }
+  const activeDebtsCount = (allocationsData.debts || []).filter(d => d.estado === 'Pendiente').length;
+
   const notionApiKey = env.NOTION_API_KEY;
   if (!notionApiKey) {
     // Si no hay API key en local, responder con payload de sincronización con liveStock de KV
@@ -50,6 +69,9 @@ export async function onRequest(context) {
       enTransitoByName: {},
       liveStockByDashboardId,
       liveCostByDashboardId,
+      apartadoByDashboardId,
+      apartadoDesgloseByDashboardId,
+      activeDebtsCount,
       activeOrdersCount: 0,
       timestamp: Date.now(),
       message: 'NOTION_API_KEY no configurada; operando con snapshot local y Edge KV live.'
@@ -175,6 +197,9 @@ export async function onRequest(context) {
       enTransitoByName,
       liveStockByDashboardId,
       liveCostByDashboardId,
+      apartadoByDashboardId,
+      apartadoDesgloseByDashboardId,
+      activeDebtsCount,
       activeOrdersCount,
       overflow: isOverflow,
       timestamp: Date.now()
