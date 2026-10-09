@@ -143,7 +143,6 @@ export async function onRequest(context) {
       // Si falla la verificación por timeout temporal, continúa bajo supervisión
     }
 
-    const receptionDate = fechaRecepcion || new Date().toISOString().split('T')[0];
     const results = [];
     let hasBackorders = false;
     const processedSolicitudIds = new Set();
@@ -209,7 +208,7 @@ export async function onRequest(context) {
         : (Number(cantidadRecibidaPrevia) || 0);
 
       const approvedNum = notionLine
-        ? (notionLine.properties?.['Cantidad Aprobada']?.number ?? Number(cantidadAprobada) || 0)
+        ? (notionLine.properties?.['Cantidad Aprobada']?.number ?? (Number(cantidadAprobada) || 0))
         : (Number(cantidadAprobada) || 0);
 
       // Total acumulado histórico y saldo de backorder
