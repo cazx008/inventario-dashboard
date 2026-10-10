@@ -14,9 +14,11 @@ import {
   Trash2,
   Search,
   Plus,
-  Tag
+  Tag,
+  FolderKanban
 } from 'lucide-react';
-import { OABLineItem } from '../types/oab';
+import { OABLineItem, OrderReference } from '../types/oab';
+import { OrderSearchModal } from './OrderSearchModal';
 import { InventoryItem } from '../types/inventory';
 import {
   registerReception,
@@ -74,9 +76,11 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
   const [showFiscalInputs, setShowFiscalInputs] = useState(false);
   const [pendingPhotosCount, setPendingPhotosCount] = useState<number>(0);
 
-  // Estados de Rotulado Físico MTO y Etiquetas Duales (Fase 10B)
+  // Estados de Rotulado Físico MTO y Etiquetas Duales (Fase 10B / Fase 11.3)
   const [labelsToPrint, setLabelsToPrint] = useState<ProjectLabelItem[]>([]);
   const [showLabelModal, setShowLabelModal] = useState<boolean>(false);
+  const [activeLineIdxForOrder, setActiveLineIdxForOrder] = useState<number | null>(null);
+  const [isOrderSearchOpen, setIsOrderSearchOpen] = useState<boolean>(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -266,8 +270,10 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
             costoAprobadoUSD: line.costoUnitarioUSD,
             subtotalUSD: line.subtotalUSD,
             prioridad: line.prioridad || 'Alta',
+            pedidoId: line.pedidoId,
+            proyectoId: line.proyectoId,
             proyectoNombre: line.proyectoNombre,
-            rotularEtiqueta: Boolean(line.proyectoNombre),
+            rotularEtiqueta: Boolean(line.proyectoNombre && !line.proyectoNombre.toLowerCase().includes('stock general') && !line.proyectoNombre.toLowerCase().includes('stock fábrica') && !line.proyectoNombre.toLowerCase().includes('stock fabrica')),
             bultos: 1,
             cantEnBulto: pendingBalance > 0 ? pendingBalance : 1
           };
@@ -533,6 +539,7 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
         costoAprobadoUSD: l.costoAprobadoUSD || l.costoUnitarioUSD || 0,
         toleranciaExcedente: l.toleranciaExcedente,
         notasDiscrepancia: l.notasDiscrepancia,
+        pedidoId: l.pedidoId,
         proyectoId: l.proyectoId,
         proyectoNombre: l.proyectoNombre
       }))
@@ -1179,27 +1186,49 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
                       </div>
                     </div>
 
-                    {/* Barra Ergonómica de Rotulado de Proyecto / Bultos (Micro-Fase 10B) */}
+                    {/* Barra Ergonómica de Rotulado de Proyecto / Bultos (Micro-Fase 10B / Fase 11.3) */}
                     <div className="mt-2.5 pt-2 border-t border-borderSubtle/60 flex flex-wrap items-center justify-between gap-2 bg-surface/50 p-2 rounded">
                       <div className="flex items-center gap-2">
                         <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-slate-200">
                           <input
                             type="checkbox"
-                            checked={item.rotularEtiqueta ?? Boolean(item.proyectoNombre)}
+                            checked={item.rotularEtiqueta ?? Boolean(item.proyectoNombre && !item.proyectoNombre.toLowerCase().includes('stock general') && !item.proyectoNombre.toLowerCase().includes('stock fábrica') && !item.proyectoNombre.toLowerCase().includes('stock fabrica'))}
                             onChange={() => handleToggleRotulado(idx)}
                             className="rounded border-borderSubtle text-brand-500 focus:ring-0"
                           />
                           <Tag className="w-3.5 h-3.5 text-brand-400" />
                           <span>Rotular Etiqueta</span>
                         </label>
-                        {item.proyectoNombre ? (
-                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-brand-500/20 text-brand-300 border border-brand-500/30 font-bold">
-                            Obra: {item.proyectoNombre}
-                          </span>
+                        {item.proyectoNombre && !item.proyectoNombre.toLowerCase().includes('stock general') && !item.proyectoNombre.toLowerCase().includes('stock fábrica') && !item.proyectoNombre.toLowerCase().includes('stock fabrica') ? (
+                          <div className="flex items-center gap-1 bg-brand-500/20 text-brand-300 border border-brand-500/30 px-2 py-0.5 rounded font-mono text-[10px] font-bold">
+                            <span>Obra: {item.proyectoNombre}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveLineIdxForOrder(idx);
+                                setIsOrderSearchOpen(true);
+                              }}
+                              className="p-0.5 text-slate-300 hover:text-white rounded hover:bg-brand-500/30 transition"
+                              title="Cambiar o reasignar obra en rampa"
+                            >
+                              <FolderKanban className="w-3.5 h-3.5 text-brand-300" />
+                            </button>
+                          </div>
                         ) : (
-                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">
-                            📦 Stock Fábrica
-                          </span>
+                          <div className="flex items-center gap-1.5 bg-slate-800 text-slate-400 border border-slate-700 px-2 py-0.5 rounded font-mono text-[10px]">
+                            <span>📦 Stock Fábrica</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveLineIdxForOrder(idx);
+                                setIsOrderSearchOpen(true);
+                              }}
+                              className="px-1.5 py-0.5 text-[9px] text-brand-400 hover:text-brand-300 rounded border border-brand-500/30 bg-brand-500/10 transition"
+                              title="Asignar a una obra o pedido antes de recibir"
+                            >
+                              + Asignar Obra
+                            </button>
+                          </div>
                         )}
                       </div>
 
@@ -1327,6 +1356,35 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
         <PrintSheetProjectLabels
           items={labelsToPrint}
           onClose={() => setShowLabelModal(false)}
+        />
+      )}
+
+      {/* Modal Táctil de Búsqueda y Asignación de Pedido / Obra MTO (Fase 11.3) */}
+      {isOrderSearchOpen && (
+        <OrderSearchModal
+          isOpen={isOrderSearchOpen}
+          onClose={() => {
+            setIsOrderSearchOpen(false);
+            setActiveLineIdxForOrder(null);
+          }}
+          onSelectOrder={(order: OrderReference) => {
+            if (activeLineIdxForOrder !== null) {
+              setItemsToReceive(prev => prev.map((it, idx) => {
+                if (idx === activeLineIdxForOrder) {
+                  return {
+                    ...it,
+                    pedidoId: order.id,
+                    proyectoId: order.proyectoId || order.id,
+                    proyectoNombre: `${order.codigo} - ${order.proyecto}`,
+                    rotularEtiqueta: true
+                  };
+                }
+                return it;
+              }));
+            }
+            setIsOrderSearchOpen(false);
+            setActiveLineIdxForOrder(null);
+          }}
         />
       )}
     </div>

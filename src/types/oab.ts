@@ -32,6 +32,7 @@ export interface OABLineItem {
   costoAprobadoUSD?: number;
   subtotalUSD: number;
   prioridad: string;
+  pedidoId?: string;
   proyectoId?: string;
   proyectoNombre?: string;
   notasDiscrepancia?: string;
@@ -180,6 +181,7 @@ export interface OrderReference {
   codigo: string;
   cliente: string;
   proyecto: string;
+  proyectoId?: string;
   tipo: 'PED' | 'PRS' | 'FAC' | 'OBRA' | 'OE' | string;
   fecha?: string;
   estado?: string;

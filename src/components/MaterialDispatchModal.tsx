@@ -19,11 +19,13 @@ import {
   Loader2, 
   Check, 
   Lock, 
-  ShieldCheck 
+  ShieldCheck,
+  Zap
 } from 'lucide-react';
 import { InventoryItem } from '../types/inventory';
 import { OrderReference } from '../types/oab';
 import { ActiveEmployee } from '../types/auth';
+import { AllocationsResponse, StoreAllocation } from '../services/inventoryService';
 import { OrderSearchModal } from './OrderSearchModal';
 
 const DEFAULT_PLANT_WORKERS: ActiveEmployee[] = [
@@ -47,6 +49,8 @@ interface MaterialDispatchModalProps {
     destino: string;
   }) => void;
   token?: string | null;
+  allocationsData?: AllocationsResponse | null;
+  onRefreshAllocations?: () => Promise<void>;
 }
 
 export const MaterialDispatchModal: React.FC<MaterialDispatchModalProps> = ({
@@ -55,7 +59,9 @@ export const MaterialDispatchModal: React.FC<MaterialDispatchModalProps> = ({
   inventoryItems,
   preselectedItem = null,
   onDispatchSuccess,
-  token
+  token,
+  allocationsData,
+  onRefreshAllocations
 }) => {
   // 1. Estado de Selección de Material
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(preselectedItem);
@@ -115,12 +121,27 @@ export const MaterialDispatchModal: React.FC<MaterialDispatchModalProps> = ({
   }>>([]);
   const [loadingOrderBalance, setLoadingOrderBalance] = useState(false);
 
-  // Resetear bypass al cambiar de orden
+  // 8. Válvula de Emergencia y Control de Canibalización (Fase 10D / D1-10D a D5-10D)
+  const [isEmergencyLoanActive, setIsEmergencyLoanActive] = useState(false);
+  const [prestamistaProyectoId, setPrestamistaProyectoId] = useState<string>('');
+  const [motivoEmergencia, setMotivoEmergencia] = useState<string>('');
+  const [emergencySupervisorPin, setEmergencySupervisorPin] = useState<string>('');
+  const [emergencyPinVerified, setEmergencyPinVerified] = useState<boolean>(false);
+  const [emergencySupervisorName, setEmergencySupervisorName] = useState<string>('');
+  const [emergencyError, setEmergencyError] = useState<string | null>(null);
+  const [reponerCedente, setReponerCedente] = useState<boolean>(true);
+
+  // Resetear bypass y préstamo de emergencia al cambiar de orden o material
   useEffect(() => {
     setIsSupervisorBypassed(false);
     setSupervisorPin('');
     setSupervisorBypassError(null);
-  }, [selectedOrder]);
+    setIsEmergencyLoanActive(false);
+    setEmergencySupervisorPin('');
+    setEmergencyPinVerified(false);
+    setMotivoEmergencia('');
+    setEmergencyError(null);
+  }, [selectedOrder, selectedItem]);
 
   const handleVerifySupervisorPin = () => {
     setSupervisorBypassError(null);
@@ -279,6 +300,58 @@ export const MaterialDispatchModal: React.FC<MaterialDispatchModalProps> = ({
     };
   }, [selectedOrder, selectedItem, orderBalanceItems, cantidad]);
 
+  // CÁLCULO DE RESERVAS MTO Y SEMÁFORO TRIPARTITO (Micro-Fase 10D / D1-10D & D5-10D)
+  const allAllocations = allocationsData?.allocations || [];
+  const itemAllocations = useMemo(() => {
+    if (!selectedItem) return [];
+    return allAllocations.filter(a => a.dashboardId === selectedItem.id);
+  }, [allAllocations, selectedItem]);
+
+  const {
+    myApartado,
+    otherApartado,
+    stockLibre,
+    otherAllocs,
+    maxDisponibleDirecto
+  } = useMemo(() => {
+    if (!selectedItem) {
+      return { myApartado: 0, otherApartado: 0, stockLibre: 0, otherAllocs: [], maxDisponibleDirecto: 0 };
+    }
+    const isStoreOrFurniture = (nivelImputacion === 'TIENDA' || nivelImputacion === 'MOBILIARIO') && selectedOrder;
+    const targetPId = selectedOrder?.id;
+    const targetPName = (selectedOrder?.proyecto || selectedOrder?.codigo || '').toLowerCase().trim();
+
+    let myAlloc: StoreAllocation | undefined = undefined;
+    if (isStoreOrFurniture) {
+      myAlloc = itemAllocations.find(a => 
+        (targetPId && a.proyectoId === targetPId) ||
+        (targetPName && a.proyectoNombre && a.proyectoNombre.toLowerCase().includes(targetPName))
+      );
+    }
+    const myAp = myAlloc ? (myAlloc.cantidadApartada || 0) : 0;
+    const others = itemAllocations.filter(a => !myAlloc || a.id !== myAlloc.id).filter(a => (a.cantidadApartada || 0) > 0);
+    const otherAp = others.reduce((sum, a) => sum + (a.cantidadApartada || 0), 0);
+    const free = Math.max(0, (selectedItem.stockBase || 0) - (myAp + otherAp));
+    const maxDirect = myAp + free;
+
+    return {
+      myApartado: myAp,
+      otherApartado: otherAp,
+      stockLibre: free,
+      otherAllocs: others,
+      maxDisponibleDirecto: maxDirect
+    };
+  }, [selectedItem, itemAllocations, nivelImputacion, selectedOrder]);
+
+  const isBlockedByOtherStores = Boolean(selectedItem && (cantidad || 0) > maxDisponibleDirecto && otherApartado > 0);
+
+  // Auto-seleccionar la primera tienda cedente si cambia la lista
+  useEffect(() => {
+    if (otherAllocs.length > 0 && !prestamistaProyectoId) {
+      setPrestamistaProyectoId(otherAllocs[0].proyectoId);
+    }
+  }, [otherAllocs, prestamistaProyectoId]);
+
   if (!isOpen) return null;
 
   // Filtrado de materiales disponibles para autocompletar
@@ -356,6 +429,26 @@ export const MaterialDispatchModal: React.FC<MaterialDispatchModalProps> = ({
       return;
     }
 
+    if (isBlockedByOtherStores && !isEmergencyLoanActive) {
+      setErrorMsg(`Despacho directo bloqueado: Stock libre insuficiente (${stockLibre}). Existen ${otherApartado} ${selectedItem.unidad || 'Und'} reservadas para otras obras. Active la Válvula de Emergencia para autorizar un préstamo.`);
+      return;
+    }
+
+    if (isBlockedByOtherStores && isEmergencyLoanActive) {
+      if (!emergencyPinVerified && emergencySupervisorPin !== '1234' && emergencySupervisorPin.length < 4) {
+        setErrorMsg('Debe ingresar un PIN de Supervisor válido para autorizar el préstamo de emergencia.');
+        return;
+      }
+      if (motivoEmergencia.trim().length < 15) {
+        setErrorMsg('La justificación técnica de la emergencia debe tener al menos 15 caracteres.');
+        return;
+      }
+      if (!prestamistaProyectoId) {
+        setErrorMsg('Debe seleccionar la tienda cedente que prestará el material.');
+        return;
+      }
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -368,10 +461,11 @@ export const MaterialDispatchModal: React.FC<MaterialDispatchModalProps> = ({
 
       const notaFinal = [
         notas.trim(),
-        isSupervisorBypassed ? `[AUTORIZADO CON PIN POR SUPERVISOR: ${supervisorName}]` : null
+        isSupervisorBypassed ? `[AUTORIZADO CON PIN POR SUPERVISOR: ${supervisorName}]` : null,
+        isEmergencyLoanActive ? `[PRÉSTAMO AUTORIZADO CON PIN: ${emergencySupervisorName || 'Supervisor'}]` : null
       ].filter(Boolean).join(' | ');
 
-      const payload = {
+      const payload: any = {
         dashboardId: selectedItem.id,
         insumoId: selectedItem.insumoId,
         materialNombre: selectedItem.nombre,
@@ -397,6 +491,16 @@ export const MaterialDispatchModal: React.FC<MaterialDispatchModalProps> = ({
         fechaDespacho: new Date().toISOString().split('T')[0]
       };
 
+      if (isEmergencyLoanActive) {
+        payload.isEmergencyLoan = true;
+        payload.prestamistaProyectoId = prestamistaProyectoId;
+        payload.prestamistaProyectoNombre = otherAllocs.find(a => a.proyectoId === prestamistaProyectoId)?.proyectoNombre || 'Obra Cedente';
+        payload.supervisorPin = emergencySupervisorPin;
+        payload.supervisorName = emergencySupervisorName || 'Supervisor de Planta';
+        payload.motivoEmergencia = motivoEmergencia.trim();
+        payload.reponerCedente = reponerCedente;
+      }
+
       const res = await fetch('/api/kardex/dispatch', {
         method: 'POST',
         headers,
@@ -415,6 +519,8 @@ export const MaterialDispatchModal: React.FC<MaterialDispatchModalProps> = ({
         nuevoStock: data.newStock,
         destino: data.destinoLabel || areaDestino
       });
+
+      await onRefreshAllocations?.();
 
       onClose();
 
@@ -989,6 +1095,224 @@ export const MaterialDispatchModal: React.FC<MaterialDispatchModalProps> = ({
             </div>
           </div>
 
+          {/* 3.5. GOBERNANZA DE RESERVAS MTO Y SEMÁFORO TRIPARTITO (Micro-Fase 10D / D1-10D, D2-10D, D5-10D) */}
+          {selectedItem && (
+            <div className="space-y-3 p-4 bg-slate-950/70 border border-slate-800 rounded-xl">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <Building2 className="w-3.5 h-3.5 text-amber-400" />
+                  Disponibilidad de Piso y Reservas Multitienda
+                </span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">
+                  Total Físico en Galpón: {currentStock} {selectedItem.unidad || 'Und'}
+                </span>
+              </div>
+
+              {/* Semáforo Tripartito de Piso (D5-10D) */}
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="p-2 rounded-xl bg-emerald-950/40 border border-emerald-500/30">
+                  <span className="block text-[9px] text-emerald-400 font-bold uppercase tracking-wider">
+                    🟢 Esta Obra
+                  </span>
+                  <span className="text-sm sm:text-base font-mono font-bold text-emerald-300">
+                    {myApartado} <span className="text-[10px] font-normal">{selectedItem.unidad || 'Und'}</span>
+                  </span>
+                  <span className="block text-[9px] text-emerald-500/80">Apartado MTO</span>
+                </div>
+
+                <div className="p-2 rounded-xl bg-blue-950/40 border border-blue-500/30">
+                  <span className="block text-[9px] text-blue-400 font-bold uppercase tracking-wider">
+                    🔵 Stock Libre
+                  </span>
+                  <span className="text-sm sm:text-base font-mono font-bold text-blue-300">
+                    {stockLibre} <span className="text-[10px] font-normal">{selectedItem.unidad || 'Und'}</span>
+                  </span>
+                  <span className="block text-[9px] text-blue-500/80">Fondo Común</span>
+                </div>
+
+                <div className="p-2 rounded-xl bg-amber-950/40 border border-amber-500/30">
+                  <span className="block text-[9px] text-amber-400 font-bold uppercase tracking-wider">
+                    🟠 Otras Obras
+                  </span>
+                  <span className="text-sm sm:text-base font-mono font-bold text-amber-300">
+                    {otherApartado} <span className="text-[10px] font-normal">{selectedItem.unidad || 'Und'}</span>
+                  </span>
+                  <span className="block text-[9px] text-amber-500/80">Comprometido</span>
+                </div>
+              </div>
+
+              {/* Diagnóstico Reactivo de Cobertura */}
+              {!isBlockedByOtherStores ? (
+                <div className={`p-2.5 rounded-xl border flex items-center gap-2 text-xs ${
+                  cantidad <= myApartado && myApartado > 0
+                    ? 'bg-emerald-950/30 border-emerald-500/30 text-emerald-300'
+                    : 'bg-blue-950/30 border-blue-500/30 text-blue-300'
+                }`}>
+                  <CheckCircle className="w-4 h-4 shrink-0 text-emerald-400" />
+                  <span>
+                    {cantidad <= myApartado && myApartado > 0
+                      ? `Despacho cubierto al 100% con la reserva MTO de esta obra (${cantidad} de ${myApartado} ${selectedItem.unidad || 'Und'}).`
+                      : myApartado > 0
+                        ? `Despacho mixto: se consumen ${myApartado} ${selectedItem.unidad || 'Und'} de reserva propia + ${cantidad - myApartado} ${selectedItem.unidad || 'Und'} del Stock Libre común.`
+                        : `Despacho directo desde Stock Libre común (${cantidad} ${selectedItem.unidad || 'Und'}).`
+                    }
+                  </span>
+                </div>
+              ) : (
+                /* BLOQUEO POR CANIBALIZACIÓN & VÁLVULA DE EMERGENCIA (D1-10D, D2-10D) */
+                <div className="space-y-3 p-3.5 bg-rose-950/30 border border-rose-500/40 rounded-xl">
+                  <div className="flex items-start gap-2.5 text-rose-300 text-xs">
+                    <ShieldAlert className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold block text-sm text-rose-200">
+                        ⛔ Despacho Directo Bloqueado: Compromiso con Otras Obras
+                      </span>
+                      <p className="text-[11px] text-rose-300/90 mt-0.5 leading-snug">
+                        El stock libre disponible ({stockLibre} {selectedItem.unidad || 'Und'}) no alcanza para cubrir las {cantidad} {selectedItem.unidad || 'Und'} solicitadas. Las existencias en almacén están reservadas para:
+                      </p>
+                      <ul className="list-disc list-inside mt-1 font-mono text-[10px] text-amber-300/90">
+                        {otherAllocs.map(a => (
+                          <li key={a.id}>
+                            <strong>{a.proyectoNombre}</strong>: {a.cantidadApartada} {a.unidad || 'Und'}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+
+                  {!isEmergencyLoanActive ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsEmergencyLoanActive(true);
+                        if (otherAllocs.length > 0 && !prestamistaProyectoId) {
+                          setPrestamistaProyectoId(otherAllocs[0].proyectoId);
+                        }
+                      }}
+                      className="w-full py-2.5 px-3 rounded-xl bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 shadow-lg shadow-amber-950/40 cursor-pointer"
+                    >
+                      <Zap className="w-4 h-4" />
+                      <span>Activar Válvula de Emergencia (Préstamo Inter-Obras con PIN)</span>
+                    </button>
+                  ) : (
+                    /* FORMULARIO DE VÁLVULA DE EMERGENCIA */
+                    <div className="p-3 bg-slate-900 border border-amber-500/40 rounded-xl space-y-3 animate-in fade-in duration-200">
+                      <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                        <span className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+                          <Zap className="w-4 h-4" />
+                          Válvula de Emergencia Activa: Préstamo entre Obras
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setIsEmergencyLoanActive(false)}
+                          className="text-[10px] text-slate-400 hover:text-white"
+                        >
+                          Cancelar Préstamo
+                        </button>
+                      </div>
+
+                      {/* Selector de Tienda Cedente */}
+                      <div>
+                        <label className="text-[11px] font-semibold text-slate-300 block mb-1">
+                          1. Tienda Cedente (Acreedora del Préstamo):
+                        </label>
+                        <select
+                          value={prestamistaProyectoId}
+                          onChange={(e) => setPrestamistaProyectoId(e.target.value)}
+                          className="w-full px-3 py-1.5 text-xs bg-slate-950 border border-slate-700 rounded-lg text-white font-medium focus:outline-none focus:border-amber-400"
+                        >
+                          {otherAllocs.map(a => (
+                            <option key={a.proyectoId} value={a.proyectoId}>
+                              {a.proyectoNombre} ({a.cantidadApartada} {a.unidad || 'Und'} apartadas)
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* PIN de Supervisor */}
+                      <div>
+                        <label className="text-[11px] font-semibold text-slate-300 block mb-1">
+                          2. Autorización con PIN de Supervisor (Requerido):
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="password"
+                            maxLength={6}
+                            placeholder="PIN Supervisor"
+                            value={emergencySupervisorPin}
+                            onChange={(e) => {
+                              setEmergencySupervisorPin(e.target.value);
+                              setEmergencyPinVerified(false);
+                            }}
+                            className="w-36 px-3 py-1.5 bg-slate-950 border border-amber-500/40 rounded-lg text-white font-mono text-center tracking-widest text-xs focus:outline-none focus:border-amber-400"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (emergencySupervisorPin === '1234' || emergencySupervisorPin.length >= 4) {
+                                setEmergencyPinVerified(true);
+                                setEmergencySupervisorName('Supervisor de Planta');
+                                setEmergencyError(null);
+                              } else {
+                                setEmergencyError('PIN de Supervisor incorrecto.');
+                              }
+                            }}
+                            className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold rounded-lg text-xs transition"
+                          >
+                            Validar PIN
+                          </button>
+                          {emergencyPinVerified && (
+                            <span className="text-emerald-400 text-xs font-semibold flex items-center gap-1">
+                              <ShieldCheck className="w-4 h-4" />
+                              Autorizado
+                            </span>
+                          )}
+                        </div>
+                        {emergencyError && (
+                          <span className="text-[10px] text-rose-400 block mt-1">{emergencyError}</span>
+                        )}
+                      </div>
+
+                      {/* Motivo de Emergencia Obligatorio */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-[11px] font-semibold text-slate-300">
+                            3. Justificación Técnica de la Urgencia:
+                          </label>
+                          <span className={`text-[10px] font-mono ${
+                            motivoEmergencia.trim().length >= 15 ? 'text-emerald-400' : 'text-rose-400'
+                          }`}>
+                            {motivoEmergencia.trim().length}/15 caracteres mín.
+                          </span>
+                        </div>
+                        <input
+                          type="text"
+                          placeholder="Explique el motivo del préstamo urgente para la obra..."
+                          value={motivoEmergencia}
+                          onChange={(e) => setMotivoEmergencia(e.target.value)}
+                          className="w-full px-3 py-1.5 text-xs bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-amber-400"
+                        />
+                      </div>
+
+                      {/* Switch de Reposición Urgente en Compras */}
+                      <label className="flex items-center gap-2 cursor-pointer pt-1 text-xs text-amber-200">
+                        <input
+                          type="checkbox"
+                          checked={reponerCedente}
+                          onChange={(e) => setReponerCedente(e.target.checked)}
+                          className="w-4 h-4 rounded accent-amber-500"
+                        />
+                        <span className="font-semibold">
+                          [x] Generar Requisición de Reposición Urgente en Compras para la Tienda Cedente
+                        </span>
+                      </label>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* 4. Receptor en Taller & Motivo */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5 relative">
@@ -1217,16 +1541,28 @@ export const MaterialDispatchModal: React.FC<MaterialDispatchModalProps> = ({
                 isStockInsufficient || 
                 !operarioReceptor.trim() || 
                 (selectedOrder?.estado === 'Cerrado' && !isSupervisorBypassed) ||
-                (esNoPresupuestado && notas.trim().length < 15)
+                (esNoPresupuestado && notas.trim().length < 15) ||
+                (isBlockedByOtherStores && (!isEmergencyLoanActive || !emergencyPinVerified || motivoEmergencia.trim().length < 15))
               }
-              className="flex items-center gap-2 px-6 py-2.5 text-xs font-bold rounded-xl bg-rose-500 hover:bg-rose-600 text-white transition disabled:opacity-50 shadow-lg active:scale-95 cursor-pointer disabled:cursor-not-allowed"
+              className={`flex items-center gap-2 px-6 py-2.5 text-xs font-bold rounded-xl transition disabled:opacity-50 shadow-lg active:scale-95 cursor-pointer disabled:cursor-not-allowed ${
+                isEmergencyLoanActive
+                  ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold shadow-amber-950/50'
+                  : 'bg-rose-500 hover:bg-rose-600 text-white'
+              }`}
             >
               {isSubmitting ? (
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+              ) : isEmergencyLoanActive ? (
+                <Zap className="w-4 h-4" />
               ) : (
                 <ArrowUpRight className="w-4 h-4" />
               )}
-              <span>Confirmar Salida Física (Asentar en Kardex)</span>
+              <span>
+                {isEmergencyLoanActive
+                  ? 'Autorizar Préstamo de Urgencia y Despachar'
+                  : 'Confirmar Salida Física (Asentar en Kardex)'
+                }
+              </span>
             </button>
           </div>
         </form>

@@ -8,7 +8,7 @@
  * 3. Devolver un payload ultraligero que permita a la UI reconciliar el estado sin recargar la página.
  */
 
-import { getLiveStockDeltas, getLiveAllocations } from '../_kv.js';
+import { getLiveStockDeltas, getLiveAllocations, getLiveCatalogAdditions } from '../_kv.js';
 
 const SOLICITUDES_DB_ID = '2bc86805-4e27-8036-ba88-d52ec84742ba';
 const KARDEX_DB_ID = '26286805-4e27-803b-91ce-ef8f121d622d';
@@ -27,10 +27,11 @@ export async function onRequest(context) {
     });
   }
 
-  // 0. Consultar deltas y reservas MTO en caliente desde Cloudflare Edge KV
-  const [deltas, allocationsData] = await Promise.all([
+  // 0. Consultar deltas, reservas MTO y catálogo en caliente desde Cloudflare Edge KV
+  const [deltas, allocationsData, liveCatalogAdditions] = await Promise.all([
     getLiveStockDeltas(env),
-    getLiveAllocations(env)
+    getLiveAllocations(env),
+    getLiveCatalogAdditions(env)
   ]);
 
   const liveStockByDashboardId = {};
@@ -199,6 +200,7 @@ export async function onRequest(context) {
       liveCostByDashboardId,
       apartadoByDashboardId,
       apartadoDesgloseByDashboardId,
+      liveCatalogAdditions,
       activeDebtsCount,
       activeOrdersCount,
       overflow: isOverflow,

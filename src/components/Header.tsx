@@ -1,4 +1,4 @@
-import { ShoppingCart, Truck, ExternalLink, RefreshCw, ClipboardCheck, BookOpen, User, LogOut, ShieldCheck, KeyRound, ShieldAlert, Clock, ArrowUpRight, Scale, Database, Barcode } from 'lucide-react';
+import { ShoppingCart, Truck, ExternalLink, RefreshCw, ClipboardCheck, BookOpen, User, LogOut, ShieldCheck, KeyRound, ShieldAlert, Clock, ArrowUpRight, Scale, Database, Barcode, Building2 } from 'lucide-react';
 import { UserProfile } from '../types/auth';
 
 interface HeaderProps {
@@ -8,11 +8,14 @@ interface HeaderProps {
   onOpenReviewModal: () => void;
   onOpenReceptionModal: () => void;
   onOpenDispatchModal?: () => void;
+  onOpenStoreAllocations?: () => void;
+  activeAllocationsCount?: number;
   onOpenBOMAuditModal?: () => void;
   onOpenAdjustmentModal?: () => void;
   onOpenBarcodeCollectorModal?: () => void;
   scannerQueueCount?: number;
   onOpenKardexModal: () => void;
+  onOpenCatalogMaster?: () => void;
   onOpenAuditModal?: () => void;
   onRefresh: () => void;
   isRefreshing?: boolean;
@@ -32,11 +35,14 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenReviewModal,
   onOpenReceptionModal,
   onOpenDispatchModal,
+  onOpenStoreAllocations,
+  activeAllocationsCount,
   onOpenBOMAuditModal,
   onOpenAdjustmentModal,
   onOpenBarcodeCollectorModal,
   scannerQueueCount,
   onOpenKardexModal,
+  onOpenCatalogMaster,
   onOpenAuditModal,
   onRefresh,
   isRefreshing = false,
@@ -114,6 +120,23 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           )}
 
+          {/* Action: Tablero Panorámico de Asignaciones (Fase 10C) */}
+          {onOpenStoreAllocations && (
+            <button
+              onClick={onOpenStoreAllocations}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/40 hover:border-amber-400 transition active:scale-95 shadow-sm shadow-amber-500/10"
+              title="Tablero Panorámico de Asignaciones y Stock Comprometido por Tienda (Fase 10C)"
+            >
+              <Building2 className="w-3.5 h-3.5 text-amber-400" />
+              <span>🏢 Asignación Tiendas</span>
+              {activeAllocationsCount !== undefined && activeAllocationsCount > 0 && (
+                <span className="px-1.5 py-0.2 bg-amber-400 text-slate-950 font-bold rounded-full text-[10px]">
+                  {activeAllocationsCount}
+                </span>
+              )}
+            </button>
+          )}
+
           {/* Action: Auditoría BOM Ex-Post de Insumos (Fase 9B) */}
           {onOpenBOMAuditModal && (
             <button
@@ -177,6 +200,18 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="hidden sm:inline">Libro Mayor</span>
             <span>Kardex</span>
           </button>
+
+          {/* Action: Catálogo Maestro de Insumos (Fase 11) */}
+          {onOpenCatalogMaster && (
+            <button
+              onClick={onOpenCatalogMaster}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-500/15 hover:bg-blue-500/25 text-blue-300 border border-blue-500/40 hover:border-blue-400 transition active:scale-95 shadow-sm shadow-blue-500/10"
+              title="Catálogo Maestro de Insumos, Ficha Técnica, Ontología ISO y Health Checker (Fase 11)"
+            >
+              <BookOpen className="w-3.5 h-3.5 text-blue-400" />
+              <span>📚 Catálogo Insumos</span>
+            </button>
+          )}
 
           {/* Action: Bitácora de Auditoría Forense (Exclusivo Superadmin) */}
           {profile?.permissions?.includes('Superadmin') && onOpenAuditModal && (

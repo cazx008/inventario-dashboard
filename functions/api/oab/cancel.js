@@ -12,6 +12,7 @@ const SOLICITUDES_DB_ID = '2bc86805-4e27-8036-ba88-d52ec84742ba';
 import { requirePermission } from '../auth/_guard.js';
 import { recordAuditLog, getVzlaTime } from '../auth/_audit.js';
 import { sendTelegramAlert } from '../telegram/notify.js';
+import { getLiveAllocations, setLiveAllocations } from '../_kv.js';
 
 export async function onRequest(context) {
   const { request, env } = context;
@@ -160,7 +161,50 @@ export async function onRequest(context) {
     let canceledLinesCount = 0;
     if (lineasRes.ok) {
       const lineasData = await lineasRes.json();
-      for (const linePage of lineasData.results || []) {
+      const linesList = lineasData.results || [];
+
+      // Revertir Tránsito MTO en Edge KV si las líneas tenían cantidades aprobadas (D4-10B.1)
+      try {
+        const liveAllocData = await getLiveAllocations(env);
+        const allocationsList = Array.isArray(liveAllocData.allocations) ? liveAllocData.allocations : [];
+        let allocationsReverted = false;
+
+        for (const linePage of linesList) {
+          const lp = linePage.properties || {};
+          const cantApr = lp['Cantidad Aprobada']?.number || 0;
+          const dId = lp['Dashboard']?.relation?.[0]?.id;
+          const pId = lp['Proyectos']?.relation?.[0]?.id || lp['Proyecto']?.relation?.[0]?.id;
+          const pNom = (lp['Proyecto / Obra']?.rich_text?.[0]?.plain_text || lp['Proyecto']?.title?.[0]?.plain_text || '').trim();
+
+          if (cantApr > 0 && dId && pNom && !pNom.toLowerCase().includes('stock general')) {
+            const alloc = allocationsList.find(a =>
+              a.dashboardId === dId && (
+                (pId && a.proyectoId === pId) ||
+                (a.proyectoNombre && a.proyectoNombre.trim().toLowerCase() === pNom.toLowerCase())
+              )
+            );
+            if (alloc && alloc.cantidadTransito > 0) {
+              alloc.cantidadTransito = Math.max(0, (alloc.cantidadTransito || 0) - cantApr);
+              alloc.updatedAt = Date.now();
+              allocationsReverted = true;
+            }
+          }
+        }
+
+        if (allocationsReverted) {
+          liveAllocData.allocations = allocationsList;
+          const allocPromise = setLiveAllocations(env, liveAllocData);
+          if (context?.waitUntil) {
+            context.waitUntil(allocPromise);
+          } else {
+            await allocPromise;
+          }
+        }
+      } catch (kvErr) {
+        console.warn('Advertencia revirtiendo tránsito en cancel.js:', kvErr);
+      }
+
+      for (const linePage of linesList) {
         await fetch(`https://api.notion.com/v1/pages/${linePage.id}`, {
           method: 'PATCH',
           headers,

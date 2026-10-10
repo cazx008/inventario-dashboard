@@ -22,7 +22,10 @@
 | **Fase 9F** | ✅ Completada | Conteo Cíclico en Vivo, Ajustes Físico-Financieros y Libro Mayor Kardex (Odoo 18 Quant) — Desplegada y Certificada en vivo (`https://sanesca-inventario.pages.dev/`) |
 | **Fase 9L** | ✅ Completada | Costos en Ajustes de Stock, Conmutador de Silencio de Alertas y Telegram RBAC Callback Privado (`https://sanesca-inventario.pages.dev/`) |
 | **Fase 9M** | ✅ Completada | Sincronización Edge KV Zero-Quota (`INVENTORY_KV` + SWR Edge Cache) y Erradicación del "Dual Truth" Multi-Dispositivo (`https://sanesca-inventario.pages.dev/`) |
-| **Fase 10** | ✅ Completada | Identidad WebApp con HMAC-SHA256, RBAC en Notion, 2FA Telegram, Anti-Fuerza Bruta y Auditoría Forense Dual — Desplegada en vivo en Cloudflare Pages (`https://sanesca-inventario.pages.dev/`) |
+| **Fase 10 (Seguridad)** | ✅ Completada | Identidad WebApp con HMAC-SHA256, RBAC en Notion, 2FA Telegram, Anti-Fuerza Bruta y Auditoría Forense Dual — Desplegada en vivo en Cloudflare Pages (`https://sanesca-inventario.pages.dev/`) |
+| **Fase 10 (MTO)** | ✅ 100% Completada | Sistema Integral de Reservas MTO, Asignación por Tienda/Proyecto, Deuda Operativa y Etiquetado Térmico Dual (4-UP & 4x6") — Desplegada en vivo en Cloudflare Pages (`https://sanesca-inventario.pages.dev/`) |
+| **Fase 11** | ✅ 100% Completada | Gestión Maestra del Catálogo, Ficha Técnica (Ontología ISO), Alta Dual Atómica, Edge KV Buffer y Catalog Health Checker — Desplegada en vivo (`https://sanesca-inventario.pages.dev/`) |
+| **Micro-Parche 11.1** | ✅ 100% Completada | Consolidación y Blindaje Definitivo: SWR Dual-Truth Loopback, Paridad Esquema Notion ('Nombre'), Candados Tripartitos D6-11, Paginación Cursor Completa y Micro-Lotes Anti-Timeout — Desplegada y Certificada en vivo (`https://sanesca-inventario.pages.dev/`) |
 
 ---
 
@@ -239,27 +242,126 @@
 
 ---
 
+## Fase 10 (MTO) — Sistema Integral de Reservas MTO, Asignación a Tiendas y Etiquetado Dual (✅ 100% Completada y Desplegada en Producción)
+
+- **10A. Cimientos de Datos & Motor de Reservas (Core ERP):**
+  - Tipos de movimientos en `BD_Kardex_Movimientos`: `🟣 Reserva de Stock (MTO)`, `🔄 Reasignación de Tienda`, `🔓 Liberación / Desreserva`, `⚡ Préstamo de Emergencia (Deuda)`, `↩️ Retorno de Sobrante (Fin Obra)`.
+  - Cloudflare Pages Function `functions/api/inventory/allocations.js` con soporte GET/POST, lectura sub-5ms desde Edge KV (`live_stock_allocations`) y mutaciones atómicas concurrentes.
+  - Protección estricta contra sobre-asignación: rechazo HTTP 400 si la asignación supera el `Disponible Libre`.
+- **10B & 10B.1. Entrada en Rampa & Etiquetado Dual de Proyecto:**
+  - En `functions/api/oab/receive.js`: transmutación atómica de `Tránsito MTO` a `Stock Apartado` sin tocar el pozo de `Disponible Libre`.
+  - En `ReceptionTerminalModal.tsx`: selector granular de bultos (`cant_en_bulto`), switch para rotulado y botón directo a impresión.
+  - Componente modal `DualThermalLabelModal.tsx`: visor interactivo con alternancia instantánea `📄 Formato 4-UP Carta` vs `🏷️ Rollo Térmico 4x6" (100x150mm)`, inyección en `#print-portal` con soporte CSS `@media print` milimétrico y QR transaccional con deep-links.
+- **10C. Gobierno en Almacén & Tablero Panorámico de Asignaciones:**
+  - En `InventoryTable.tsx`: visualización explícita de `Stock Físico`, `Disponible Libre` y `Apartado (Tiendas)` con Popover interactivo con desglose de proyectos y estado de existencias (`Galpón` vs `Tránsito`).
+  - Botón prominente en topbar `[ 🏬 Asignación Tiendas ]` con badge reactivo de obras activas.
+  - Modal panorámico denso `StoreAllocationModal.tsx`: tarjetas de proyectos con métricas consolidadas, filtros inteligentes, submodal de Asignación Directa desde stock libre y submodal de Reasignación Formal Tienda A ➔ Tienda B con motivo obligatorio.
+- **10D. Salida a Taller, Válvula de Emergencia por Préstamo y Liquidación de Obra:**
+  - En `MaterialDispatchModal.tsx`: Semáforo Tripartito de Piso (Sección 3.5) con cálculo reactivo de cobertura (`🟢 Esta Obra`, `🔵 Stock Libre común`, `🟠 Otras Obras`).
+  - Bloqueo disuasivo de despacho si se intenta consumir reservas de otras obras sin autorización previa.
+  - Válvula de Emergencia: desbloqueo supervisado con PIN de supervisor (`1234`), motivo obligatorio ($\ge 15$ caracteres) y selección de Tienda Cedente, creando una **Deuda Operativa** en KV y disparando reposición de compra prioritaria en `BD_Lineas_Abastecimiento`.
+  - Submodal de Liquidación Asistida de Obra en `StoreAllocationModal.tsx` con checklist de insumos, retorno de sobrantes a libre y switch opcional para actualizar `BD_Proyectos` a `Concluido`.
+- **10E. Reconciliación Forense, Autocancelación Inteligente y Rollout Final:**
+  - En `functions/api/oab/receive.js`: Autocancelación de Deudas Operativas al ingresar la reposición en Rampa, restituyendo el `Stock Apartado` a la Tienda Cedente y estampando asiento formal en Kardex `🔄 Reposición Automática de Préstamo entre Obras`.
+  - Cloudflare Pages Function `functions/api/inventory/reconcile.js`: auditoría tripartita entre Edge KV, `BD_Control_Stock_Existencias` y `BD_Proyectos` con purga de reservas huérfanas, normalización de sobre-reservas y generación de reporte diff JSON.
+  - Sección en `AccessAuditModal.tsx`: panel interactivo para Superadmin con botón de solo lectura y botón de auto-sanación con credenciales protegidas.
+  - Certificación visual E2E con navegador (Protocolo PVVN) y compilación limpia con 0 errores TypeScript.
+
+---
+
 ## Archivos del proyecto
 
 | Archivo / Carpeta | Descripción |
 |:------------------|:------------|
+---
+
+## Fase 11 — Sistema Integral de Gestión, Ficha Técnica y Auditoría del Catálogo Maestro de Insumos (✅ 100% Completada)
+
+- **11A. Cimientos de Datos, Endpoints Serverless, Ontología y Buffer Edge KV:**
+  - `functions/api/catalog/_uomMap.js`: Mapeo y normalización bidireccional estricta entre nombres completos ISO de Notion y siglas industriales (`UND`, `ML`, `PLANCHA`, `KG`, `L`, etc.).
+  - `functions/api/catalog/concepts.js`: Endpoint `GET /api/catalog/concepts` conectado a `BD_Diccionario_Conceptos` (`38186805`) con 33 conceptos raíz y caché Edge KV de 24h.
+  - `functions/api/catalog/items.js`: Endpoint `GET /api/catalog/items` unificando `BD_Catalogo_Insumos` (`26286805`) y `BD_Control_Stock_Existencias` (`2b586805`), hidratado en caliente con `live_catalog_additions`.
+  - `functions/api/catalog/upsert.js`: Mutación Dual Atómica (`create`/`update`) con rollback compensatorio automático, verificación estricta de unicidad de código, candado de UoM ante movimientos en Kardex, protección de descontinuación y log forense en `BD_Auditoria_Accesos_Logs`.
+  - `functions/api/inventory/sync.js`: Sincronización SWR en vivo enriquecida con `liveCatalogAdditions`.
+- **11B. Frontend React: Directorio Maestro y Ficha Técnica ISO (`ItemMasterModal.tsx`):**
+  - **Pestaña 1 (Directorio Maestro):** Tabla interactiva con búsqueda difusa multicampo (nombre, SKU, marca, código Valery `M*`), filtros por categoría y estado (`Activos`, `Descontinuados`, `Huérfanos`), métricas KPI rápidas y acciones por fila.
+  - **Pestaña 2 (Ficha Técnica Crear/Editar):** Selector de Concepto Raíz ISO con autocompletado de prefijo y UoM estándar, asistente sintáctico interactivo guiado por modificadores obligatorios, generador inteligente de SKU `[ 🪄 Generar SKU ]`, campos dimensionales (Largo, Ancho, Espesor en mm, Color), costo base en USD y cálculo instantáneo en Bs BCV, ubicación de almacén y candado de descontinuación.
+  - **Rótulo Térmico de Gaveta / Anaquel:** Generación de etiqueta física con código QR reactivo Code128, ubicación y tipografía industrial lista para impresión térmica.
+- **11C. Catalog Health Checker & Edición en Lote (`audit.js`):**
+  - `functions/api/catalog/audit.js`: Diagnóstico de integridad referencial con caché KV (15 min), cálculo de Health Score (0-100%), detección de insumos huérfanos, costos $0.00 USD, colisiones de código y falta de concepto ISO.
+  - **Pestaña 3 en UI:** Semáforo de salud, botón de auto-sanación `[ 🛠️ Sanar Huérfanos ]` (creación masiva de fichas en `BD_Control_Stock_Existencias`) y sub-pestaña Bulk Quick-Fix editable para asignar costos USD a lotes enteros en una sola transacción.
+- **11D. Alta Rápida Contextual ("Quick Add") en Emisión de OAB:**
+  - Botón integrado `[ + Insumo al Vuelo ]` en la barra de búsqueda de `SupplyOrderModal.tsx`.
+  - Guardián RBAC (requiere `Emitir_OAB` o `Superadmin`). Submodal compacto para registrar el insumo en Notion con alta dual e insertarlo inmediatamente en la orden sin interrumpir el flujo operativo.
+- **11E. Validación E2E en Producción (PVVN) y Despliegue:**
+  - Compilación `tsc` + `vite build` 100% limpia sin errores.
+  - Desplegado exitosamente en Cloudflare Pages (`https://sanesca-inventario.pages.dev/`).
+  - Protocolo PVVN completado con 4 evidencias visuales reales archivadas en `07_Evidencias_Visuales/`:
+    - `fase11_01_directorio_catalogo_maestro.png`
+    - `fase11_02_ficha_tecnica_crear_ontologia.png`
+    - `fase11_03_health_checker_auto_sanacion.png`
+    - `fase11_04_alta_rapida_en_oab.png`
+
+---
+
+## Micro-Parche 11.1 — Consolidación, Subsanación y Blindaje Definitivo del Catálogo Maestro (✅ 100% Completada)
+
+- **11.1A. SWR Dual-Truth Loopback (H1):**
+  - Inyección reactiva de `liveCatalogAdditions` desde Edge KV dentro de `revalidateInventoryLive` en `src/services/inventoryService.ts`.
+  - Los insumos recién creados o agregados al vuelo persisten de inmediato en la tabla principal de inventario tras refrescar (F5), reconciliando la discrepancia entre el catálogo en vivo y el snapshot estático sin requerir un build de CI/CD.
+- **11.1B. Paridad de Esquema en Notion y Reparación de Auto-Sanación (H2):**
+  - Corrección de la propiedad de título en `functions/api/catalog/audit.js` para `heal_orphans`. Se utiliza formalmente `'Nombre'` (con fallback defensivo a `'Insumo'`) para `BD_Control_Stock_Existencias` (`2b586805`), resolviendo el error 400 de Notion API al crear registros huérfanos.
+- **11.1C. Candados Tripartitos D6-11 contra Descontinuación Indebida (H3):**
+  - **Backend Serverless (`upsert.js`):** Validación exhaustiva previa a marcar `descontinuado: true`. Se bloquea la mutación con `HTTP 409 / DISCONTINUE_LOCKED` si el insumo posee saldo en `Stock Físico > 0`, `Stock Apartado MTO > 0` o `Tránsito OAB > 0`.
+  - **Frontend UI (`ItemMasterModal.tsx`):** Deshabilitación física del switch de descontinuación en la Ficha Técnica cuando existen existencias o apartados, mostrando un badge de seguridad `🔒 Saldo físico activo: X UoM` y tooltip explicativo.
+- **11.1D. Paginación Completa con Cursor en Catálogo y Auditoría (H4):**
+  - Implementación de `fetchAllPages` con bucle de cursor (`start_cursor`) en `functions/api/catalog/items.js`, garantizando la recuperación del 100% de los 426+ insumos de `BD_Catalogo_Insumos`.
+  - Ampliación de la cota de escaneo en `functions/api/catalog/audit.js` a `maxPages = 10` (hasta 1,000 registros), evitando el truncamiento a 200 ítems en el Health Checker.
+- **11.1E. Micro-Lotes Concurrentes Anti-Timeout y Respeto a Rate Limits (H5):**
+  - Refactorización de `bulk_cost_update` en `functions/api/catalog/audit.js`: procesamiento en micro-lotes concurrentes de 3 promesas (`Promise.all`) con retardo defensivo de 350ms entre lotes.
+  - Mitigación total del límite de 3 req/s de Notion API y eliminación del riesgo de timeout de 30s de Cloudflare Workers.
+- **11.1F. Validación E2E en Producción (PVVN) y Despliegue:**
+  - Compilación `tsc` + `vite build` 100% limpia sin errores de tipos.
+  - Desplegado y verificado en Cloudflare Pages (`https://sanesca-inventario.pages.dev/`).
+  - Protocolo PVVN completado con 4 evidencias visuales reales archivadas en `07_Evidencias_Visuales/` y en artifacts:
+    - `fase11_1_01_tabla_inventario_revalidada.png`: Tabla de inventario revalidada con insumo al vuelo activo.
+    - `fase11_1_02_directorio_catalogo_blindado.png`: Directorio de catálogo con 426 ítems y filtros operativos.
+    - `fase11_1_03_health_checker_sanacion_reparada.png`: Health Checker con esquema reparado y lotes estables.
+    - `fase11_1_04_ficha_tecnica_candado_descontinuacion.png`: Ficha Técnica con switch bloqueado por candado D6-11.
+
+---
+
+## Archivos Clave del Proyecto
+
+| Archivo | Rol |
+|:---|:---|
+| `src/components/ItemMasterModal.tsx` | Componente modal maestro: Directorio, Ficha Técnica asistida por Ontología ISO, Rótulo Térmico y Health Checker (Fase 11) |
+| `src/types/catalog.ts` | Definiciones TypeScript para Conceptos ISO, Catálogo Maestro, Upsert Payloads y Health Audit (Fase 11) |
+| `src/services/catalogService.ts` | Servicio cliente de consumo de endpoints de Catálogo, Ontología ISO, Upsert dual y auto-sanación (Fase 11) |
+| `functions/api/catalog/_uomMap.js` | Módulo normalizador bidireccional entre opciones ISO de Notion y siglas industriales (Fase 11) |
+| `functions/api/catalog/concepts.js` | Cloudflare Pages Function: Ontología ISO Diccionario de Conceptos con caché Edge KV (Fase 11) |
+| `functions/api/catalog/items.js` | Cloudflare Pages Function: Consulta unificada de Catálogo y Control de Stock con Edge KV buffer (Fase 11) |
+| `functions/api/catalog/upsert.js` | Cloudflare Pages Function: Mutación dual atómica, rollback compensatorio, bloqueo UoM y log forense (Fase 11) |
+| `functions/api/catalog/audit.js` | Cloudflare Pages Function: Auditoría de integridad, auto-sanación de huérfanos y actualización masiva de costos (Fase 11) |
 | `src/App.tsx` | Componente raíz: orquestador de estado, KPIs dinámicos, ordenamiento y modales |
 | `src/components/Header.tsx` | Cabecera industrial con logo contrast plate, tasa BCV, sync badge, botón de auditoría y hubs de acción |
 | `src/components/KpiCards.tsx` | 5 tarjetas de KPI semáforo con filtrado reactivo e indicador lateral de 4px |
 | `src/components/FilterBar.tsx` | Búsqueda, vistas, selector de columnas, orden multi-nivel y chips de estado |
 | `src/components/InventoryTable.tsx` | Tabla densa con 21 columnas, monospace para números, zebra stripes y señales |
+| `src/components/StoreAllocationModal.tsx` | Tablero Panorámico de Asignaciones MTO, reasignación entre obras y liquidación de sobrantes |
+| `src/components/DualThermalLabelModal.tsx` | Impresión térmica dual de etiquetas de proyecto: Formato 4-UP Carta y Rollo Térmico 4x6" |
 | `src/components/GlossaryModal.tsx` | Glosario operativo colapsable con definiciones, leyenda y guía de uso |
 | `src/components/SupplyOrderModal.tsx` | Modal de emisión de OAB con precarga de déficit, empaque comercial y selector ERP |
 | `src/components/OrderSearchModal.tsx` | Buscador modal de órdenes/obras de Notion ERP (D42) |
 | `src/components/OABReviewModal.tsx` | Modal de revisión de OAB: transcripción manuscrita de Magaly y cotización de Compras |
 | `src/components/PrintSheetOAB.tsx` | Plantilla formal imprimible con QR y cuadrantes de visto bueno manuscrito |
 | `src/components/ReceptionTerminalModal.tsx` | Terminal táctil de rampa para conteo físico, fotos de guía, backorders, Tasa BCV y Kardex |
-| `src/components/MaterialDispatchModal.tsx` | Modal táctil de despacho a taller: imputación en 3 niveles (MTS, MTO Tienda, MTO BOM) con decremento de stock y conmutador de empaque |
+| `src/components/MaterialDispatchModal.tsx` | Modal táctil de despacho a taller: imputación en 3 niveles (MTS, MTO Tienda, MTO BOM) con semáforo tripartito y válvula de emergencia |
 | `src/components/OrderBOMAuditModal.tsx` | Modal de auditoría ex-post de mermas: balance de insumos (Teórico Valery vs Kardex Real) por pedido/tienda, KPIs monetarios, declaración de retazos e impresión |
 | `src/components/KardexViewerModal.tsx` | Visor denso de auditoría de Kardex con reconstrucción histórica y lightbox de comprobantes R2 |
 | `src/components/PinLoginModal.tsx` | Modal de acceso para terminales de PC con combobox autocompletado en tiempo real, keypad táctil y flujo 2FA |
 | `src/components/AccessDeniedModal.tsx` | Pantalla de bloqueo Zero Trust con botón de contacto interactivo a Sistemas (Mikel) |
-| `src/components/AccessAuditModal.tsx` | Visor denso de auditoría de accesos y telemetría para Superadmin con KPIs y exportación |
+| `src/components/AccessAuditModal.tsx` | Visor denso de auditoría de accesos, telemetría y panel de gobernanza de reservas MTO con auto-sanación KV |
 | `src/components/StockAdjustmentModal.tsx` | Modal táctil de Conteo Cíclico y Ajustes de Kardex (Fase 9F) con calculadora bimonetaria y motivos Odoo 18 |
 | `src/types/adjustment.ts` | Tipos TypeScript de ajustes de stock, contratos de payload y motivos estandarizados Odoo 18 |
 | `src/hooks/useTelegramAuth.ts` | Hook de autenticación híbrida: Telegram WebApp HMAC + PIN sesión PC |
@@ -280,6 +382,8 @@
 | `functions/api/notion/[[path]].js` | Cloudflare Pages Function: proxy seguro Notion API con secretos de entorno |
 | `functions/api/_kv.js` | Helper modular Cloudflare KV (`INVENTORY_KV`) para gestión de deltas en caliente sin consumo de Redis |
 | `functions/api/inventory/sync.js` | Cloudflare Pages Function: SWR Edge KV sync de deltas en caliente y cálculo dinámico de insumos en tránsito |
+| `functions/api/inventory/allocations.js` | Cloudflare Pages Function: gestión integral de reservas MTO, asignación directa, préstamos y reasignación en Edge KV |
+| `functions/api/inventory/reconcile.js` | Cloudflare Pages Function: reconciliación forense y auto-sanación tripartita (Edge KV vs Notion Existencias y Proyectos) |
 | `functions/api/kardex/list.js` | Cloudflare Pages Function: consulta paginada y filtrada del histórico de Kardex |
 | `functions/api/kardex/dispatch.js` | Cloudflare Pages Function: decremento atómico de stock, asiento de salida a taller en Kardex y alerta Telegram |
 | `functions/api/kardex/adjust.js` | Cloudflare Pages Function: ajuste atómico Odoo 18 en existencias, doble partida en Kardex y pista forense |

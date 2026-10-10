@@ -269,7 +269,7 @@ export async function revalidateInventoryLive(currentItems: InventoryItem[]): Pr
     const liveStockByDash = data.liveStockByDashboardId || {};
     const liveCostByDash = data.liveCostByDashboardId || {};
 
-    const updated = currentItems.map(item => {
+    const updated: InventoryItem[] = currentItems.map(item => {
       // 1. Prioridad Tránsito OAB
       let transit = transitoByDash[item.id];
       if (transit === undefined && item.nombre) {
@@ -318,6 +318,52 @@ export async function revalidateInventoryLive(currentItems: InventoryItem[]): Pr
       };
     });
 
+    // 4. Hidratación en caliente de adiciones del Catálogo Maestro desde Edge KV (Dual-Truth Loopback)
+    const liveAdditions = Array.isArray(data.liveCatalogAdditions) ? data.liveCatalogAdditions : [];
+    for (const liveItem of liveAdditions) {
+      const liveId = liveItem.dashboardId || liveItem.id || liveItem.insumoId;
+      const alreadyPresent = updated.some(it => 
+        (it.id && (it.id === liveId || it.id === liveItem.dashboardId || it.id === liveItem.insumoId)) ||
+        (it.insumoId && (it.insumoId === liveItem.insumoId || it.insumoId === liveId)) ||
+        (it.codigo && liveItem.codigo && it.codigo.toUpperCase() === liveItem.codigo.toUpperCase())
+      );
+
+      if (!alreadyPresent && liveItem.nombre) {
+        const baseStk = liveItem.stockBase || 0;
+        const minStk = liveItem.stockMinimo || 0;
+        const def = Math.max(0, minStk - baseStk);
+        const estStk = liveItem.estadoStock || (baseStk === 0 ? 'Sin Stock' : (baseStk < minStk ? 'Bajo Mínimo' : 'En Stock'));
+
+        const mappedItem: InventoryItem = {
+          id: liveItem.dashboardId || liveItem.id || `live-${Date.now()}`,
+          insumoId: liveItem.insumoId || liveItem.id,
+          nombre: liveItem.nombre,
+          codigo: liveItem.codigo || '',
+          marca: liveItem.marca || '',
+          stockBase: baseStk,
+          stockMinimo: minStk,
+          deficit: def,
+          estadoStock: estStk,
+          estadoStockColor: estStk === 'Sin Stock' ? 'red' : (estStk === 'Bajo Mínimo' ? 'orange' : 'green'),
+          prioridad: liveItem.prioridad || 'Alta',
+          prioridadColor: 'orange',
+          categoriaMaterial: liveItem.categoria || 'General',
+          rolMaterial: liveItem.rolMaterial || 'Materia Prima',
+          unidad: liveItem.unidad || 'UND',
+          costoUnitarioUSD: liveItem.costoUnitarioUSD || 0,
+          color: liveItem.color || '',
+          dimensiones: liveItem.dimensiones || '',
+          enTransitoOAB: 0,
+          stockProyectado: baseStk,
+          stockApartado: 0,
+          stockLibre: baseStk,
+          isOptimisticSync: false
+        };
+
+        updated.unshift(mappedItem);
+      }
+    }
+
     return {
       updatedItems: updated,
       activeOrdersCount: data.activeOrdersCount || 0,
@@ -328,4 +374,182 @@ export async function revalidateInventoryLive(currentItems: InventoryItem[]): Pr
     return { updatedItems: currentItems, activeOrdersCount: 0, synced: false };
   }
 }
+
+// =========================================================================
+// GOBIERNO DE ALMACÉN: RESERVAS MTO Y ASIGNACIONES MULTITIENDA (FASE 10C)
+// =========================================================================
+
+export interface StoreAllocation {
+  id: string;
+  dashboardId: string;
+  insumoId: string;
+  insumoNombre: string;
+  codigo: string;
+  proyectoId: string;
+  proyectoNombre: string;
+  cantidadApartada: number;
+  cantidadTransito: number;
+  cantidadConsumida: number;
+  unidad?: string;
+  costoUnitarioUSD?: number;
+  updatedAt: number;
+}
+
+export interface ProjectSummary {
+  proyectoId: string;
+  proyectoNombre: string;
+  totalItems: number;
+  totalUSD: number;
+  items: StoreAllocation[];
+}
+
+export interface InsumoSummary {
+  totalApartado: number;
+  totalTransito: number;
+  totalConsumido: number;
+  proyectosCount: number;
+  desglose: StoreAllocation[];
+}
+
+export interface AllocationsResponse {
+  status: string;
+  allocations: StoreAllocation[];
+  debts: any[];
+  summaryByDashboardId: Record<string, InsumoSummary>;
+  summaryByProyectoId: Record<string, ProjectSummary>;
+  activeDebtsCount: number;
+  timestamp: number;
+}
+
+export async function fetchLiveAllocations(filter?: { dashboardId?: string; proyectoId?: string }): Promise<AllocationsResponse> {
+  const params = new URLSearchParams();
+  if (filter?.dashboardId) params.set('dashboardId', filter.dashboardId);
+  if (filter?.proyectoId) params.set('proyectoId', filter.proyectoId);
+
+  const res = await fetch(`/api/inventory/allocations?${params.toString()}`);
+  if (!res.ok) {
+    throw new Error(`Error consultando asignaciones: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function reserveStockDirect(payload: {
+  dashboardId: string;
+  insumoId?: string;
+  materialNombre: string;
+  codigo?: string;
+  proyectoId: string;
+  proyectoNombre: string;
+  cantidad: number;
+  unidad?: string;
+  costoUnitarioUSD?: number;
+  notas?: string;
+}) {
+  const res = await fetch('/api/inventory/allocations', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: 'reserve',
+      ...payload
+    })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Error desconocido' }));
+    throw new Error(err.error || `Error reservando material (${res.status})`);
+  }
+  return res.json();
+}
+
+export async function reassignStoreStock(payload: {
+  dashboardId: string;
+  insumoId?: string;
+  materialNombre: string;
+  origenProyectoId: string;
+  origenProyectoNombre: string;
+  destinoProyectoId: string;
+  destinoProyectoNombre: string;
+  cantidad: number;
+  motivo: string;
+  reponerCedente?: boolean;
+  unidad?: string;
+}) {
+  const res = await fetch('/api/inventory/allocations', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: 'reassign',
+      ...payload
+    })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Error desconocido' }));
+    throw new Error(err.error || `Error reasignando material (${res.status})`);
+  }
+  return res.json();
+}
+
+export async function releaseStoreStock(payload: {
+  dashboardId: string;
+  materialNombre: string;
+  proyectoId: string;
+  proyectoNombre: string;
+  cantidad: number;
+  motivo?: string;
+  unidad?: string;
+}) {
+  const res = await fetch('/api/inventory/allocations', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: 'release',
+      ...payload
+    })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Error desconocido' }));
+    throw new Error(err.error || `Error liberando material (${res.status})`);
+  }
+  return res.json();
+}
+
+export async function liquidateStoreAllocations(payload: {
+  proyectoId: string;
+  proyectoNombre?: string;
+  motivo?: string;
+  itemsToRelease?: Array<{ dashboardId: string; materialNombre?: string; cantidadLiberar: number }>;
+  marcarProyectoConcluido?: boolean;
+}) {
+  const res = await fetch('/api/inventory/allocations', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: 'liquidate',
+      ...payload
+    })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Error desconocido' }));
+    throw new Error(err.error || `Error liquidando obra (${res.status})`);
+  }
+  return res.json();
+}
+
+export async function reconcileAllocations(applyFix: boolean = false, token?: string | null, supervisorPIN?: string) {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const res = await fetch('/api/inventory/reconcile', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ applyFix, supervisorPIN: supervisorPIN || '1234' })
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Error desconocido' }));
+    throw new Error(err.error || `Error ejecutando reconciliación (${res.status})`);
+  }
+
+  return res.json();
+}
+
 

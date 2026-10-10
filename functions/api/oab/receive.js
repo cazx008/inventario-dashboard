@@ -15,6 +15,7 @@ const OAB_DB_ID = '3eb86805-4e27-81f9-860a-c51fc794ebb0';
 
 import { sendTelegramAlert } from '../telegram/notify.js';
 import { requirePermission } from '../auth/_guard.js';
+import { recordAuditLog } from '../auth/_audit.js';
 import { setLiveStockDelta, getLiveAllocations, setLiveAllocations } from '../_kv.js';
 
 export async function onRequest(context) {
@@ -175,6 +176,7 @@ export async function onRequest(context) {
       }
     }
 
+    const projectCache = new Map();
     for (const item of items) {
       const {
         solicitudId,
@@ -199,13 +201,72 @@ export async function onRequest(context) {
 
       // Resolver Proyecto MTO desde payload o desde la línea de Notion
       const notionLine = solicitudId ? oabLinesById.get(solicitudId) : null;
-      const resolvedProyectoNombre = proyectoNombre ||
+      let resolvedPedidoId = item.pedidoId ||
+        notionLine?.properties?.['Pedido']?.relation?.[0]?.id ||
+        null;
+      let resolvedProyectoId = proyectoId ||
+        notionLine?.properties?.['Proyectos']?.relation?.[0]?.id ||
+        notionLine?.properties?.['Proyecto']?.relation?.[0]?.id ||
+        null;
+      let resolvedProyectoNombre = proyectoNombre ||
+        notionLine?.properties?.['Proyecto / Obra']?.rich_text?.[0]?.plain_text ||
         notionLine?.properties?.['Proyecto (Texto)']?.rich_text?.[0]?.plain_text ||
         notionLine?.properties?.['Proyecto']?.title?.[0]?.plain_text ||
         null;
-      const resolvedProyectoId = proyectoId ||
-        notionLine?.properties?.['Proyecto']?.relation?.[0]?.id ||
-        null;
+
+      // Hidratar nombre canónico desde BD_Pedidos si se tiene Pedido y falta el nombre
+      if (resolvedPedidoId && !resolvedProyectoNombre) {
+        if (projectCache.has(`pedido_${resolvedPedidoId}`)) {
+          resolvedProyectoNombre = projectCache.get(`pedido_${resolvedPedidoId}`);
+        } else {
+          try {
+            const ordRes = await fetch(`https://api.notion.com/v1/pages/${resolvedPedidoId}`, { headers });
+            if (ordRes.ok) {
+              const ordData = await ordRes.json();
+              const op = ordData.properties || {};
+              const oNum = op['Número de Documento']?.title?.[0]?.plain_text || op['Nombre']?.title?.[0]?.plain_text || '';
+              const oProj = op['Proyecto']?.rich_text?.[0]?.plain_text || op['Obra']?.rich_text?.[0]?.plain_text || '';
+              const oFull = oProj ? `${oNum} - ${oProj}` : oNum;
+              if (oFull) {
+                resolvedProyectoNombre = oFull;
+                projectCache.set(`pedido_${resolvedPedidoId}`, oFull);
+              }
+              if (!resolvedProyectoId) {
+                resolvedProyectoId = op['BD_Proyectos']?.relation?.[0]?.id || null;
+              }
+            }
+          } catch (ordErr) {
+            console.warn('Advertencia resolviendo Pedido en receive.js:', ordErr);
+          }
+        }
+      }
+
+      // Hidratar nombre canónico desde BD_Proyectos si viene solo el ID relacional
+      if (resolvedProyectoId && !resolvedProyectoNombre) {
+        if (projectCache.has(resolvedProyectoId)) {
+          resolvedProyectoNombre = projectCache.get(resolvedProyectoId);
+        } else {
+          try {
+            const pRes = await fetch(`https://api.notion.com/v1/pages/${resolvedProyectoId}`, { headers });
+            if (pRes.ok) {
+              const pData = await pRes.json();
+              const pp = pData.properties;
+              const pTitle = pp['Nombre del Proyecto (Pedido)']?.title?.[0]?.plain_text ||
+                             pp['Número de Documento']?.title?.[0]?.plain_text ||
+                             pp['Nombre']?.title?.[0]?.plain_text ||
+                             pp['Proyecto']?.title?.[0]?.plain_text ||
+                             Object.values(pp).find(p => p?.type === 'title')?.title?.[0]?.plain_text ||
+                             '';
+              if (pTitle) {
+                resolvedProyectoNombre = pTitle;
+                projectCache.set(resolvedProyectoId, pTitle);
+              }
+            }
+          } catch (pErr) {
+            console.warn('Advertencia resolviendo nombre de proyecto en receive.js:', pErr);
+          }
+        }
+      }
 
       // Delta físico que baja hoy del camión
       const receivedNum = Number(cantidadRecibidaHoy !== null ? cantidadRecibidaHoy : cantidadRecibida) || 0;
@@ -313,6 +374,38 @@ export async function onRequest(context) {
           kardexProps['Proveedor'] = { relation: [{ id: proveedorId }] };
         }
 
+        // Relación Canónica con BD_Proyectos (Micro-Parche 10B.1 / D3-10B.1)
+        let finalProyectoId = resolvedProyectoId;
+        if (!finalProyectoId && resolvedProyectoNombre && !resolvedProyectoNombre.toLowerCase().includes('stock general')) {
+          try {
+            const projSearchRes = await fetch(`https://api.notion.com/v1/databases/31e86805-4e27-80e0-8be5-f3d30532e900/query`, {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({
+                filter: {
+                  property: 'Nombre del Proyecto (Pedido)',
+                  title: { equals: resolvedProyectoNombre.trim() }
+                },
+                page_size: 1
+              })
+            });
+            if (projSearchRes.ok) {
+              const projData = await projSearchRes.json();
+              if (projData.results?.[0]?.id) {
+                finalProyectoId = projData.results[0].id;
+              }
+            }
+          } catch (projSearchErr) {
+            console.warn('Advertencia buscando proyecto por nombre en BD_Proyectos:', projSearchErr);
+          }
+        }
+        if (finalProyectoId) {
+          kardexProps['Proyectos'] = { relation: [{ id: finalProyectoId }] };
+        }
+        if (resolvedProyectoNombre) {
+          kardexProps['Tienda (ext)'] = { rich_text: [{ text: { content: resolvedProyectoNombre } }] };
+        }
+
         const kRes = await fetch('https://api.notion.com/v1/pages', {
           method: 'POST',
           headers,
@@ -410,8 +503,8 @@ export async function onRequest(context) {
         }
       }
 
-      // 3.05 Transmutación Atómica MTO en Edge KV (Fase 10B)
-      if (dashboardId && receivedNum > 0 && resolvedProyectoNombre) {
+      // 3.05 Transmutación Atómica MTO en Edge KV (Fase 10B & Micro-Parche 10B.1)
+      if (dashboardId && (receivedNum > 0 || rejectedNum > 0) && resolvedProyectoNombre && !resolvedProyectoNombre.toLowerCase().includes('stock general') && !resolvedProyectoNombre.toLowerCase().includes('stock fábrica') && !resolvedProyectoNombre.toLowerCase().includes('stock fabrica')) {
         try {
           const liveAllocData = await getLiveAllocations(env);
           const allocationsList = Array.isArray(liveAllocData.allocations) ? liveAllocData.allocations : [];
@@ -424,7 +517,10 @@ export async function onRequest(context) {
 
           if (existingAlloc) {
             existingAlloc.cantidadApartada = (existingAlloc.cantidadApartada || 0) + receivedNum;
-            existingAlloc.cantidadTransito = Math.max(0, (existingAlloc.cantidadTransito || 0) - receivedNum);
+            if (rejectedNum > 0) {
+              existingAlloc.cantidadRechazada = (existingAlloc.cantidadRechazada || 0) + rejectedNum;
+            }
+            existingAlloc.cantidadTransito = Math.max(0, (existingAlloc.cantidadTransito || 0) - receivedNum - rejectedNum);
             if (unitCost > 0) existingAlloc.costoUnitarioUSD = unitCost;
             existingAlloc.updatedAt = Date.now();
           } else {
@@ -437,6 +533,7 @@ export async function onRequest(context) {
               proyectoNombre: resolvedProyectoNombre,
               cantidadApartada: receivedNum,
               cantidadTransito: 0,
+              cantidadRechazada: rejectedNum > 0 ? rejectedNum : 0,
               cantidadConsumida: 0,
               costoUnitarioUSD: unitCost,
               createdAt: Date.now(),
@@ -453,6 +550,141 @@ export async function onRequest(context) {
           }
         } catch (allocErr) {
           console.warn('Advertencia transmutando asignación MTO en Edge KV:', allocErr);
+        }
+      }
+
+      // 3.06 Autocancelación Inteligente de Deudas Operativas y Restitución a Tienda Cedente (Micro-Fase 10E / D1-10E)
+      if (dashboardId && receivedNum > 0) {
+        try {
+          const liveAllocData = await getLiveAllocations(env);
+          const debts = Array.isArray(liveAllocData.debts) ? liveAllocData.debts : [];
+          
+          // Buscar si existe una deuda activa para este insumo que corresponda a esta recepción
+          const activeDebtIndex = debts.findIndex(d => 
+            d.insumoDashboardId === dashboardId && 
+            d.estado === 'Pendiente' &&
+            (
+              (solicitudId && d.requisicionId === solicitudId) ||
+              (resolvedProyectoNombre && d.deudorProyectoNombre?.toLowerCase() === resolvedProyectoNombre.toLowerCase()) ||
+              (resolvedProyectoNombre && d.acreedorProyectoNombre?.toLowerCase() === resolvedProyectoNombre.toLowerCase())
+            )
+          );
+
+          if (activeDebtIndex !== -1) {
+            const debt = debts[activeDebtIndex];
+            const unitsToSettle = Math.min(receivedNum, debt.cantidadDeuda || 0);
+
+            if (unitsToSettle > 0) {
+              debt.cantidadDeuda = Math.max(0, (debt.cantidadDeuda || 0) - unitsToSettle);
+              if (debt.cantidadDeuda === 0) {
+                debt.estado = 'Saldada';
+              }
+              debt.updatedAt = Date.now();
+
+              // Restituir existencias apartadas a la Tienda Cedente (Acreedora)
+              const allocationsList = Array.isArray(liveAllocData.allocations) ? liveAllocData.allocations : [];
+              const acreedorAlloc = allocationsList.find(a => 
+                a.dashboardId === dashboardId && (
+                  (debt.acreedorProyectoId && a.proyectoId === debt.acreedorProyectoId) ||
+                  (a.proyectoNombre && a.proyectoNombre.trim().toLowerCase() === debt.acreedorProyectoNombre.trim().toLowerCase())
+                )
+              );
+
+              if (acreedorAlloc) {
+                acreedorAlloc.cantidadApartada = (acreedorAlloc.cantidadApartada || 0) + unitsToSettle;
+                acreedorAlloc.updatedAt = Date.now();
+              } else {
+                allocationsList.push({
+                  id: `alloc_${dashboardId}_${debt.acreedorProyectoId || Date.now()}`,
+                  dashboardId,
+                  insumoId: insumoId || undefined,
+                  insumoNombre: nombre,
+                  proyectoId: debt.acreedorProyectoId,
+                  proyectoNombre: debt.acreedorProyectoNombre,
+                  cantidadApartada: unitsToSettle,
+                  cantidadTransito: 0,
+                  cantidadRechazada: 0,
+                  cantidadConsumida: 0,
+                  costoUnitarioUSD: unitCost || 0,
+                  createdAt: Date.now(),
+                  updatedAt: Date.now()
+                });
+              }
+
+              liveAllocData.debts = debts;
+              liveAllocData.allocations = allocationsList;
+              await setLiveAllocations(env, liveAllocData);
+
+              // Asiento Inmutable en Kardex: Reposición de Préstamo
+              try {
+                await fetch('https://api.notion.com/v1/pages', {
+                  method: 'POST',
+                  headers,
+                  body: JSON.stringify({
+                    parent: { database_id: KARDEX_DB_ID },
+                    properties: {
+                      'Descripción': {
+                        title: [{ text: { content: `🔄 Reposición Automática de Préstamo: ${nombre} (${unitsToSettle} ${debt.unidad || 'und'}) restituido a ${debt.acreedorProyectoNombre} ← OAB ${cleanFolio}` } }]
+                      },
+                      'Movimiento': {
+                        select: { name: '🟢 Entrada por Devolución' }
+                      },
+                      'Cantidad (Stock)': {
+                        number: unitsToSettle
+                      },
+                      'Folio OAB': {
+                        rich_text: [{ text: { content: cleanFolio } }]
+                      },
+                      'Fecha de Recepción': {
+                        date: { start: receptionDate }
+                      },
+                      ...(dashboardId ? { 'Dashboard': { relation: [{ id: dashboardId }] } } : {}),
+                      ...(insumoId ? { 'Producto': { relation: [{ id: insumoId }] } } : {})
+                    }
+                  })
+                });
+              } catch (kardexDebtErr) {
+                console.warn('Error registrando asiento de saldo de deuda en Kardex:', kardexDebtErr);
+              }
+
+              // Registro Forense de Auditoría
+              recordAuditLog({
+                env,
+                context,
+                request,
+                eventType: 'EMERGENCY_DEBT_SETTLED',
+                employeeId: authCheck.user?.sub || 'ALMACEN',
+                employeeName: authCheck.user?.name || 'Receptor Rampa',
+                puesto: authCheck.user?.puestos?.[0] || 'Almacén',
+                area: 'Recepción y Rampa',
+                isSuccess: true,
+                details: `[EMERGENCY_DEBT_SETTLED] Deuda saldada en Rampa: ${unitsToSettle} unds de '${nombre}' restituidas a '${debt.acreedorProyectoNombre}' (Deudor: '${debt.deudorProyectoNombre}'). Folio: ${cleanFolio}. Deuda remanente: ${debt.cantidadDeuda} unds.`
+              });
+            }
+          }
+        } catch (debtErr) {
+          console.warn('Advertencia en autocancelación de deudas en rampa:', debtErr);
+        }
+      }
+
+      // Registro de Auditoría Forense en caso de Rechazo de Calidad (D2-10B.1)
+      if (rejectedNum > 0) {
+        try {
+          recordAuditLog({
+            env,
+            context,
+            request,
+            eventType: 'RECHAZO_CALIDAD_RAMPA',
+            employeeId: authCheck.user?.sub || 'ALMACEN',
+            employeeName: authCheck.user?.name || 'Receptor Rampa',
+            puesto: authCheck.user?.puestos?.[0] || 'Almacén',
+            area: 'Recepción y Rampa',
+            isSuccess: true,
+            details: `[RECHAZO_CALIDAD_RAMPA] OAB ${folioOAB}: Rechazadas ${rejectedNum} und de '${nombre}' para obra '${resolvedProyectoNombre || 'N/A'}'. Motivo: ${notasDiscrepancia || 'Defecto físico en rampa'}. Conformes: ${receivedNum} und.`,
+            alertSecurity: true
+          });
+        } catch (auditErr) {
+          console.warn('Error registrando log forense de rechazo:', auditErr);
         }
       }
 
@@ -476,16 +708,26 @@ export async function onRequest(context) {
       // 4. Actualizar Solicitudes de Insumos
       if (solicitudId) {
         const lineState = backorder > 0 ? 'Recepción Parcial' : 'Completada';
+        const lineUpdateProps = {
+          'Cantidad Recibida': { number: totalReceived },
+          'Backorder Pendiente': { number: backorder },
+          'Estado Flujo': { select: { name: lineState } }
+        };
+        if (resolvedProyectoNombre) {
+          lineUpdateProps['Proyecto / Obra'] = {
+            rich_text: [{ text: { content: String(resolvedProyectoNombre).trim() } }]
+          };
+        }
+        if (resolvedPedidoId) {
+          lineUpdateProps['Pedido'] = { relation: [{ id: resolvedPedidoId }] };
+        }
+        if (resolvedProyectoId) {
+          lineUpdateProps['Proyectos'] = { relation: [{ id: resolvedProyectoId }] };
+        }
         await fetch(`https://api.notion.com/v1/pages/${solicitudId}`, {
           method: 'PATCH',
           headers,
-          body: JSON.stringify({
-            properties: {
-              'Cantidad Recibida': { number: totalReceived },
-              'Backorder Pendiente': { number: backorder },
-              'Estado Flujo': { select: { name: lineState } }
-            }
-          })
+          body: JSON.stringify({ properties: lineUpdateProps })
         });
       }
 

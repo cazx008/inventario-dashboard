@@ -14,6 +14,8 @@ export interface ProjectLabelItem {
   fechaRecepcion: string;
   proyectoNombre: string;
   cantidadRecibidaHoy: number;
+  cantidadRechazadaHoy?: number;
+  cantidadRechazada?: number;
   cantidadTotalAprobada?: number;
   backorderPendiente?: number;
   isParcial?: boolean;
@@ -242,8 +244,30 @@ export const PrintSheetProjectLabels: React.FC<PrintSheetProjectLabelsProps> = (
 
   const renderLabelHtml = (lbl: ExpandedLabel, fmt: PrintFormat) => {
     const is4up = fmt === '4up';
-    const isMTO = Boolean(lbl.item.proyectoNombre && !lbl.item.proyectoNombre.toLowerCase().includes('stock general'));
+    const rawDestino = (lbl.item.proyectoNombre || '').trim();
+    const isStockFabrica = !rawDestino || 
+      rawDestino.toLowerCase().includes('stock general') || 
+      rawDestino.toLowerCase().includes('stock fábrica') || 
+      rawDestino.toLowerCase().includes('stock fabrica');
+    const isMTO = !isStockFabrica;
     const isParcial = Boolean(lbl.item.isParcial);
+
+    // Formatear banner MTO inteligentemente: [CÓDIGO] · [OBRA] eliminando prefijos redundantes ("Proyecto —")
+    let displayDestino = '📦 STOCK GENERAL / FÁBRICA';
+    if (isMTO) {
+      let cleaned = rawDestino
+        .replace(/proyecto\s*[-—:]\s*/gi, '')
+        .replace(/\s*[-—]\s+/g, ' · ')
+        .trim();
+      if (cleaned.length > 60) {
+        cleaned = cleaned.substring(0, 57).trim() + '...';
+      }
+      displayDestino = cleaned || rawDestino;
+    }
+
+    const bannerFontSize = is4up
+      ? (displayDestino.length > 32 ? '13px' : '15px')
+      : (displayDestino.length > 32 ? '17px' : '20px');
 
     return `
       <div class="label-card">
@@ -267,8 +291,8 @@ export const PrintSheetProjectLabels: React.FC<PrintSheetProjectLabelsProps> = (
           <div style="font-size: 8px; font-weight: bold; letter-spacing: 1px; color: #94a3b8; text-transform: uppercase;">
             ${isMTO ? 'DESTINO EXCLUSIVO — OBRA / TIENDA' : 'IDENTIFICACIÓN DE ALMACÉN'}
           </div>
-          <div style="font-size: ${is4up ? '16px' : '20px'}; font-weight: 900; text-transform: uppercase; line-height: 1.1; letter-spacing: 0.5px; word-break: break-word;">
-            ${lbl.item.proyectoNombre || '📦 STOCK GENERAL / FÁBRICA'}
+          <div style="font-size: ${bannerFontSize}; font-weight: 900; text-transform: uppercase; line-height: 1.15; letter-spacing: 0.5px; word-break: break-word;">
+            ${displayDestino}
           </div>
         </div>
 
@@ -285,6 +309,12 @@ export const PrintSheetProjectLabels: React.FC<PrintSheetProjectLabelsProps> = (
           ${isParcial ? `
             <div style="margin-top: 4px; background: #fef08a; border: 1.5px solid #ca8a04; color: #854d0e; padding: 2px 4px; border-radius: 3px; font-size: 8.5px; font-weight: 800; display: flex; align-items: center; gap: 4px;">
               ⚠️ RECEPCIÓN PARCIAL (${lbl.item.cantidadRecibidaHoy} / ${lbl.item.cantidadTotalAprobada || lbl.item.cantidadRecibidaHoy} und) — Pendiente: ${lbl.item.backorderPendiente || 0} und
+            </div>
+          ` : ''}
+
+          ${(lbl.item.cantidadRechazadaHoy || lbl.item.cantidadRechazada || 0) > 0 ? `
+            <div style="margin-top: 3px; background: #fee2e2; border: 1.5px solid #ef4444; color: #991b1b; padding: 2px 4px; border-radius: 3px; font-size: 8px; font-weight: 800; display: flex; align-items: center; gap: 4px;">
+              ⚠️ RECHAZO DE CALIDAD (${lbl.item.cantidadRechazadaHoy || lbl.item.cantidadRechazada} und no conformes en rampa)
             </div>
           ` : ''}
         </div>
@@ -334,9 +364,25 @@ export const PrintSheetProjectLabels: React.FC<PrintSheetProjectLabelsProps> = (
   if (!portalTarget) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/85 backdrop-blur-sm p-2 sm:p-4 overflow-y-auto custom-scrollbar">
-      {/* Contenedor Principal */}
-      <div className="bg-slate-900 border border-slate-700 w-full max-w-5xl rounded-xl shadow-2xl overflow-hidden my-4 text-slate-100 flex flex-col">
+    <>
+      <style>{`
+        @media print {
+          body, html {
+            background: #ffffff !important;
+            color: #000000 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          .no-print, header, nav, footer, [data-portal-root] {
+            display: none !important;
+          }
+        }
+      `}</style>
+      <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/85 backdrop-blur-sm p-2 sm:p-4 overflow-y-auto custom-scrollbar no-print">
+        {/* Contenedor Principal */}
+        <div className="bg-slate-900 border border-slate-700 w-full max-w-5xl rounded-xl shadow-2xl overflow-hidden my-4 text-slate-100 flex flex-col">
         
         {/* Topbar de Control */}
         <div className="bg-slate-950 px-4 sm:px-6 py-3.5 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 sticky top-0 z-10">
@@ -483,7 +529,8 @@ export const PrintSheetProjectLabels: React.FC<PrintSheetProjectLabelsProps> = (
         </div>
 
       </div>
-    </div>,
+    </div>
+    </>,
     portalTarget
   );
 };

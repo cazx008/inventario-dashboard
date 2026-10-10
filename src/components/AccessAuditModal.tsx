@@ -16,8 +16,12 @@ import {
   CheckCircle2,
   XCircle,
   Loader2,
-  Calendar
+  Calendar,
+  Wrench,
+  Zap,
+  Check
 } from 'lucide-react';
+import { reconcileAllocations } from '../services/inventoryService';
 
 interface AuditLogItem {
   id: string;
@@ -70,6 +74,28 @@ export const AccessAuditModal: React.FC<AccessAuditModalProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<'ALL' | 'SUCCESS' | 'FAILED' | '2FA' | 'UNUSUAL'>('ALL');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Reconciliación Forense MTO y Auto-Sanación (Micro-Fase 10E / D2-10E)
+  const [reconcileOpen, setReconcileOpen] = useState(false);
+  const [reconciling, setReconciling] = useState(false);
+  const [reconcileResult, setReconcileResult] = useState<any | null>(null);
+  const [reconcileError, setReconcileError] = useState<string | null>(null);
+
+  const handleRunReconcile = async (applyFix: boolean) => {
+    setReconciling(true);
+    setReconcileError(null);
+    try {
+      const res = await reconcileAllocations(applyFix, token);
+      setReconcileResult(res);
+      if (applyFix) {
+        fetchLogs();
+      }
+    } catch (e: any) {
+      setReconcileError(e.message || 'Error en reconciliación');
+    } finally {
+      setReconciling(false);
+    }
+  };
 
   const fetchLogs = async () => {
     setLoading(true);
@@ -295,6 +321,109 @@ export const AccessAuditModal: React.FC<AccessAuditModalProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Sección de Integridad MTO y Auto-Sanación Forense (Micro-Fase 10E / D2-10E) */}
+        <div className="px-6 py-2.5 bg-slate-950/70 border-b border-slate-800 flex items-center justify-between gap-3 flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <span className="p-1 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30">
+              <Zap className="w-3.5 h-3.5" />
+            </span>
+            <div>
+              <span className="text-xs font-bold text-slate-200">Gobernanza de Reservas MTO (Edge KV vs Notion ERP)</span>
+              <span className="text-[10px] text-slate-400 block font-mono">Detección de reservas huérfanas, sobre-reservas y auto-sanación</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setReconcileOpen(prev => !prev)}
+              className="px-3 py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs font-semibold flex items-center gap-1.5 transition active:scale-95"
+            >
+              <Wrench className="w-3.5 h-3.5" />
+              <span>{reconcileOpen ? 'Ocultar Auditoría MTO' : 'Auditar Reservas MTO'}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Panel Desplegable de Conciliación y Auto-Sanación */}
+        {reconcileOpen && (
+          <div className="p-4 bg-slate-950/90 border-b border-amber-500/30 space-y-3 flex-shrink-0 animate-in fade-in duration-150">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-amber-400" />
+                Diagnóstico Forense de Reservas Multitienda
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleRunReconcile(false)}
+                  disabled={reconciling}
+                  className="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1 transition disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-3 h-3 ${reconciling ? 'animate-spin text-amber-400' : ''}`} />
+                  <span>Auditar (Solo Lectura)</span>
+                </button>
+                <button
+                  onClick={() => handleRunReconcile(true)}
+                  disabled={reconciling}
+                  className="px-3 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold flex items-center gap-1 transition shadow-md disabled:opacity-50 active:scale-95"
+                >
+                  <Wrench className="w-3.5 h-3.5" />
+                  <span>Ejecutar Auto-Sanación en KV</span>
+                </button>
+              </div>
+            </div>
+
+            {reconcileError && (
+              <div className="p-2.5 rounded-lg bg-rose-950/40 border border-rose-500/40 text-rose-300 text-xs">
+                {reconcileError}
+              </div>
+            )}
+
+            {reconcileResult && (
+              <div className="space-y-2 text-xs">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-900/60 p-2.5 rounded-xl border border-slate-800 text-center font-mono">
+                  <div>
+                    <span className="block text-[9px] text-slate-400 uppercase font-sans">Reservas Activas</span>
+                    <span className="font-bold text-slate-200 text-sm">{reconcileResult.metrics?.totalAllocations || 0}</span>
+                  </div>
+                  <div>
+                    <span className="block text-[9px] text-amber-400 uppercase font-sans">Huérfanas Detectadas</span>
+                    <span className="font-bold text-amber-300 text-sm">{reconcileResult.metrics?.orphanReservationsFound || 0}</span>
+                  </div>
+                  <div>
+                    <span className="block text-[9px] text-rose-400 uppercase font-sans">Sobre-Reservas</span>
+                    <span className="font-bold text-rose-300 text-sm">{reconcileResult.metrics?.overReservationsFound || 0}</span>
+                  </div>
+                  <div>
+                    <span className="block text-[9px] text-cyan-400 uppercase font-sans">Deudas Operativas</span>
+                    <span className="font-bold text-cyan-300 text-sm">{reconcileResult.metrics?.totalDebts || 0} ({reconcileResult.metrics?.activeDebts || 0} pendientes)</span>
+                  </div>
+                </div>
+
+                {reconcileResult.discrepancies?.length === 0 ? (
+                  <div className="p-3 bg-emerald-950/30 border border-emerald-500/30 rounded-xl text-emerald-300 flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>¡Integridad 100% verificada! No existen reservas huérfanas ni desvíos contra Notion ERP.</span>
+                  </div>
+                ) : (
+                  <div className="space-y-1 max-h-36 overflow-y-auto pr-1 scrollbar-thin">
+                    <span className="text-[11px] font-semibold text-slate-400">
+                      Discrepancias {reconcileResult.applyFix ? 'Corregidas' : 'Detectadas'}:
+                    </span>
+                    {reconcileResult.discrepancies?.map((d: any, idx: number) => (
+                      <div key={idx} className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-[11px] flex items-start gap-2">
+                        <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
+                        <div>
+                          <span className="font-semibold text-slate-200">{d.type}</span>: {d.detail}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Barra de Filtros, Búsqueda y Exportación */}
         <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-3 border-b border-slate-800 bg-slate-900/60 flex-shrink-0">

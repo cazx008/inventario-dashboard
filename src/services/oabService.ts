@@ -25,6 +25,7 @@ export interface ReceptionItemPayload {
   costoAprobadoUSD?: number;
   toleranciaExcedente?: boolean;
   notasDiscrepancia?: string;
+  pedidoId?: string;
   proyectoId?: string;
   proyectoNombre?: string;
 }
@@ -138,6 +139,8 @@ export interface OABReviewLine {
   dashboardId?: string;
   insumoId?: string;
   prioridad?: string;
+  pedidoId?: string;
+  proyectoId?: string;
   proyectoNombre?: string;
 }
 
@@ -171,6 +174,12 @@ export interface SubmitReviewPayload {
   comprobanteUrl?: string;
   lineas: {
     solicitudId: string;
+    dashboardId?: string;
+    insumoId?: string;
+    nombre?: string;
+    pedidoId?: string;
+    proyectoId?: string;
+    proyectoNombre?: string;
     cantidadAprobada: number;
     costoUnitarioUSD: number;
   }[];

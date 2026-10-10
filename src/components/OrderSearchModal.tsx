@@ -66,11 +66,13 @@ export const OrderSearchModal: React.FC<OrderSearchModalProps> = ({
           if (codigo.startsWith('PRS') || props['Tipo de Documento']?.select?.name?.includes('PRS')) tipo = 'PRS';
           else if (codigo.startsWith('FAC') || props['Tipo de Documento']?.select?.name?.includes('FAC')) tipo = 'FAC';
 
+          const proyectoId = props['BD_Proyectos']?.relation?.[0]?.id || null;
           return {
             id: page.id,
             codigo,
             cliente,
             proyecto,
+            proyectoId,
             tipo,
             fecha
           };

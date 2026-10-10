@@ -21,9 +21,15 @@ import { StockAdjustmentModal } from './components/StockAdjustmentModal';
 import { OfflineQueueModal } from './components/OfflineQueueModal';
 import { PrintCountingSheetModal } from './components/PrintCountingSheetModal';
 import { BarcodeCollectorModal } from './components/BarcodeCollectorModal';
+import { BultoVerificationModal, BultoData } from './components/BultoVerificationModal';
+import { PrintSheetProjectLabels } from './components/PrintSheetProjectLabels';
+import { StoreAllocationModal } from './components/StoreAllocationModal';
+import { ItemMasterModal } from './components/ItemMasterModal';
+import { CatalogItem } from './types/catalog';
 import { initScannerQueue, subscribeQueue, subscribeItemProcessed } from './services/scannerQueueService';
 import { getPendingAdjustmentsCount } from './services/offlineStorageService';
 import { syncPendingAdjustments } from './services/offlineSyncService';
+import { fetchLiveAllocations, AllocationsResponse, StoreAllocation } from './services/inventoryService';
 import { StockAdjustmentResult } from './types/adjustment';
 import { ReverseKardexResult } from './services/kardexService';
 import { Trash2 } from 'lucide-react';
@@ -35,6 +41,7 @@ export const allColumnsDef: ColumnDef[] = [
   { key: 'codigo', label: 'Código', sortable: true, groupable: false, align: 'left' },
   { key: 'marca', label: 'Marca', sortable: true, groupable: true, align: 'left' },
   { key: 'stockBase', label: 'Stock', sortable: true, groupable: false, align: 'right' },
+  { key: 'stockApartado', label: 'Apartado (Tiendas)', sortable: true, groupable: false, align: 'right' },
   { key: 'stockMinimo', label: 'Stock Mín.', sortable: true, groupable: false, align: 'right' },
   { key: 'deficit', label: 'Déficit', sortable: true, groupable: false, align: 'right' },
   { key: 'enTransitoOAB', label: 'En Tránsito (OAB)', sortable: true, groupable: false, align: 'right' },
@@ -57,6 +64,7 @@ export const allColumnsDef: ColumnDef[] = [
 export const compactColumnKeys = [
   'nombre',
   'stockBase',
+  'stockApartado',
   'stockMinimo',
   'deficit',
   'enTransitoOAB',
@@ -127,12 +135,46 @@ export default function App() {
   const [printSheetModalOpen, setPrintSheetModalOpen] = useState(false);
   const [barcodeCollectorOpen, setBarcodeCollectorOpen] = useState(false);
   const [scannerQueueCount, setScannerQueueCount] = useState(0);
+  const [bultoModalOpen, setBultoModalOpen] = useState(false);
+  const [bultoModalData, setBultoModalData] = useState<BultoData | null>(null);
+  const [reprintLabelsItems, setReprintLabelsItems] = useState<any[] | null>(null);
+
+  // Estado de Asignaciones y Stock Comprometido por Tienda (Fase 10C)
+  const [allocationsData, setAllocationsData] = useState<AllocationsResponse | null>(null);
+  const [storeAllocationModalOpen, setStoreAllocationModalOpen] = useState(false);
+  const [selectedItemForAlloc, setSelectedItemForAlloc] = useState<InventoryItem | null>(null);
+  const [selectedAllocForReassign, setSelectedAllocForReassign] = useState<StoreAllocation | null>(null);
+
+  // Estado del Catálogo Maestro de Insumos & Health Checker (Fase 11)
+  const [catalogModalOpen, setCatalogModalOpen] = useState(false);
+  const [catalogModalInitialTab, setCatalogModalInitialTab] = useState<'directory' | 'form' | 'health'>('directory');
+  const [catalogModalInitialItem, setCatalogModalInitialItem] = useState<CatalogItem | null>(null);
 
   const showToast = useCallback((msg: string) => {
     setToastMessage(msg);
     setTimeout(() => {
       setToastMessage(curr => (curr === msg ? null : curr));
     }, 3500);
+  }, []);
+
+  const loadAllocations = useCallback(async () => {
+    try {
+      const data = await fetchLiveAllocations();
+      setAllocationsData(data);
+      if (data?.summaryByDashboardId) {
+        setItems(prevItems => prevItems.map(it => {
+          const sum = data.summaryByDashboardId[it.id];
+          const ap = sum?.totalApartado || 0;
+          return {
+            ...it,
+            stockApartado: ap,
+            stockLibre: Math.max(0, (it.stockBase || 0) - ap)
+          };
+        }));
+      }
+    } catch (e) {
+      console.warn('Error cargando live_stock_allocations:', e);
+    }
   }, []);
 
   // Inicialización y reactividad de Cola de Escaneo en Ráfaga (Fase 9J)
@@ -236,14 +278,29 @@ export default function App() {
     return () => window.removeEventListener('online', handleOnline);
   }, [bcvRate, refreshOfflineCount, showToast, auth]);
 
-  // Auto-apertura por Deep-Links sincronizada con perfil y permisos
+  // Auto-apertura por Deep-Links sincronizada con perfil y permisos (D1-10B.1)
   useEffect(() => {
-    if (auth.loading) return;
-
     try {
       const params = new URLSearchParams(window.location.search);
+      const bultoParam = params.get('bulto');
+      const materialParam = params.get('material');
+      const tiendaParam = params.get('tienda');
       const folioParam = params.get('folio');
       const kardexParam = params.get('kardex');
+
+      // D1-10B.1: Intercepción Prioritaria para Cédula Digital del Bulto Móvil (Lectura Libre en Planta)
+      if (bultoParam && materialParam) {
+        setBultoModalData({
+          folio: folioParam || '',
+          material: materialParam,
+          tienda: tiendaParam || '',
+          bulto: bultoParam
+        });
+        setBultoModalOpen(true);
+        return;
+      }
+
+      if (auth.loading) return;
 
       if (folioParam) {
         setDeepLinkFolio(folioParam);
@@ -293,6 +350,9 @@ export default function App() {
 
       const bcv = await fetchBCVRate();
       setBcvRate(bcv.rate);
+
+      // Cargar mapa de reservas y asignaciones MTO desde Edge KV (Fase 10C)
+      loadAllocations();
 
       // SWR: Revalidación en segundo plano contra Notion API vía Cloudflare Functions
       revalidateInventoryLive(data.items).then(result => {
@@ -877,6 +937,8 @@ export default function App() {
             auth.triggerHaptic('error');
           }
         }}
+        onOpenStoreAllocations={() => setStoreAllocationModalOpen(true)}
+        activeAllocationsCount={allocationsData ? Object.keys(allocationsData.summaryByProyectoId || {}).length : 0}
         onOpenBOMAuditModal={() => {
           if (auth.hasPermission('Auditoria_Kardex') || auth.hasPermission('Superadmin') || auth.hasPermission('Emitir_OAB')) {
             setBomAuditPreselectedOrder(null);
@@ -907,6 +969,11 @@ export default function App() {
             setDeniedModalOpen(true);
             auth.triggerHaptic('error');
           }
+        }}
+        onOpenCatalogMaster={() => {
+          setCatalogModalInitialTab('directory');
+          setCatalogModalInitialItem(null);
+          setCatalogModalOpen(true);
         }}
         onRefresh={handleRefresh}
         isRefreshing={isRefreshing}
@@ -968,6 +1035,28 @@ export default function App() {
           groupByKey={groupByKey}
           selectOrders={selectOrders}
           onAddToDraft={handleAddToDraft}
+          onOpenCatalogItem={(row) => {
+            const catItem: CatalogItem = {
+              id: row.insumoId || row.id,
+              insumoId: row.insumoId || row.id,
+              dashboardId: row.id,
+              nombre: row.nombre,
+              codigo: row.codigo || '',
+              categoria: row.categoriaMaterial || 'General',
+              rolMaterial: row.rolMaterial || 'Materia Prima',
+              unidad: row.unidad || 'UND',
+              costoUnitarioUSD: row.costoUnitarioUSD || 0,
+              color: row.color || '',
+              stockBase: row.stockBase || 0,
+              stockMinimo: row.stockMinimo || 0,
+              estadoStock: row.estadoStock || 'En Stock',
+              contando: true,
+              activo: row.estadoStock !== 'Descontinuado'
+            };
+            setCatalogModalInitialTab('form');
+            setCatalogModalInitialItem(catItem);
+            setCatalogModalOpen(true);
+          }}
           onOpenKardexItem={(item) => {
             if (auth.hasPermission('Auditoria_Kardex')) {
               setKardexTargetMaterial({ id: item.id, nombre: item.nombre, stock: item.stockBase });
@@ -990,6 +1079,22 @@ export default function App() {
           }}
           onOpenAdjustmentItem={(item) => handleOpenAdjustmentModal(item)}
           onOpenReceptionItem={(item) => handleOpenReceptionForItem(item)}
+          allocationsMap={allocationsData?.summaryByDashboardId}
+          onOpenStoreAllocations={(item, alloc) => {
+            setSelectedItemForAlloc(item || null);
+            setSelectedAllocForReassign(alloc || null);
+            setStoreAllocationModalOpen(true);
+          }}
+          onOpenDirectAllocate={(item) => {
+            setSelectedItemForAlloc(item);
+            setSelectedAllocForReassign(null);
+            setStoreAllocationModalOpen(true);
+          }}
+          onOpenReassignAlloc={(alloc, item) => {
+            setSelectedAllocForReassign(alloc);
+            setSelectedItemForAlloc(item);
+            setStoreAllocationModalOpen(true);
+          }}
           loading={loading}
           loadError={loadError}
           onRetry={handleRefresh}
@@ -1070,6 +1175,15 @@ export default function App() {
           bcvRate={bcvRate}
           initialDraftItems={draftItemsForModal}
           onOrderCreated={handleOrderCreated}
+          onItemCreated={(newItem) => {
+            setItems(prev => [newItem, ...prev]);
+            showToast(`✨ Nuevo insumo ${newItem.nombre} agregado al catálogo y orden.`);
+          }}
+          currentUser={{
+            name: auth.profile?.name,
+            permissions: auth.profile?.permissions,
+            puestos: auth.profile?.puestos
+          }}
         />
       )}
 
@@ -1115,6 +1229,8 @@ export default function App() {
           inventoryItems={items}
           preselectedItem={dispatchPreselectedItem}
           token={auth.token}
+          allocationsData={allocationsData}
+          onRefreshAllocations={loadAllocations}
           onDispatchSuccess={(res) => {
             showToast(`📤 Despacho registrado: ${res.cantidad} und de ${res.materialNombre} a ${res.destino}`);
             setItems(prev => prev.map(item => {
@@ -1271,6 +1387,103 @@ export default function App() {
           filteredItems={filteredAndSortedItems}
         />
       )}
+
+      {/* Modal Cédula Digital del Bulto (QR Planta - Micro-Parche 10B.1) */}
+      {bultoModalOpen && bultoModalData && (
+        <BultoVerificationModal
+          isOpen={bultoModalOpen}
+          onClose={() => {
+            setBultoModalOpen(false);
+            setBultoModalData(null);
+          }}
+          bultoData={bultoModalData}
+          isAuthenticated={Boolean(auth.profile)}
+          userRole={auth.profile?.puestos?.[0]}
+          hasPermission={(perm) => auth.hasPermission(perm as any)}
+          onDispatchToTaller={(data) => {
+            const foundItem = items.find(it => 
+              it.nombre.toLowerCase().includes(data.material.toLowerCase()) || 
+              (it.codigo || '').toLowerCase() === data.material.toLowerCase()
+            );
+            if (foundItem) {
+              setDispatchPreselectedItem(foundItem);
+            }
+            setDispatchModalOpen(true);
+          }}
+          onReprintLabel={(bData) => {
+            const foundItem = items.find(it => 
+              it.nombre.toLowerCase().includes(bData.material.toLowerCase()) || 
+              (it.codigo || '').toLowerCase() === bData.material.toLowerCase()
+            );
+            const [bIdx, tBultos] = bData.bulto.includes('_')
+              ? bData.bulto.split('_').map(n => parseInt(n, 10) || 1)
+              : [1, 1];
+            
+            setReprintLabelsItems([{
+              folioOAB: bData.folio,
+              nombre: foundItem?.nombre || bData.material,
+              codigo: foundItem?.codigo || bData.material,
+              categoria: foundItem?.categoriaMaterial || 'Insumos',
+              proyectoNombre: bData.tienda,
+              cantidadRecibidaHoy: foundItem?.stockBase || 1,
+              bultos: tBultos,
+              cantEnBulto: 1,
+              fechaRecepcion: new Date().toISOString().split('T')[0]
+            }]);
+          }}
+          onOpenOAB={(folio) => {
+            setDeepLinkFolio(folio);
+            setReviewModalOpen(true);
+          }}
+          triggerHaptic={(type) => auth.triggerHaptic(type)}
+        />
+      )}
+
+      {/* Modal de Reimpresión de Etiquetas de Proyecto */}
+      {reprintLabelsItems && reprintLabelsItems.length > 0 && (
+        <PrintSheetProjectLabels
+          onClose={() => setReprintLabelsItems(null)}
+          items={reprintLabelsItems}
+        />
+      )}
+
+      {/* Tablero Panorámico de Asignaciones y Stock Comprometido por Tienda (Fase 10C) */}
+      <StoreAllocationModal
+        isOpen={storeAllocationModalOpen}
+        onClose={() => {
+          setStoreAllocationModalOpen(false);
+          setSelectedItemForAlloc(null);
+          setSelectedAllocForReassign(null);
+        }}
+        allItems={items}
+        allocationsData={allocationsData}
+        onRefreshAllocations={loadAllocations}
+        initialSelectedItem={selectedItemForAlloc}
+        initialSelectedAllocation={selectedAllocForReassign}
+        userRole={auth.profile?.puestos?.[0]}
+        hasPermission={(perm) => auth.hasPermission(perm as any)}
+        triggerHaptic={(type) => auth.triggerHaptic(type)}
+      />
+
+      {/* Modal Maestro: Catálogo de Insumos, Ficha Técnica y Health Checker (Fase 11) */}
+      <ItemMasterModal
+        isOpen={catalogModalOpen}
+        onClose={() => {
+          setCatalogModalOpen(false);
+          setCatalogModalInitialItem(null);
+        }}
+        initialTab={catalogModalInitialTab}
+        initialItem={catalogModalInitialItem}
+        onItemUpdated={(_item) => {
+          handleRefresh();
+        }}
+        currentUser={{
+          name: auth.profile?.name,
+          permissions: auth.profile?.permissions,
+          puestos: auth.profile?.puestos
+        }}
+        bcvRate={bcvRate}
+      />
     </div>
   );
 }

@@ -13,7 +13,8 @@ import {
   Camera,
   Image as ImageIcon,
   Trash2,
-  Ban
+  Ban,
+  FolderKanban
 } from 'lucide-react';
 import {
   OABReviewDetails,
@@ -24,6 +25,8 @@ import {
   cancelOAB,
   uploadEvidenceToR2
 } from '../services/oabService';
+import { OrderSearchModal } from './OrderSearchModal';
+import { OrderReference } from '../types/oab';
 
 
 interface OABReviewModalProps {
@@ -65,6 +68,10 @@ export const OABReviewModal: React.FC<OABReviewModalProps> = ({
   // Modal y estado de Anulación
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
+
+  // Selector de Obra / Pedido MTO (Fase 11.3)
+  const [activeLineForOrder, setActiveLineForOrder] = useState<string | null>(null);
+  const [isOrderSearchOpen, setIsOrderSearchOpen] = useState(false);
   const [isCanceling, setIsCanceling] = useState(false);
   const [cancelSuccess, setCancelSuccess] = useState<string | null>(null);
 
@@ -234,6 +241,12 @@ export const OABReviewModal: React.FC<OABReviewModalProps> = ({
         comprobanteUrl: r2Url,
         lineas: lines.map(l => ({
           solicitudId: l.solicitudId,
+          dashboardId: l.dashboardId,
+          insumoId: l.insumoId,
+          nombre: l.nombre,
+          pedidoId: l.pedidoId,
+          proyectoId: l.proyectoId,
+          proyectoNombre: l.proyectoNombre,
           cantidadAprobada: l.cantidadAprobada,
           costoUnitarioUSD: l.costoUnitarioUSD
         }))
@@ -554,6 +567,7 @@ export const OABReviewModal: React.FC<OABReviewModalProps> = ({
                     <thead className="bg-surfaceHigh text-slate-400 border-b border-borderSubtle font-mono text-[11px]">
                       <tr>
                         <th className="py-2 px-3">Insumo</th>
+                        <th className="py-2 px-3 text-center">Destino MTO / Obra</th>
                         <th className="py-2 px-3 text-right">Cant. Solicitada</th>
                         <th className="py-2 px-3 text-center">V°B° Magaly (Cant. Aprobada)</th>
                         <th className="py-2 px-3 text-right">P. Unit ($)</th>
@@ -570,9 +584,41 @@ export const OABReviewModal: React.FC<OABReviewModalProps> = ({
                           <tr key={line.solicitudId} className="hover:bg-surfaceHighest/40">
                             <td className="py-2.5 px-3">
                               <div className="font-medium text-slate-200">{line.nombre}</div>
-                              {line.proyectoNombre && (
-                                <div className="text-[10px] text-brand-400 font-mono">
-                                  {line.proyectoNombre}
+                            </td>
+                            <td className="py-2.5 px-3 text-center">
+                              {line.proyectoNombre ? (
+                                <div className="inline-flex items-center gap-1.5 bg-brand-500/10 border border-brand-500/30 px-2 py-0.5 rounded text-left">
+                                  <span className="text-[10px] text-brand-300 font-mono font-bold max-w-[150px] truncate" title={line.proyectoNombre}>
+                                    {line.proyectoNombre}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveLineForOrder(line.solicitudId);
+                                      setIsOrderSearchOpen(true);
+                                    }}
+                                    className="p-0.5 text-slate-400 hover:text-white rounded hover:bg-surfaceHighest transition"
+                                    title="Cambiar obra o pedido"
+                                  >
+                                    <FolderKanban className="w-3.5 h-3.5 text-brand-400" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="inline-flex items-center gap-1.5 bg-slate-800/80 border border-slate-700 px-2 py-0.5 rounded">
+                                  <span className="text-[10px] text-slate-400 font-mono">
+                                    📦 Stock Fábrica
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveLineForOrder(line.solicitudId);
+                                      setIsOrderSearchOpen(true);
+                                    }}
+                                    className="px-1.5 py-0.5 text-[9px] text-brand-400 hover:text-brand-300 rounded border border-brand-500/30 bg-brand-500/10 transition"
+                                    title="Asignar a un pedido o tienda"
+                                  >
+                                    + Asignar
+                                  </button>
                                 </div>
                               )}
                             </td>
@@ -760,6 +806,34 @@ export const OABReviewModal: React.FC<OABReviewModalProps> = ({
               </div>
             </div>
           </div>
+        )}
+
+        {/* Modal de Búsqueda y Asignación de Pedido / Obra MTO (Fase 11.3) */}
+        {isOrderSearchOpen && (
+          <OrderSearchModal
+            isOpen={isOrderSearchOpen}
+            onClose={() => {
+              setIsOrderSearchOpen(false);
+              setActiveLineForOrder(null);
+            }}
+            onSelectOrder={(order: OrderReference) => {
+              if (activeLineForOrder) {
+                setLines(prev => prev.map(l => {
+                  if (l.solicitudId === activeLineForOrder) {
+                    return {
+                      ...l,
+                      pedidoId: order.id,
+                      proyectoId: order.proyectoId || order.id,
+                      proyectoNombre: `${order.codigo} - ${order.proyecto}`
+                    };
+                  }
+                  return l;
+                }));
+              }
+              setIsOrderSearchOpen(false);
+              setActiveLineForOrder(null);
+            }}
+          />
         )}
 
       </div>

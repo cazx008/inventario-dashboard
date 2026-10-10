@@ -143,6 +143,7 @@ export async function onRequest(context) {
 
     // Consultar las líneas asociadas en Solicitudes de Insumos (con paginación completa)
     const lines = [];
+    const projectCache = new Map();
     let hasMore = true;
     let nextCursor = undefined;
 
@@ -182,6 +183,104 @@ export async function onRequest(context) {
                         lp['Nombre']?.title?.[0]?.plain_text || 'Insumo';
         const cleanNombre = rawNombre.replace(/^\[[^\]]+\]\s*/, '').trim() || rawNombre;
 
+        const pedidoId = lp['Pedido']?.relation?.[0]?.id || null;
+        const proyectoId = lp['Proyectos']?.relation?.[0]?.id || lp['Proyecto']?.relation?.[0]?.id || null;
+        let proyectoNombre = lp['Proyecto / Obra']?.rich_text?.[0]?.plain_text || 
+                             lp['Proyecto (Texto)']?.rich_text?.[0]?.plain_text ||
+                             lp['Proyecto']?.title?.[0]?.plain_text || '';
+
+        // Hidratar nombre canónico desde BD_Pedidos si viene la relación Pedido y no hay texto
+        if (pedidoId && !proyectoNombre) {
+          if (projectCache.has(`pedido_${pedidoId}`)) {
+            proyectoNombre = projectCache.get(`pedido_${pedidoId}`);
+          } else {
+            try {
+              const pedRes = await fetch(`https://api.notion.com/v1/pages/${pedidoId}`, { headers });
+              if (pedRes.ok) {
+                const pedData = await pedRes.json();
+                const pp = pedData.properties || {};
+                const pNum = pp['Número de Documento']?.title?.[0]?.plain_text ||
+                             pp['Nombre']?.title?.[0]?.plain_text || '';
+                const pProj = pp['Proyecto']?.rich_text?.[0]?.plain_text ||
+                              pp['Obra']?.rich_text?.[0]?.plain_text || '';
+                const resolvedFull = pProj ? `${pNum} - ${pProj}` : pNum;
+                if (resolvedFull) {
+                  proyectoNombre = resolvedFull;
+                  projectCache.set(`pedido_${pedidoId}`, resolvedFull);
+                }
+              }
+            } catch (pedErr) {
+              console.warn('Advertencia resolviendo Pedido en details.js:', pedErr);
+            }
+          }
+        }
+
+        // Hidratar nombre canónico desde BD_Proyectos si viene solo el ID relacional
+        if (proyectoId && !proyectoNombre) {
+          if (projectCache.has(proyectoId)) {
+            proyectoNombre = projectCache.get(proyectoId);
+          } else {
+            try {
+              const projRes = await fetch(`https://api.notion.com/v1/pages/${proyectoId}`, { headers });
+              if (projRes.ok) {
+                const projData = await projRes.json();
+                const pp = projData.properties;
+                const pTitle = pp['Nombre del Proyecto (Pedido)']?.title?.[0]?.plain_text ||
+                               pp['Número de Documento']?.title?.[0]?.plain_text ||
+                               pp['Nombre']?.title?.[0]?.plain_text ||
+                               pp['Proyecto']?.title?.[0]?.plain_text ||
+                               Object.values(pp).find(p => p?.type === 'title')?.title?.[0]?.plain_text ||
+                               '';
+                if (pTitle) {
+                  proyectoNombre = pTitle;
+                  projectCache.set(proyectoId, pTitle);
+                }
+              }
+            } catch (pErr) {
+              console.warn('Advertencia resolviendo nombre de proyecto en details.js:', pErr);
+            }
+          }
+        }
+
+        // Fallback inteligente desde notas de cabecera si la línea no tenía proyecto
+        if (!proyectoNombre && oabHeader.notas) {
+          const match = oabHeader.notas.match(/Proyecto:\s*([^.\n]+)/i);
+          if (match) {
+            proyectoNombre = match[1].trim();
+          }
+        }
+
+        // Si se tiene proyectoNombre pero no proyectoId, resolver ID canónico desde BD_Proyectos
+        let finalProyectoId = proyectoId;
+        if (proyectoNombre && !finalProyectoId) {
+          if (projectCache.has(`name_${proyectoNombre}`)) {
+            finalProyectoId = projectCache.get(`name_${proyectoNombre}`);
+          } else {
+            try {
+              const pSearchRes = await fetch(`https://api.notion.com/v1/databases/31e86805-4e27-80e0-8be5-f3d30532e900/query`, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({
+                  filter: {
+                    property: 'Nombre del Proyecto (Pedido)',
+                    title: { contains: proyectoNombre }
+                  },
+                  page_size: 1
+                })
+              });
+              if (pSearchRes.ok) {
+                const pSearchData = await pSearchRes.json();
+                if (pSearchData.results?.[0]?.id) {
+                  finalProyectoId = pSearchData.results[0].id;
+                  projectCache.set(`name_${proyectoNombre}`, finalProyectoId);
+                }
+              }
+            } catch (sErr) {
+              console.warn('Advertencia buscando ID de proyecto por nombre:', sErr);
+            }
+          }
+        }
+
         lines.push({
           solicitudId: line.id,
           nombre: cleanNombre,
@@ -195,7 +294,9 @@ export async function onRequest(context) {
           dashboardId: lp['Dashboard']?.relation?.[0]?.id,
           insumoId: lp['Producto']?.relation?.[0]?.id || lp['BD_Materiales_Insumos']?.relation?.[0]?.id,
           prioridad: lp['Prioridad']?.select?.name || 'Alta',
-          proyectoNombre: lp['Proyecto / Obra']?.rich_text?.[0]?.plain_text || ''
+          pedidoId,
+          proyectoId: finalProyectoId,
+          proyectoNombre
         });
       }
 

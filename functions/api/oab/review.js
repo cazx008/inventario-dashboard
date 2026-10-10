@@ -11,6 +11,7 @@ const SOLICITUDES_DB_ID = '2bc86805-4e27-8036-ba88-d52ec84742ba';
 
 import { requirePermission } from '../auth/_guard.js';
 import { sendTelegramAlert } from '../telegram/notify.js';
+import { getLiveAllocations, setLiveAllocations } from '../_kv.js';
 
 
 export async function onRequest(context) {
@@ -111,7 +112,16 @@ export async function onRequest(context) {
             'Cantidad Aprobada': { number: cantApr },
             'Costo Estimado ($ USD)': { number: unitCost },
             'Subtotal Estimado ($ USD)': { number: subtotal },
-            'Estado Flujo': { select: { name: lineState } }
+            'Estado Flujo': { select: { name: lineState } },
+            ...(line.proyectoNombre ? {
+              'Proyecto / Obra': { rich_text: [{ text: { content: String(line.proyectoNombre).trim() } }] }
+            } : {}),
+            ...(line.pedidoId ? {
+              'Pedido': { relation: [{ id: line.pedidoId }] }
+            } : {}),
+            ...(line.proyectoId ? {
+              'Proyectos': { relation: [{ id: line.proyectoId }] }
+            } : {})
           }
         })
       });
@@ -170,6 +180,66 @@ export async function onRequest(context) {
       headers,
       body: JSON.stringify({ properties: oabUpdateProps })
     });
+
+    // 2.5 Semillado Atómico de Tránsito MTO en Edge KV (Micro-Parche 10B.1 / D4-10B.1)
+    try {
+      const liveAllocData = await getLiveAllocations(env);
+      const allocationsList = Array.isArray(liveAllocData.allocations) ? liveAllocData.allocations : [];
+      let allocationsUpdated = false;
+
+      for (const line of lineas) {
+        const cantApr = Number(line.cantidadAprobada) || 0;
+        if (cantApr <= 0) continue;
+
+        const dId = line.dashboardId;
+        const pNom = (line.proyectoNombre || '').trim();
+        const pId = line.proyectoId;
+
+        if (dId && pNom && !pNom.toLowerCase().includes('stock general') && !pNom.toLowerCase().includes('stock fábrica') && !pNom.toLowerCase().includes('stock fabrica')) {
+          const existingAlloc = allocationsList.find(a =>
+            a.dashboardId === dId && (
+              (pId && a.proyectoId === pId) ||
+              (a.proyectoNombre && a.proyectoNombre.trim().toLowerCase() === pNom.toLowerCase())
+            )
+          );
+
+          if (existingAlloc) {
+            existingAlloc.cantidadTransito = (existingAlloc.cantidadTransito || 0) + cantApr;
+            if (line.costoUnitarioUSD) existingAlloc.costoUnitarioUSD = Number(line.costoUnitarioUSD);
+            existingAlloc.updatedAt = Date.now();
+          } else {
+            allocationsList.push({
+              id: `alloc_${dId}_${pId || Date.now()}`,
+              dashboardId: dId,
+              insumoId: line.insumoId || undefined,
+              insumoNombre: line.nombre || 'Insumo',
+              proyectoId: pId || undefined,
+              proyectoNombre: pNom,
+              cantidadApartada: 0,
+              cantidadTransito: cantApr,
+              cantidadRechazada: 0,
+              cantidadConsumida: 0,
+              costoUnitarioUSD: Number(line.costoUnitarioUSD) || 0,
+              createdAt: Date.now(),
+              updatedAt: Date.now()
+            });
+          }
+          allocationsUpdated = true;
+        }
+      }
+
+      if (allocationsUpdated) {
+        liveAllocData.allocations = allocationsList;
+        const allocPromise = setLiveAllocations(env, liveAllocData);
+        if (context?.waitUntil) {
+          context.waitUntil(allocPromise);
+        } else {
+          await allocPromise;
+        }
+      }
+    } catch (allocErr) {
+      console.warn('Advertencia semillando tránsito MTO en review.js:', allocErr);
+    }
 
     // 3. Despachar Alerta formal a Telegram (Tópico 'Inventario' - threadId 146)
     try {

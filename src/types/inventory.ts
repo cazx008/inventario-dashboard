@@ -21,9 +21,11 @@ export interface InventoryItem {
   departamento?: string;
   seReconto3D?: boolean;
   diasDesdeReconteo?: number | null;
-  // Nuevas columnas para Abastecimiento / OAB
+  // Nuevas columnas para Abastecimiento / OAB y Asignaciones MTO (Fase 10)
   enTransitoOAB?: number;
   stockProyectado?: number;
+  stockApartado?: number;
+  stockLibre?: number;
   costoUnitarioUSD?: number;
   insumoId?: string; // id en BD_Materiales_Insumos
   isOptimisticSync?: boolean;

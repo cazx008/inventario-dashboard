@@ -129,6 +129,7 @@ export async function onRequest(context) {
         codigo: o.codigo,
         cliente: clienteName,
         proyecto: proyectoName,
+        proyectoId: o.proyectoId,
         tipo: o.tipo,
         estado: o.estado,
         fecha: o.fecha

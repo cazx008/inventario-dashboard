@@ -19,12 +19,41 @@ import {
   getLiveAllocations,
   setLiveAllocations,
   getLiveStockDeltas,
-  setLiveStockDelta
+  setLiveStockDelta,
+  removeLiveStockDelta
 } from '../_kv.js';
 
 const KARDEX_DB_ID = '26286805-4e27-803b-91ce-ef8f121d622d';
 const SOLICITUDES_DB_ID = '2bc86805-4e27-8036-ba88-d52ec84742ba';
 const DASHBOARD_DB_ID = '2b586805-4e27-80fe-b6e8-e4c6dc325696';
+const PROYECTOS_DB_ID = '31e86805-4e27-80e0-8be5-f3d30532e900';
+
+async function resolveProyectoId(headersNotion, proyectoId, proyectoNombre) {
+  if (proyectoId && proyectoId.length >= 32 && proyectoId.includes('-')) {
+    return proyectoId;
+  }
+  if (!proyectoNombre || !headersNotion?.Authorization) return null;
+  try {
+    const res = await fetch(`https://api.notion.com/v1/databases/${PROYECTOS_DB_ID}/query`, {
+      method: 'POST',
+      headers: headersNotion,
+      body: JSON.stringify({
+        filter: {
+          property: 'Nombre del Proyecto (Pedido)',
+          title: { equals: proyectoNombre.trim() }
+        },
+        page_size: 1
+      })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return data.results?.[0]?.id || null;
+    }
+  } catch (e) {
+    console.warn('[allocations.js] Error buscando proyecto en Notion:', e);
+  }
+  return null;
+}
 
 const round2 = (num) => Math.round((Number(num || 0) + Number.EPSILON) * 100) / 100;
 
@@ -52,7 +81,7 @@ export async function onRequest(context) {
     const filterProyectoId = url.searchParams.get('proyectoId');
 
     const data = await getLiveAllocations(env);
-    let allocations = data.allocations || [];
+    let allocations = (data.allocations || []).filter(a => (Number(a.cantidadApartada || 0) > 0 || Number(a.cantidadTransito || 0) > 0 || Number(a.cantidadConsumida || 0) > 0));
     let debts = data.debts || [];
 
     if (filterDashboardId) {
@@ -220,6 +249,8 @@ export async function onRequest(context) {
       // Asiento inmutable en BD_Kardex_Movimientos (Notion)
       if (notionApiKey) {
         try {
+          const resolvedProjId = await resolveProyectoId(headersNotion, proyectoId, proyectoNombre);
+
           const kardexProps = {
             'Descripción': {
               title: [{ text: { content: `[RESERVA MTO] ${materialNombre || 'Material'} (+${qty} ${unidad}) → ${proyectoNombre}` } }]
@@ -246,6 +277,9 @@ export async function onRequest(context) {
               rich_text: [{ text: { content: `Asignación de existencias a obra. Responsable: ${authUser.name}. Notas: ${notas}` } }]
             }
           };
+          if (resolvedProjId) {
+            kardexProps['Proyectos'] = { relation: [{ id: resolvedProjId }] };
+          }
           if (insumoId) {
             kardexProps['Producto'] = { relation: [{ id: insumoId }] };
           }
@@ -257,6 +291,15 @@ export async function onRequest(context) {
               parent: { database_id: KARDEX_DB_ID },
               properties: kardexProps
             })
+          });
+
+          recordAuditLog({
+            env, context, request,
+            eventType: 'ALLOCATION_RESERVED',
+            employeeName: authUser.name,
+            employeeId: authUser.sub,
+            isSuccess: true,
+            details: `[RESERVA MTO] ${materialNombre || 'Material'} (+${qty} ${unidad}) apartado para '${proyectoNombre}'. Notas: ${notas}`
           });
         } catch (kErr) {
           console.warn('Aviso: no se pudo asentar reserva en Notion Kardex:', kErr);
@@ -344,53 +387,86 @@ export async function onRequest(context) {
       // Asiento inmutable en Notion Kardex
       if (notionApiKey) {
         try {
+          const resolvedDestinoProjId = await resolveProyectoId(headersNotion, destinoProyectoId, destinoProyectoNombre);
+          const resolvedOrigenProjId = await resolveProyectoId(headersNotion, origenProyectoId, origenProyectoNombre);
+
+          const reassignKardexProps = {
+            'Descripción': {
+              title: [{ text: { content: `[REASIGNACIÓN MTO] ${materialNombre} (${qty} ${unidad}): ${origenProyectoNombre} → ${destinoProyectoNombre}` } }]
+            },
+            'Movimiento': {
+              select: { name: '🔄 Reasignación de Tienda' }
+            },
+            'Origen de Consumo': {
+              select: { name: 'Proyecto (Presupuestado)' }
+            },
+            'Cantidad (Stock)': { number: 0 },
+            'Fecha de Recepción': { date: { start: todayStr } },
+            'Tienda (ext)': {
+              rich_text: [{ text: { content: `${origenProyectoNombre} → ${destinoProyectoNombre}` } }]
+            },
+            'Dashboard': { relation: [{ id: dashboardId }] },
+            'Propósito': {
+              rich_text: [{ text: { content: `Reasignación de obra. Motivo: ${motivo}. Autorizado por: ${authUser.name}` } }]
+            }
+          };
+
+          if (resolvedDestinoProjId) {
+            reassignKardexProps['Proyectos'] = { relation: [{ id: resolvedDestinoProjId }] };
+          }
+          if (insumoId) {
+            reassignKardexProps['Producto'] = { relation: [{ id: insumoId }] };
+          }
+
           await fetch('https://api.notion.com/v1/pages', {
             method: 'POST',
             headers: headersNotion,
             body: JSON.stringify({
               parent: { database_id: KARDEX_DB_ID },
-              properties: {
-                'Descripción': {
-                  title: [{ text: { content: `[REASIGNACIÓN MTO] ${materialNombre} (${qty} ${unidad}): ${origenProyectoNombre} → ${destinoProyectoNombre}` } }]
-                },
-                'Movimiento': {
-                  select: { name: '🔄 Reasignación de Tienda' }
-                },
-                'Origen de Consumo': {
-                  select: { name: 'Proyecto (Presupuestado)' }
-                },
-                'Cantidad (Stock)': { number: 0 },
-                'Fecha de Recepción': { date: { start: todayStr } },
-                'Tienda (ext)': {
-                  rich_text: [{ text: { content: `${origenProyectoNombre} → ${destinoProyectoNombre}` } }]
-                },
-                'Dashboard': { relation: [{ id: dashboardId }] },
-                'Propósito': {
-                  rich_text: [{ text: { content: `Reasignación de obra. Motivo: ${motivo}. Autorizado por: ${authUser.name}` } }]
-                }
-              }
+              properties: reassignKardexProps
             })
           });
 
           // Si el usuario marcó reponer el material para la tienda cedente, inyectar solicitud en BD_Lineas_Abastecimiento
           if (reponerCedente) {
+            const solProps = {
+              'Nombre de Solicitud': {
+                title: [{ text: { content: `[REPOSICIÓN REASIGNACIÓN] ${materialNombre} para ${origenProyectoNombre}` } }]
+              },
+              'Cantidad Solicitada': { number: qty },
+              'Prioridad': { select: { name: 'Urgente' } },
+              'Estado Flujo': { select: { name: 'Solicitado' } },
+              'Dashboard': { relation: [{ id: dashboardId }] },
+              'Proyecto (Texto)': {
+                rich_text: [{ text: { content: origenProyectoNombre } }]
+              }
+            };
+
+            if (resolvedOrigenProjId) {
+              solProps['Proyecto'] = { relation: [{ id: resolvedOrigenProjId }] };
+            }
+            if (insumoId) {
+              solProps['Producto'] = { relation: [{ id: insumoId }] };
+            }
+
             await fetch('https://api.notion.com/v1/pages', {
               method: 'POST',
               headers: headersNotion,
               body: JSON.stringify({
                 parent: { database_id: SOLICITUDES_DB_ID },
-                properties: {
-                  'Nombre de Solicitud': {
-                    title: [{ text: { content: `[REPOSICIÓN REASIGNACIÓN] ${materialNombre} para ${origenProyectoNombre}` } }]
-                  },
-                  'Cantidad Solicitada': { number: qty },
-                  'Prioridad': { select: { name: 'Urgente' } },
-                  'Estado Flujo': { select: { name: 'Solicitado' } },
-                  'Dashboard': { relation: [{ id: dashboardId }] }
-                }
+                properties: solProps
               })
             });
           }
+
+          recordAuditLog({
+            env, context, request,
+            eventType: 'ALLOCATION_REASSIGNED',
+            employeeName: authUser.name,
+            employeeId: authUser.sub,
+            isSuccess: true,
+            details: `[REASIGNACIÓN] ${materialNombre} (${qty} ${unidad}): ${origenProyectoNombre} → ${destinoProyectoNombre}. Motivo: ${motivo}. Reposición: ${reponerCedente ? 'Urgente' : 'No'}`
+          });
         } catch (kErr) {
           console.warn('Aviso: no se pudo asentar reasignación en Notion:', kErr);
         }
@@ -440,32 +516,52 @@ export async function onRequest(context) {
       // Asiento inmutable en Notion Kardex
       if (notionApiKey) {
         try {
+          const resolvedProjId = await resolveProyectoId(headersNotion, proyectoId, proyectoNombre);
+
+          const releaseKardexProps = {
+            'Descripción': {
+              title: [{ text: { content: `[LIBERACIÓN MTO] ${materialNombre} (${qty} ${unidad}) de ${proyectoNombre} → Stock Libre` } }]
+            },
+            'Movimiento': {
+              select: { name: '🔓 Liberación / Desreserva' }
+            },
+            'Origen de Consumo': {
+              select: { name: 'Stock General' }
+            },
+            'Cantidad (Stock)': { number: 0 },
+            'Fecha de Recepción': { date: { start: todayStr } },
+            'Tienda (ext)': {
+              rich_text: [{ text: { content: proyectoNombre } }]
+            },
+            'Dashboard': { relation: [{ id: dashboardId }] },
+            'Propósito': {
+              rich_text: [{ text: { content: `Liberación a stock libre. Motivo: ${motivo}. Operador: ${authUser.name}` } }]
+            }
+          };
+
+          if (resolvedProjId) {
+            releaseKardexProps['Proyectos'] = { relation: [{ id: resolvedProjId }] };
+          }
+          if (alloc.insumoId) {
+            releaseKardexProps['Producto'] = { relation: [{ id: alloc.insumoId }] };
+          }
+
           await fetch('https://api.notion.com/v1/pages', {
             method: 'POST',
             headers: headersNotion,
             body: JSON.stringify({
               parent: { database_id: KARDEX_DB_ID },
-              properties: {
-                'Descripción': {
-                  title: [{ text: { content: `[LIBERACIÓN MTO] ${materialNombre} (${qty} ${unidad}) de ${proyectoNombre} → Stock Libre` } }]
-                },
-                'Movimiento': {
-                  select: { name: '🔓 Liberación / Desreserva' }
-                },
-                'Origen de Consumo': {
-                  select: { name: 'Stock General' }
-                },
-                'Cantidad (Stock)': { number: 0 },
-                'Fecha de Recepción': { date: { start: todayStr } },
-                'Tienda (ext)': {
-                  rich_text: [{ text: { content: proyectoNombre } }]
-                },
-                'Dashboard': { relation: [{ id: dashboardId }] },
-                'Propósito': {
-                  rich_text: [{ text: { content: `Liberación a stock libre. Motivo: ${motivo}. Operador: ${authUser.name}` } }]
-                }
-              }
+              properties: releaseKardexProps
             })
+          });
+
+          recordAuditLog({
+            env, context, request,
+            eventType: 'ALLOCATION_RELEASED',
+            employeeName: authUser.name,
+            employeeId: authUser.sub,
+            isSuccess: true,
+            details: `[DESRESERVA] ${materialNombre} (${qty} ${unidad}) liberado de '${proyectoNombre}' hacia stock común libre. Motivo: ${motivo}`
           });
         } catch (kErr) {
           console.warn('Aviso: no se pudo asentar liberación en Notion:', kErr);
@@ -643,25 +739,57 @@ export async function onRequest(context) {
     }
 
     // =========================================================
-    // ACCIÓN 5: LIQUIDACIÓN DE OBRA Y SOBRANTES (action: 'liquidate_leftovers')
+    // ACCIÓN 5: LIQUIDACIÓN DE OBRA Y SOBRANTES (action: 'liquidate_leftovers' o 'liquidate')
     // =========================================================
-    if (action === 'liquidate_leftovers') {
-      const { proyectoId, proyectoNombre, motivo = 'Cierre de fabricación de obra' } = payload;
+    if (action === 'liquidate_leftovers' || action === 'liquidate') {
+      const {
+        proyectoId,
+        proyectoNombre,
+        motivo = 'Cierre de fabricación de obra',
+        itemsToRelease, // Array opcional: [{ dashboardId, cantidadLiberar }]
+        marcarProyectoConcluido = false
+      } = payload;
 
-      if (!proyectoId) {
-        return new Response(JSON.stringify({ error: 'Falta proyectoId para liquidar sobrantes.' }), {
+      if (!proyectoId && !proyectoNombre) {
+        return new Response(JSON.stringify({ error: 'Falta proyectoId o proyectoNombre para liquidar sobrantes.' }), {
           status: 400,
           headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
         });
       }
 
-      const projectAllocations = allocations.filter(a => a.proyectoId === proyectoId && (a.cantidadApartada || 0) > 0);
-      const totalLiberadas = projectAllocations.reduce((sum, a) => sum + (a.cantidadApartada || 0), 0);
+      let projectAllocations = allocations.filter(a => 
+        (proyectoId && a.proyectoId === proyectoId) ||
+        (proyectoNombre && a.proyectoNombre?.toLowerCase() === proyectoNombre?.toLowerCase())
+      ).filter(a => (a.cantidadApartada || 0) > 0);
 
-      // Desreservar todas las partidas de este proyecto
+      // Si se envía lista selectiva de items a liberar
+      if (Array.isArray(itemsToRelease) && itemsToRelease.length > 0) {
+        const releaseMap = new Map();
+        itemsToRelease.forEach(it => {
+          if (it.dashboardId) {
+            releaseMap.set(it.dashboardId, Number(it.cantidadLiberar || it.cantidad || 0));
+          }
+        });
+        projectAllocations = projectAllocations.filter(a => releaseMap.has(a.dashboardId));
+      }
+
+      let totalLiberadas = 0;
+
+      // Desreservar partidas seleccionadas de este proyecto
       for (const a of projectAllocations) {
-        a.cantidadApartada = 0;
+        let qtyToRelease = a.cantidadApartada || 0;
+        if (Array.isArray(itemsToRelease)) {
+          const specified = itemsToRelease.find(it => it.dashboardId === a.dashboardId);
+          if (specified && specified.cantidadLiberar > 0) {
+            qtyToRelease = Math.min(a.cantidadApartada, Number(specified.cantidadLiberar));
+          }
+        }
+
+        if (qtyToRelease <= 0) continue;
+
+        a.cantidadApartada = Math.max(0, (a.cantidadApartada || 0) - qtyToRelease);
         a.updatedAt = Date.now();
+        totalLiberadas += qtyToRelease;
 
         if (notionApiKey) {
           try {
@@ -672,7 +800,7 @@ export async function onRequest(context) {
                 parent: { database_id: KARDEX_DB_ID },
                 properties: {
                   'Descripción': {
-                    title: [{ text: { content: `[LIQUIDACIÓN OBRA] Retorno sobrante de ${a.insumoNombre} (${a.cantidadApartada} ${a.unidad}) de ${proyectoNombre} → Stock Libre` } }]
+                    title: [{ text: { content: `[LIQUIDACIÓN OBRA] Retorno sobrante de ${a.insumoNombre} (${qtyToRelease} ${a.unidad || 'Unid.'}) de ${proyectoNombre || a.proyectoNombre} → Stock Libre` } }]
                   },
                   'Movimiento': {
                     select: { name: '↩️ Retorno de Sobrante (Fin Obra)' }
@@ -683,7 +811,7 @@ export async function onRequest(context) {
                   'Cantidad (Stock)': { number: 0 },
                   'Fecha de Recepción': { date: { start: todayStr } },
                   'Tienda (ext)': {
-                    rich_text: [{ text: { content: proyectoNombre || 'Obra Concluida' } }]
+                    rich_text: [{ text: { content: proyectoNombre || a.proyectoNombre || 'Obra Concluida' } }]
                   },
                   'Dashboard': { relation: [{ id: a.dashboardId }] },
                   'Propósito': {
@@ -698,13 +826,94 @@ export async function onRequest(context) {
         }
       }
 
+      // Si el operador marcó explícitamente actualizar la obra en BD_Proyectos (D7-10D)
+      if (marcarProyectoConcluido && notionApiKey) {
+        try {
+          const resolvedPId = await resolveProyectoId(headersNotion, proyectoId, proyectoNombre);
+          if (resolvedPId) {
+            const getPageRes = await fetch(`https://api.notion.com/v1/pages/${resolvedPId}`, { headers: headersNotion });
+            if (getPageRes.ok) {
+              const pageData = await getPageRes.json();
+              const patchProps = {};
+              if (pageData.properties?.['Estado']?.select) {
+                patchProps['Estado'] = { select: { name: 'Concluido' } };
+              } else if (pageData.properties?.['Status']?.status) {
+                patchProps['Status'] = { status: { name: 'Done' } };
+              } else if (pageData.properties?.['Etapa']?.select) {
+                patchProps['Etapa'] = { select: { name: 'Terminado' } };
+              }
+              if (Object.keys(patchProps).length > 0) {
+                await fetch(`https://api.notion.com/v1/pages/${resolvedPId}`, {
+                  method: 'PATCH',
+                  headers: headersNotion,
+                  body: JSON.stringify({ properties: patchProps })
+                });
+              }
+            }
+          }
+        } catch (projErr) {
+          console.warn('[allocations.js] Aviso al actualizar estado de proyecto en Notion:', projErr);
+        }
+      }
+
+      // Registro forense en BD_Auditoria_Accesos_Logs
+      try {
+        recordAuditLog({
+          env,
+          context,
+          request,
+          eventType: 'STORE_ALLOCATION_LIQUIDATED',
+          employeeId: authUser.sub || 'op-default',
+          employeeName: authUser.name || 'Almacén',
+          puesto: 'Almacén / Control de Stock',
+          area: 'Almacén Central',
+          isSuccess: true,
+          details: `Liquidación formal de '${proyectoNombre || proyectoId}'. Total liberadas: ${totalLiberadas} unds. ProyConcluido: ${marcarProyectoConcluido ? 'SÍ' : 'NO'}. Motivo: ${motivo}`
+        });
+      } catch (auditErr) {
+        console.warn('Aviso registrando auditoría de liquidación:', auditErr);
+      }
+
       await setLiveAllocations(env, { allocations, debts });
 
       return new Response(JSON.stringify({
         status: 'success',
-        action: 'liquidate_leftovers',
-        message: `Proyecto '${proyectoNombre}' liquidado con éxito. Se liberaron ${totalLiberadas} unidades de ${projectAllocations.length} insumos hacia Stock Libre.`,
+        action: action,
+        message: `Proyecto '${proyectoNombre || proyectoId}' liquidado con éxito. Se liberaron ${totalLiberadas} unidades hacia Stock Libre.`,
+        totalLiberadas,
         allocations
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+      });
+    }
+
+    // =========================================================
+    // ACCIÓN 6: ROLLBACK / PURGA DE ASIGNACIONES (action: 'rollback' o 'purge')
+    // =========================================================
+    if (action === 'rollback' || action === 'purge') {
+      const { proyectoNombre, proyectoId, clearDeltas = [] } = payload;
+      let rawAlloc = (await getLiveAllocations(env)).allocations || [];
+      rawAlloc = rawAlloc.filter(a =>
+        !(
+          (proyectoId && a.proyectoId === proyectoId) ||
+          (proyectoNombre && a.proyectoNombre?.toLowerCase() === proyectoNombre?.toLowerCase())
+        )
+      );
+      await setLiveAllocations(env, { allocations: rawAlloc, debts });
+
+      // Si se enviaron dashboardIds para purgar de deltas de stock
+      if (Array.isArray(clearDeltas) && clearDeltas.length > 0) {
+        for (const dashId of clearDeltas) {
+          await removeLiveStockDelta(env, dashId);
+        }
+      }
+
+      return new Response(JSON.stringify({
+        status: 'success',
+        action,
+        message: `Asignaciones de '${proyectoNombre || proyectoId}' purgadas y deltas restaurados.`,
+        allocations: rawAlloc
       }), {
         status: 200,
         headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }

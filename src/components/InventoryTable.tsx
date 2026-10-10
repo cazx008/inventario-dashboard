@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { ChevronRight, ChevronDown, PlusCircle, BookOpen, ArrowUpRight, Scale } from 'lucide-react';
+import { ChevronRight, ChevronDown, PlusCircle, BookOpen, ArrowUpRight, Scale, Building2, FileText } from 'lucide-react';
 import { InventoryItem, ColumnDef, SortLevel } from '../types/inventory';
+import { InsumoSummary, StoreAllocation } from '../services/inventoryService';
+import { AllocationsPopover } from './AllocationsPopover';
 
 interface InventoryTableProps {
   items: InventoryItem[];
@@ -12,9 +14,14 @@ interface InventoryTableProps {
   selectOrders?: Record<string, string[]>;
   onAddToDraft?: (item: InventoryItem) => void;
   onOpenKardexItem?: (item: InventoryItem) => void;
+  onOpenCatalogItem?: (item: InventoryItem) => void;
   onOpenDispatchItem?: (item: InventoryItem) => void;
   onOpenAdjustmentItem?: (item: InventoryItem) => void;
   onOpenReceptionItem?: (item: InventoryItem) => void;
+  allocationsMap?: Record<string, InsumoSummary>;
+  onOpenStoreAllocations?: (item?: InventoryItem, alloc?: StoreAllocation) => void;
+  onOpenDirectAllocate?: (item: InventoryItem) => void;
+  onOpenReassignAlloc?: (alloc: StoreAllocation, item: InventoryItem) => void;
   loading?: boolean;
   loadError?: boolean;
   onRetry?: () => void;
@@ -31,15 +38,21 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({
   selectOrders = {},
   onAddToDraft,
   onOpenKardexItem,
+  onOpenCatalogItem,
   onOpenDispatchItem,
   onOpenAdjustmentItem,
   onOpenReceptionItem,
+  allocationsMap,
+  onOpenStoreAllocations,
+  onOpenDirectAllocate,
+  onOpenReassignAlloc,
   loading = false,
   loadError = false,
   onRetry,
   onResetFilters
 }) => {
   const [collapsedGroups, setCollapsedGroups] = useState<string[]>([]);
+  const [activePopoverId, setActivePopoverId] = useState<string | null>(null);
 
   const toggleGroupCollapse = (label: string) => {
     setCollapsedGroups(prev =>
@@ -115,6 +128,30 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({
                   <BookOpen className="w-3.5 h-3.5" />
                 </button>
               )}
+              {onOpenCatalogItem && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenCatalogItem(row);
+                  }}
+                  className="text-blue-400 hover:text-blue-300 transition text-[11px] p-0.5 rounded hover:bg-surfaceHigh"
+                  title={`Editar Ficha Técnica de Catálogo de ${row.nombre}`}
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                </button>
+              )}
+              {onOpenDirectAllocate && (row.stockBase || 0) > 0 && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenDirectAllocate(row);
+                  }}
+                  className="text-amber-400 hover:text-amber-300 transition text-[11px] p-0.5 rounded hover:bg-surfaceHigh"
+                  title={`Apartar ${row.nombre} para una obra`}
+                >
+                  <Building2 className="w-3.5 h-3.5" />
+                </button>
+              )}
               {onAddToDraft && (
                 <button
                   onClick={(e) => {
@@ -147,6 +184,69 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({
             <span className={`font-mono ${isZero ? 'text-red-400 font-bold' : 'text-slate-200'}`}>
               {row.stockBase}
             </span>
+          </div>
+        );
+      }
+      case 'stockApartado': {
+        const sum = allocationsMap?.[row.id];
+        const cantApartada = sum?.totalApartado ?? (row.stockApartado || 0);
+        const cantTransito = sum?.totalTransito || 0;
+        const hasAlloc = cantApartada > 0 || cantTransito > 0;
+        const isPopoverOpen = activePopoverId === row.id;
+
+        return (
+          <div className="relative flex items-center justify-end">
+            {hasAlloc ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActivePopoverId(isPopoverOpen ? null : row.id);
+                }}
+                className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-400 hover:text-amber-300 transition flex items-center gap-1 active:scale-95 shadow-sm"
+                title={`Ver reservas de tiendas para ${row.nombre}`}
+              >
+                <span>{cantApartada}</span>
+                {cantTransito > 0 && (
+                  <span className="text-[10px] text-cyan-300 font-normal">+{cantTransito}</span>
+                )}
+                <Building2 className="w-3 h-3 text-amber-400/80" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActivePopoverId(isPopoverOpen ? null : row.id);
+                }}
+                className="font-mono text-slate-500 hover:text-slate-300 text-xs px-1.5 py-0.5 rounded hover:bg-slate-800 transition"
+                title="Sin reservas activas (clic para apartar)"
+              >
+                —
+              </button>
+            )}
+
+            {isPopoverOpen && (
+              <AllocationsPopover
+                materialNombre={row.nombre}
+                codigo={row.codigo}
+                stockBase={row.stockBase}
+                summary={sum}
+                onOpenPanoramic={() => {
+                  setActivePopoverId(null);
+                  onOpenStoreAllocations?.(row);
+                }}
+                onDirectAllocate={() => {
+                  setActivePopoverId(null);
+                  onOpenDirectAllocate?.(row);
+                }}
+                onReassign={(alloc) => {
+                  setActivePopoverId(null);
+                  onOpenReassignAlloc?.(alloc, row);
+                }}
+                onClose={() => setActivePopoverId(null)}
+              />
+            )}
           </div>
         );
       }

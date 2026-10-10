@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { ShoppingCart, X, Plus, Trash2, Printer, CheckCircle, AlertTriangle, Link2, DollarSign, Search, ArrowUpDown } from 'lucide-react';
+import { ShoppingCart, X, Plus, Trash2, Printer, CheckCircle, AlertTriangle, Link2, DollarSign, Search, ArrowUpDown, Loader2, Sparkles, BookOpen, ShieldCheck } from 'lucide-react';
 import { InventoryItem } from '../types/inventory';
 import { OABLineItem, OABHeader, OrderReference, computePackagingSuggestion } from '../types/oab';
 import { generateFolioOAB, fetchNextFolioOAB, createOABSheet } from '../services/oabService';
+import { getConcepts, upsertCatalogItem } from '../services/catalogService';
+import { ConceptRoot } from '../types/catalog';
 import { OrderSearchModal } from './OrderSearchModal';
 import { PrintSheetOAB } from './PrintSheetOAB';
 
@@ -13,6 +15,12 @@ interface SupplyOrderModalProps {
   bcvRate: number;
   initialDraftItems?: InventoryItem[];
   onOrderCreated?: (createdLines: OABLineItem[]) => void;
+  onItemCreated?: (item: InventoryItem) => void;
+  currentUser?: {
+    name?: string;
+    permissions?: string[];
+    puestos?: string[];
+  } | null;
 }
 
 type PriorityType = 'Urgente' | 'Alta' | 'Media' | 'Baja' | 'Por Pedido';
@@ -81,7 +89,9 @@ export const SupplyOrderModal: React.FC<SupplyOrderModalProps> = ({
   inventoryItems,
   bcvRate,
   initialDraftItems = [],
-  onOrderCreated
+  onOrderCreated,
+  onItemCreated,
+  currentUser = null
 }) => {
   const [folio, setFolio] = useState('');
   const [fechaEmision, setFechaEmision] = useState('');
@@ -103,6 +113,18 @@ export const SupplyOrderModal: React.FC<SupplyOrderModalProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [isSearchDropdownOpen, setIsSearchDropdownOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Estados para Alta Rápida de Insumo al Vuelo (Micro-Fase 11D)
+  const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
+  const [conceptsList, setConceptsList] = useState<ConceptRoot[]>([]);
+  const [quickConceptId, setQuickConceptId] = useState('');
+  const [quickName, setQuickName] = useState('');
+  const [quickCode, setQuickCode] = useState('');
+  const [quickCategory, setQuickCategory] = useState('Herrajes y Tornillería');
+  const [quickUom, setQuickUom] = useState('UND');
+  const [quickCostUSD, setQuickCostUSD] = useState('1.00');
+  const [isSavingQuick, setIsSavingQuick] = useState(false);
+  const [quickError, setQuickError] = useState<string | null>(null);
 
   const searchResults = useMemo(() => {
     if (!searchTerm.trim()) return [];
@@ -284,11 +306,110 @@ export const SupplyOrderModal: React.FC<SupplyOrderModalProps> = ({
         if (getLineKey(line) !== activeLineIdForOrder) return line;
         return {
           ...line,
-          proyectoId: order.id,
+          pedidoId: order.id,
+          proyectoId: order.proyectoId || order.id,
           proyectoNombre: `${order.codigo} - ${order.proyecto}`
         };
       }));
       setActiveLineIdForOrder(null);
+    }
+  };
+
+  const handleOpenQuickAdd = async () => {
+    const hasPerm = !currentUser || 
+                    currentUser?.permissions?.includes('Emitir_OAB') || 
+                    currentUser?.permissions?.includes('Superadmin') ||
+                    currentUser?.puestos?.some(p => p.toLowerCase().includes('compra') || p.toLowerCase().includes('gerenc'));
+    if (!hasPerm) {
+      alert('Se requiere permiso de Emisión de OAB, Compras o Superadmin para registrar nuevos insumos al vuelo.');
+      return;
+    }
+
+    setQuickName(searchTerm.trim() || '');
+    setQuickCode('');
+    setQuickCostUSD('1.00');
+    setQuickError(null);
+    setIsQuickAddOpen(true);
+
+    if (conceptsList.length === 0) {
+      try {
+        const c = await getConcepts(false);
+        setConceptsList(c);
+      } catch (e) {}
+    }
+  };
+
+  const handleQuickConceptChange = (conceptId: string) => {
+    setQuickConceptId(conceptId);
+    const found = conceptsList.find(c => c.id === conceptId);
+    if (found) {
+      if (found.codePrefix && !quickCode) {
+        setQuickCode(`${found.codePrefix}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`);
+      }
+      if (found.defaultUoM) {
+        setQuickUom(found.defaultUoM.toUpperCase().includes('METRO') ? 'ML' : 'UND');
+      }
+    }
+  };
+
+  const handleSaveQuickAdd = async () => {
+    if (!quickName.trim()) {
+      setQuickError('El nombre del insumo es obligatorio.');
+      return;
+    }
+    if (!quickCode.trim()) {
+      setQuickError('El código (SKU) es obligatorio.');
+      return;
+    }
+
+    setIsSavingQuick(true);
+    setQuickError(null);
+    try {
+      const res = await upsertCatalogItem({
+        action: 'create',
+        nombre: quickName.trim(),
+        codigo: quickCode.trim().toUpperCase(),
+        categoria: quickCategory,
+        conceptoId: quickConceptId || undefined,
+        unidad: quickUom,
+        costoUnitarioUSD: parseFloat(quickCostUSD) || 1.0,
+        stockMinimo: 0,
+        activo: true
+      });
+
+      if (!res.ok) {
+        throw new Error(res.error || 'Error al registrar insumo en Notion');
+      }
+
+      const costVal = parseFloat(quickCostUSD) || 1.0;
+      const newInvItem: InventoryItem = {
+        id: res.dashboardId || res.insumoId || quickCode.trim().toUpperCase(),
+        insumoId: res.insumoId,
+        nombre: quickName.trim(),
+        codigo: quickCode.trim().toUpperCase(),
+        stockBase: 0,
+        stockMinimo: 0,
+        deficit: 1,
+        estadoStock: 'Sin Stock',
+        prioridad: 'Alta',
+        categoriaMaterial: quickCategory,
+        unidad: quickUom,
+        costoUnitarioUSD: costVal
+      };
+
+      handleAddManualItem(newInvItem);
+
+      if (onItemCreated) {
+        onItemCreated(newInvItem);
+      }
+
+      setIsQuickAddOpen(false);
+      setSearchTerm('');
+      setIsSearchDropdownOpen(false);
+    } catch (e: any) {
+      setQuickError(e.message || 'Error al guardar insumo');
+    } finally {
+      setIsSavingQuick(false);
     }
   };
 
@@ -456,46 +577,57 @@ export const SupplyOrderModal: React.FC<SupplyOrderModalProps> = ({
               </div>
 
               {/* Buscador Reactivo de Insumos (Flujo Rápido de Taller) */}
-              <div className="relative w-72 sm:w-80">
-                <div className="relative flex items-center">
-                  <Search className="w-3.5 h-3.5 absolute left-2.5 text-slate-400 pointer-events-none" />
-                  <input
-                    ref={searchInputRef}
-                    type="text"
-                    placeholder="🔍 Buscar para agregar (Enter rápido)..."
-                    value={searchTerm}
-                    onChange={(e) => {
-                      setSearchTerm(e.target.value);
-                      setIsSearchDropdownOpen(true);
-                    }}
-                    onFocus={() => setIsSearchDropdownOpen(true)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && searchResults.length > 0) {
-                        e.preventDefault();
-                        handleAddManualItem(searchResults[0]);
-                        setSearchTerm('');
-                        setIsSearchDropdownOpen(false);
-                        searchInputRef.current?.focus();
-                      } else if (e.key === 'Escape') {
-                        setIsSearchDropdownOpen(false);
-                      }
-                    }}
-                    className="w-full pl-8 pr-7 py-1 text-xs bg-surface border border-borderSubtle rounded-md text-slate-200 placeholder-slate-400 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500/30 transition shadow-inner"
-                  />
-                  {searchTerm && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSearchTerm('');
-                        setIsSearchDropdownOpen(false);
-                        searchInputRef.current?.focus();
+              <div className="relative w-80 sm:w-96">
+                <div className="relative flex items-center gap-1.5">
+                  <div className="relative flex-1 flex items-center">
+                    <Search className="w-3.5 h-3.5 absolute left-2.5 text-slate-400 pointer-events-none" />
+                    <input
+                      ref={searchInputRef}
+                      type="text"
+                      placeholder="🔍 Buscar para agregar (Enter rápido)..."
+                      value={searchTerm}
+                      onChange={(e) => {
+                        setSearchTerm(e.target.value);
+                        setIsSearchDropdownOpen(true);
                       }}
-                      className="absolute right-2 text-slate-400 hover:text-white p-0.5 rounded"
-                      title="Limpiar búsqueda"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  )}
+                      onFocus={() => setIsSearchDropdownOpen(true)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && searchResults.length > 0) {
+                          e.preventDefault();
+                          handleAddManualItem(searchResults[0]);
+                          setSearchTerm('');
+                          setIsSearchDropdownOpen(false);
+                          searchInputRef.current?.focus();
+                        } else if (e.key === 'Escape') {
+                          setIsSearchDropdownOpen(false);
+                        }
+                      }}
+                      className="w-full pl-8 pr-7 py-1 text-xs bg-surface border border-borderSubtle rounded-md text-slate-200 placeholder-slate-400 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500/30 transition shadow-inner"
+                    />
+                    {searchTerm && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSearchTerm('');
+                          setIsSearchDropdownOpen(false);
+                          searchInputRef.current?.focus();
+                        }}
+                        className="absolute right-2 text-slate-400 hover:text-white p-0.5 rounded"
+                        title="Limpiar búsqueda"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleOpenQuickAdd}
+                    className="px-2 py-1 bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 border border-blue-500/30 rounded text-xs font-semibold whitespace-nowrap flex items-center gap-1 shadow-sm active:scale-95"
+                    title="Registrar nuevo insumo al vuelo (Alta Dual)"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">+ Insumo al Vuelo</span>
+                  </button>
                 </div>
 
                 {/* Dropdown flotante predictivo */}
@@ -548,6 +680,39 @@ export const SupplyOrderModal: React.FC<SupplyOrderModalProps> = ({
                         </div>
                       </button>
                     ))}
+                    <div className="p-1.5 bg-slate-900 border-t border-borderSubtle/50 text-center">
+                      <button
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          handleOpenQuickAdd();
+                        }}
+                        className="w-full py-1 text-xs text-blue-400 hover:text-blue-300 font-semibold flex items-center justify-center gap-1 hover:bg-slate-800 rounded"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>+ Registrar Nuevo Insumo al Vuelo</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Dropdown cuando no hay resultados */}
+                {isSearchDropdownOpen && searchResults.length === 0 && searchTerm.trim() && (
+                  <div className="absolute right-0 top-full mt-1.5 w-80 sm:w-96 bg-surfaceHigh border border-borderSubtle rounded-lg shadow-2xl z-30 p-3 text-center space-y-2">
+                    <p className="text-xs text-slate-400">
+                      No se encontró "<span className="text-slate-200 font-semibold">{searchTerm}</span>" en el catálogo.
+                    </p>
+                    <button
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        handleOpenQuickAdd();
+                      }}
+                      className="w-full py-1.5 px-3 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 shadow"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Registrar "{searchTerm}" al Vuelo</span>
+                    </button>
                   </div>
                 )}
               </div>
@@ -834,6 +999,168 @@ export const SupplyOrderModal: React.FC<SupplyOrderModalProps> = ({
           lineas={lines}
           onClose={() => setShowPrintSheet(false)}
         />
+      )}
+
+      {/* Sub-modal: Alta Rápida de Insumo al Vuelo (Micro-Fase 11D) */}
+      {isQuickAddOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-lg w-full shadow-2xl text-slate-100 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center space-x-2 text-blue-400">
+                <Sparkles className="w-5 h-5" />
+                <h3 className="font-bold text-base text-white">Alta Rápida de Insumo al Vuelo</h3>
+              </div>
+              <button
+                onClick={() => setIsQuickAddOpen(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-400">
+              Registra el nuevo insumo en Notion ERP con Alta Dual Atómica y lo agrega inmediatamente a la lista de compra.
+            </p>
+
+            {quickError && (
+              <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-lg text-rose-300 text-xs flex items-center space-x-2">
+                <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                <span>{quickError}</span>
+              </div>
+            )}
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block text-slate-300 font-medium mb-1">
+                  Concepto Raíz ISO (Opcional)
+                </label>
+                <select
+                  value={quickConceptId}
+                  onChange={e => handleQuickConceptChange(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-100 focus:outline-none focus:border-blue-500"
+                >
+                  <option value="">-- Sin Concepto ISO --</option>
+                  {conceptsList.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.codePrefix})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-medium mb-1">
+                  Nombre del Insumo *
+                </label>
+                <input
+                  type="text"
+                  value={quickName}
+                  onChange={e => setQuickName(e.target.value)}
+                  placeholder="Ej: TORNILLO GYPSUM 6X1..."
+                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-100 font-semibold focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-300 font-medium mb-1">
+                    Código (SKU) *
+                  </label>
+                  <input
+                    type="text"
+                    value={quickCode}
+                    onChange={e => setQuickCode(e.target.value.toUpperCase())}
+                    placeholder="Ej: TOR-9901"
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg font-mono text-blue-300 uppercase focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-medium mb-1">
+                    Unidad de Medida
+                  </label>
+                  <select
+                    value={quickUom}
+                    onChange={e => setQuickUom(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-100 focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="UND">Unidad (UND)</option>
+                    <option value="ML">Metro Lineal (ML)</option>
+                    <option value="PLANCHA">Plancha / Lámina</option>
+                    <option value="KG">Kilogramo (KG)</option>
+                    <option value="L">Litro (L)</option>
+                    <option value="PAR">Par (PAR)</option>
+                    <option value="CJ">Caja (CJ)</option>
+                    <option value="PAQ">Paquete (PAQ)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-300 font-medium mb-1">
+                    Categoría
+                  </label>
+                  <select
+                    value={quickCategory}
+                    onChange={e => setQuickCategory(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-100 focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="Herrajes y Tornillería">Herrajes y Tornillería</option>
+                    <option value="Maderas y Tableros">Maderas y Tableros</option>
+                    <option value="Químicos y Pegamentos">Químicos y Pegamentos</option>
+                    <option value="Vidrios y Espejos">Vidrios y Espejos</option>
+                    <option value="Metales y Perfilería">Metales y Perfilería</option>
+                    <option value="Empaque y Embalaje">Empaque y Embalaje</option>
+                    <option value="General">General</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-medium mb-1">
+                    Costo Base ($ USD)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={quickCostUSD}
+                    onChange={e => setQuickCostUSD(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg font-mono text-emerald-400 font-bold focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setIsQuickAddOpen(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-lg"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveQuickAdd}
+                disabled={isSavingQuick}
+                className="px-5 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 text-white text-xs font-bold rounded-lg flex items-center space-x-1.5 shadow"
+              >
+                {isSavingQuick ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Guardando...</span>
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    <span>Crear e Insertar en OAB</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

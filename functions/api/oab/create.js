@@ -169,8 +169,33 @@ export async function onRequest(context) {
       if (linea.dashboardId) {
         lineProps['Dashboard'] = { relation: [{ id: linea.dashboardId }] };
       }
-      if (linea.proyectoId) {
-        lineProps['Proyectos'] = { relation: [{ id: linea.proyectoId }] };
+      // Tríada Canónica Odoo 18: Pedido (sale.order) + Proyectos (analytic.account) + Proyecto / Obra (rich_text inmutable)
+      if (linea.proyectoNombre) {
+        lineProps['Proyecto / Obra'] = {
+          rich_text: [{ text: { content: String(linea.proyectoNombre).trim() } }]
+        };
+      }
+
+      const rawPedidoId = linea.pedidoId || linea.orderId;
+      const pedidoIdToLink = rawPedidoId || (linea.proyectoId && linea.proyectoId.length > 20 ? linea.proyectoId : null);
+      if (pedidoIdToLink) {
+        lineProps['Pedido'] = { relation: [{ id: pedidoIdToLink }] };
+      }
+
+      let finalProyectoId = linea.proyectoId && linea.proyectoId !== pedidoIdToLink ? linea.proyectoId : null;
+      if (!finalProyectoId && pedidoIdToLink) {
+        try {
+          const ordRes = await fetch(`https://api.notion.com/v1/pages/${pedidoIdToLink}`, { headers });
+          if (ordRes.ok) {
+            const ordData = await ordRes.json();
+            finalProyectoId = ordData.properties?.['BD_Proyectos']?.relation?.[0]?.id || null;
+          }
+        } catch (ordErr) {
+          console.warn('Advertencia resolviendo BD_Proyectos desde pedido en create.js:', ordErr);
+        }
+      }
+      if (finalProyectoId) {
+        lineProps['Proyectos'] = { relation: [{ id: finalProyectoId }] };
       }
 
       try {
