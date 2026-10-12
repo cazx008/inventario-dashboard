@@ -24,8 +24,11 @@
 | **Fase 9M** | ✅ Completada | Sincronización Edge KV Zero-Quota (`INVENTORY_KV` + SWR Edge Cache) y Erradicación del "Dual Truth" Multi-Dispositivo (`https://sanesca-inventario.pages.dev/`) |
 | **Fase 10 (Seguridad)** | ✅ Completada | Identidad WebApp con HMAC-SHA256, RBAC en Notion, 2FA Telegram, Anti-Fuerza Bruta y Auditoría Forense Dual — Desplegada en vivo en Cloudflare Pages (`https://sanesca-inventario.pages.dev/`) |
 | **Fase 10 (MTO)** | ✅ 100% Completada | Sistema Integral de Reservas MTO, Asignación por Tienda/Proyecto, Deuda Operativa y Etiquetado Térmico Dual (4-UP & 4x6") — Desplegada en vivo en Cloudflare Pages (`https://sanesca-inventario.pages.dev/`) |
+| **Fase 10F** | ✅ 100% Completada | Unificación de Selectores Canónicos (Obra / Insumos) y Blindaje Integral del Puente Rampa → Asignaciones MTO (PLAN-005 / Shoe Box) — Desplegada y Certificada en vivo (`https://sanesca-inventario.pages.dev/`) |
 | **Fase 11** | ✅ 100% Completada | Gestión Maestra del Catálogo, Ficha Técnica (Ontología ISO), Alta Dual Atómica, Edge KV Buffer y Catalog Health Checker — Desplegada en vivo (`https://sanesca-inventario.pages.dev/`) |
 | **Micro-Parche 11.1** | ✅ 100% Completada | Consolidación y Blindaje Definitivo: SWR Dual-Truth Loopback, Paridad Esquema Notion ('Nombre'), Candados Tripartitos D6-11, Paginación Cursor Completa y Micro-Lotes Anti-Timeout — Desplegada y Certificada en vivo (`https://sanesca-inventario.pages.dev/`) |
+| **Fase 11.2** | ✅ 100% Completada | Optimización Ergonómica, Auditoría de Integridad y Reestructuración del Catálogo Maestro de Insumos: Nombres Visibles, 15 Columnas Modulares, Sorting Interactivo y Scroll Unificado (PLAN-006) — Desplegada y Certificada en vivo (`https://sanesca-inventario.pages.dev/`) |
+| **Fase 11.3** | ✅ 100% Completada | Blindaje Integral del Ciclo Make-to-Order (MTO): Tríada Canónica Odoo 18 en Notion, Selectores In Situ en Rampa/Revisión, Saneamiento Tipográfico de Etiquetas Térmicas 4-UP/4x6 y Previsualización Directa (PLAN-007 / INC-005) — Desplegada y Certificada en vivo (`https://sanesca-inventario.pages.dev/`) |
 
 ---
 
@@ -331,10 +334,86 @@
 
 ---
 
+## Fase 10F — Unificación de Selectores Canónicos y Puente Rampa → Asignaciones MTO (PLAN-005) (✅ 100% Completada)
+
+- **10F.A. Unificación de Selectores Canónicos en Modales:**
+  - `StoreAllocationModal.tsx` y `SupplyOrderModal.tsx` integran el buscador modal unificado `OrderSearchModal.tsx` con catálogo de obras (`BD_Pedidos` / `BD_Proyectos`), garantizando que la selección de obra sea idéntica en todos los puntos de contacto.
+- **10F.B. Caso Industrial Shoe Box ($10,060.00 USD):**
+  - Recepción en rampa de la nota de entrega manuscrita `0009651` (*Laminados y Derivados C.A.*) vinculada a `OAB-20261008-01`.
+  - Asentamiento de 9 partidas de insumos (533 unidades) con imputación automática Make-to-Order para el proyecto `PRY-2026-0045: SHOE BOX`.
+- **10F.C. Consolidación y Depuración en Edge KV:**
+  - Depuración de asignaciones huérfanas o con saldo cero en el motor serverless Cloudflare KV (`INVENTORY_KV`).
+  - Activación de tarjeta de proyecto con saldos vivos en el Tablero Panorámico de Asignaciones y visualización en popover de tabla principal.
+- **10F.D. Validación E2E en Producción (PVVN):**
+  - Desplegado y verificado en `https://sanesca-inventario.pages.dev/`.
+  - Protocolo PVVN completado con 5 evidencias visuales registradas en [`02_Reportes_Diagnosticos/WALKTHROUGH_FASE_10F_RECEPCION_RAMPA_Y_PUENTE_MTO_SHOE_BOX.md`](../../../../02_Reportes_Diagnosticos/WALKTHROUGH_FASE_10F_RECEPCION_RAMPA_Y_PUENTE_MTO_SHOE_BOX.md) y `07_Evidencias_Visuales/`:
+    - `fase10f_01_tablero_asignaciones_shoe_box.png`
+    - `fase10f_02_desglose_materiales_shoe_box.png`
+    - `fase10f_03_fila_melamina_negro_mate_apartado.png`
+    - `fase10f_04_popover_asignaciones_shoe_box.png`
+    - `fase10f_05_rampa_restaurada_lista_para_usuario.png`
+
+---
+
+## Fase 11.2 — Optimización Ergonómica, Integridad y Reestructuración del Catálogo Maestro (PLAN-006) (✅ 100% Completada)
+
+- **11.2A. Saneamiento de Nombres en Blanco y Llaves de Entidad (H1/H3):**
+  - Corrección en `functions/api/catalog/items.js` de la extracción jerárquica de nombres: `Concepto` (title) y `Nombre del producto` (rich_text) con fallback defensivo.
+  - Inyección de llave primaria canónica `id: p.id || item.id` para erradicar las advertencias `key={undefined}` en React.
+- **11.2B. Erradicación del Falso 100% Descontinuado (H2):**
+  - Inyección explícita de `activo: !isDescontinuado` en el DTO de cada insumo.
+  - El contador de "Activos Operativos" y los badges de estado reflejan con precisión los insumos activos vs descontinuados.
+- **11.2C. Sistema Modular de 15 Columnas y Popover Selectivo (H4):**
+  - Implementación de un selector de columnas visible con persistencia local en `ItemMasterModal.tsx`.
+  - 15 columnas modulares divididas en Esenciales (Nombre, UoM, Stock Físico, Costo USD, Estado) y Extendidas (Código, Marca, Valery, Ubicación, Rol, etc.).
+- **11.2D. Ordenamiento Multi-Atributo Interactivo (H5):**
+  - Cabeceras interactivas con clic para alternar orden ascendente/descendente por Nombre, Stock Físico, Apartado, Tránsito y Costo.
+- **11.2E. Unificación del Scroll Vertical y Ergonomía de Planta (H6):**
+  - Eliminación del doble scroll anidado; contenedor flex con cabecera `sticky` y scroll unificado para navegación fluida de los 441 insumos.
+- **11.2F. Validación E2E en Producción (PVVN):**
+  - Desplegado y verificado en `https://sanesca-inventario.pages.dev/`.
+  - Protocolo PVVN completado con 4 evidencias visuales registradas en [`02_Reportes_Diagnosticos/WALKTHROUGH_FASE_11_2_OPTIMIZACION_CATALOGO.md`](../../../../02_Reportes_Diagnosticos/WALKTHROUGH_FASE_11_2_OPTIMIZACION_CATALOGO.md):
+    - `fase11_2_01_catalogo_nombres_visibles_y_columnas.png`
+    - `fase11_2_02_selector_columnas_popover.png`
+    - `fase11_2_03_catalogo_compacto_y_ordenado.png`
+    - `fase11_2_04_busqueda_filtrada_melamina.png`
+
+---
+
+## Fase 11.3 — Blindaje Integral del Ciclo Make-to-Order (MTO): OAB → Rampa → Etiquetas (PLAN-007 / INC-005) (✅ 100% Completada)
+
+- **11.3A. Tríada Canónica ERP Odoo 18 en Notion (`create.js`):**
+  - Vinculación relacional estricta: `Pedido` hacia `BD_Pedidos` (`3d086805`) y `Proyectos` hacia `BD_Proyectos` (`31e86805`).
+  - Resguardo de redundancia inmutable en texto plano: escritura en la propiedad `Proyecto / Obra` (rich_text) con la etiqueta legible formateada `PED-XXX · OBRA`.
+- **11.3B. Visibilidad y Edición MTO in situ en Revisión OAB (`OABReviewModal.tsx`):**
+  - Incorporación de columna interactiva "Destino MTO (Obra / Tienda)" en la tabla de compras gerencial.
+  - Selector en caliente con modal `OrderSearchModal` para corregir o asignar obra antes de emitir la orden a proveedores.
+- **11.3C. Selector y Corrector de Obra en Rampa (`ReceptionTerminalModal.tsx`):**
+  - La rampa de descarga ya no es un punto ciego: cada renglón de recepción muestra el badge de destino y un botón interactivo para reasignar la orden/proyecto en el momento del desembarque si hubo cambio en obra.
+- **11.3D. Saneamiento Tipográfico y Desacoplamiento de Etiquetas 4-UP / 4x6" (`PrintSheetProjectLabels.tsx`):**
+  - Sanitización estricta de textos largos ($\le 60$ caracteres) para evitar desbordes y cortes tipográficos en hojas carta térmicas de 4 cuadrantes y rollos de 4x6".
+  - Botón táctil **"Previsualizar Etiquetas"** en Rampa: permite imprimir y rotular los bultos físicos inmediatamente sin forzar ni esperar el cierre contable definitivo en Kardex.
+- **11.3E. Reserva Atómica MTO en Cloudflare Edge KV (`receive.js`):**
+  - Lectura dual robusta en recepción: fallback relacional a `Pedido` + `Proyecto / Obra`.
+  - Inyección atómica en `INVENTORY_KV` (`live_allocations`), reflejando de inmediato el stock apartado en el tablero sin requerir asignación manual post-recepción.
+- **11.3F. Validación E2E en Producción (PVVN):**
+  - Desplegado y verificado en `https://sanesca-inventario.pages.dev/` bajo commits `e5f3257` y `2575843`.
+  - Protocolo PVVN completado con 5 evidencias visuales registradas en [`02_Reportes_Diagnosticos/WALKTHROUGH_FASE_11_3_BLINDAJE_MTO_OAB_RAMPA.md`](../../../../02_Reportes_Diagnosticos/WALKTHROUGH_FASE_11_3_BLINDAJE_MTO_OAB_RAMPA.md):
+    - `fase11_3_01_revision_oab_columna_mto.png`
+    - `fase11_3_02_selector_ordenes_en_rampa.png`
+    - `fase11_3_03_rampa_card_talib_fakih.png`
+    - `fase11_3_04_etiquetas_4up_carta_sanitizadas.png`
+    - `fase11_3_05_etiqueta_rollo_4x6_termica.png`
+
+---
+
 ## Archivos Clave del Proyecto
 
 | Archivo | Rol |
 |:---|:---|
+| `src/components/PrintSheetProjectLabels.tsx` | Plantilla formal de impresión térmica de etiquetas de proyecto: Formato 4-UP Carta y Rollo Térmico 4x6" con sanitización de texto e inyección MTO |
+| `src/components/AllocationsPopover.tsx` | Popover flotante ergonómico de asignaciones vivas MTO e indicador de apartados |
+| `src/components/BultoVerificationModal.tsx` | Modal de verificación y escaneo de bultos en logística de despacho |
 | `src/components/ItemMasterModal.tsx` | Componente modal maestro: Directorio, Ficha Técnica asistida por Ontología ISO, Rótulo Térmico y Health Checker (Fase 11) |
 | `src/types/catalog.ts` | Definiciones TypeScript para Conceptos ISO, Catálogo Maestro, Upsert Payloads y Health Audit (Fase 11) |
 | `src/services/catalogService.ts` | Servicio cliente de consumo de endpoints de Catálogo, Ontología ISO, Upsert dual y auto-sanación (Fase 11) |
