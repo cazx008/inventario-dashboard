@@ -475,6 +475,55 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
     });
   };
 
+  // Helper para construir la lista de etiquetas a partir de los ítems actuales
+  const buildLabelsFromCurrentItems = (): ProjectLabelItem[] => {
+    const activeFolio = selectedFolio || manualFolioInput || `RAMPA-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}`;
+    const generatedLabels: ProjectLabelItem[] = [];
+    itemsToReceive.forEach(l => {
+      const isRotular = l.rotularEtiqueta ?? Boolean(l.proyectoNombre);
+      const receivedToday = l.cantidadRecibidaHoy ?? l.cantidadRecibida ?? 0;
+      if (isRotular && receivedToday > 0) {
+        const approved = l.cantidadAprobada || l.cantidadSolicitada || receivedToday;
+        const prev = l.cantidadRecibidaPrevia || 0;
+        const totalCum = prev + receivedToday;
+        const isParcial = totalCum < approved;
+        const pending = Math.max(0, approved - totalCum);
+        const bultos = Math.max(1, l.bultos || 1);
+        const cantEnBulto = l.cantEnBulto || Math.ceil(receivedToday / bultos);
+
+        generatedLabels.push({
+          id: l.id || `lbl_${l.dashboardId || l.nombre}`,
+          insumoId: l.insumoId,
+          dashboardId: l.dashboardId,
+          nombre: l.nombre,
+          codigo: l.codigo,
+          categoria: l.categoriaMaterial,
+          folioOAB: activeFolio,
+          fechaRecepcion,
+          proyectoNombre: l.proyectoNombre || 'Stock Fábrica',
+          cantidadRecibidaHoy: receivedToday,
+          cantidadTotalAprobada: approved,
+          backorderPendiente: pending,
+          isParcial,
+          bultos,
+          cantEnBulto
+        });
+      }
+    });
+    return generatedLabels;
+  };
+
+  const handlePreviewLabels = () => {
+    const labels = buildLabelsFromCurrentItems();
+    if (labels.length === 0) {
+      setValidationError('No hay materiales con cantidad mayor a 0 marcados para rotulado de etiquetas.');
+      return;
+    }
+    setValidationError(null);
+    setLabelsToPrint(labels);
+    setShowLabelModal(true);
+  };
+
   // Confirmar recepción con tolerancia a fallas y soporte offline
   const handleConfirmReception = async () => {
     if (!notaEntrega.trim()) {
@@ -546,38 +595,7 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
     };
 
     // Preparar etiquetas físicas para impresión (Micro-Fase 10B)
-    const generatedLabels: ProjectLabelItem[] = [];
-    itemsToReceive.forEach(l => {
-      const isRotular = l.rotularEtiqueta ?? Boolean(l.proyectoNombre);
-      const receivedToday = l.cantidadRecibidaHoy ?? l.cantidadRecibida ?? 0;
-      if (isRotular && receivedToday > 0) {
-        const approved = l.cantidadAprobada || l.cantidadSolicitada || receivedToday;
-        const prev = l.cantidadRecibidaPrevia || 0;
-        const totalCum = prev + receivedToday;
-        const isParcial = totalCum < approved;
-        const pending = Math.max(0, approved - totalCum);
-        const bultos = Math.max(1, l.bultos || 1);
-        const cantEnBulto = l.cantEnBulto || Math.ceil(receivedToday / bultos);
-
-        generatedLabels.push({
-          id: l.id || `lbl_${l.dashboardId || l.nombre}`,
-          insumoId: l.insumoId,
-          dashboardId: l.dashboardId,
-          nombre: l.nombre,
-          codigo: l.codigo,
-          categoria: l.categoriaMaterial,
-          folioOAB: activeFolio,
-          fechaRecepcion,
-          proyectoNombre: l.proyectoNombre || 'Stock Fábrica',
-          cantidadRecibidaHoy: receivedToday,
-          cantidadTotalAprobada: approved,
-          backorderPendiente: pending,
-          isParcial,
-          bultos,
-          cantEnBulto
-        });
-      }
-    });
+    const generatedLabels = buildLabelsFromCurrentItems();
     setLabelsToPrint(generatedLabels);
 
     // Caso 1: Dispositivo offline
@@ -1327,12 +1345,25 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
 
               <div className="flex items-center gap-2">
                 <button
+                  type="button"
                   onClick={onClose}
                   className="px-3.5 py-2 text-xs text-slate-400 hover:text-slate-200 transition rounded"
                 >
                   Cancelar
                 </button>
+                {itemsToReceive.some(l => l.rotularEtiqueta || l.proyectoNombre) && (
+                  <button
+                    type="button"
+                    onClick={handlePreviewLabels}
+                    className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-brand-300 bg-brand-500/10 hover:bg-brand-500/20 border border-brand-500/30 rounded-lg transition active:scale-95"
+                    title="Previsualizar e imprimir etiquetas físicas MTO antes de asentar"
+                  >
+                    <Tag className="w-3.5 h-3.5 text-brand-400" />
+                    <span>Previsualizar Etiquetas</span>
+                  </button>
+                )}
                 <button
+                  type="button"
                   onClick={handleConfirmReception}
                   disabled={isProcessing || itemsToReceive.length === 0}
                   className="flex items-center gap-2 px-5 py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold rounded-lg text-xs transition shadow active:scale-95 disabled:opacity-50"
