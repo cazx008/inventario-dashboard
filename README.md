@@ -24,10 +24,14 @@ Sistema web industrial para la gestión integral de inventario, emisión de órd
                       │      Cloudflare Pages Functions      │
                       │  • /api/notion/* (Proxy seguro)      │
                       │  • /api/inventory/sync (Cursor SWR)  │
+                      │  • /api/inventory/allocations (MTO)  │
+                      │  • /api/catalog/* (Items, ISO, Audit)│
                       │  • /api/oab/create (Emisión + Bot TG)│
                       │  • /api/oab/details & /review        │
                       │  • /api/oab/receive (Kardex atómico) │
-                      │  • /api/kardex/list (Auditoría)      │
+                      │  • /api/kardex/list, dispatch, adjust│
+                      │  • /api/bom/* (Balance Mermas, Cierre│
+                      │  • /api/auth/* (HMAC, PIN, 2FA, Logs)│
                       │  • /api/storage/upload (R2 Bucket)   │
                       │  • /api/telegram/notify (Bot Alertas)│
                       │  • /api/bcv/rate (Tasa oficial BCV)  │
@@ -50,7 +54,10 @@ Sistema web industrial para la gestión integral de inventario, emisión de órd
                       │  • Puente Papel-Digital (Revisión)   │
                       │  • Terminal Rampa (IndexedDB + Foto) │
                       │  • Visor Kardex & Saldos Históricos  │
-                      │  • Tasa BCV & Costo Reposición Dual  │
+                      │  • Terminal de Despacho y Mermas BOM │
+                      │  • Catálogo Maestro & Health Checker │
+                      │  • Rótulos MTO Multi-Densidad QR 45mm│
+                      │  • Conteo Cíclico y Ajustes Odoo 18  │
                       └──────────────────────────────────────┘
 ```
 
@@ -114,6 +121,23 @@ Sistema web industrial para la gestión integral de inventario, emisión de órd
 - Matriz de permisos RBAC gobernada directamente desde Notion (`Puestos de trabajo`).
 - Flujo interactivo 2FA vía Telegram con tickets efímeros y nonces de un solo uso para reseteo de PIN.
 - Protección anti-fuerza bruta en Upstash Redis y visor denso de auditoría forense para Superadmin (`AccessAuditModal`).
+
+### 10. Reservas Make-to-Order (MTO) y Asignaciones por Tienda (Fase 10 MTO & 10F)
+- Apartado y protección de insumos físicos por tienda/obra para erradicar la canibalización de materiales comprados para proyectos específicos.
+- Tablero panorámico (`StoreAllocationModal.tsx`) y popover flotante (`AllocationsPopover.tsx`) para transferencias entre obras y liquidación de sobrantes.
+- Gestión en Cloudflare Edge KV (`INVENTORY_KV` `live_allocations`) con latencia sub-5ms y protocolo "Shoe Box" de rampa.
+
+### 11. Gestión Maestra del Catálogo, Ficha Técnica ISO y Health Checker (Fase 11)
+- Desacoplamiento estricto y modelo atómico dual: Catálogo Maestro (`BD_Catalogo_Insumos`) y Control de Stock Físico (`BD_Control_Stock_Existencias`).
+- Modal maestro integral (`ItemMasterModal.tsx`): Directorio, Ficha Técnica asistida por Ontología ISO (Conceptos normalizados, subcategorías, unidades de medida bloqueadas).
+- Health Checker de Catálogo (`/api/catalog/audit.js`): detección de huérfanos, inconsistencias de esquema y auto-sanación con un solo clic.
+- Vista modular ergonómica de 15 columnas con sorting interactivo y nombres completos visibles.
+
+### 12. Motor de Rótulos Logísticos MTO, Bultos y Multi-Densidad con QR 45mm (Fase 12)
+- Motor multi-densidad de impresión física: `8up` Carta compacto (Default, 102×60mm), `10up` Avery 5163/8163 (101.6×50.8mm), `4up` Carta grande (105×140mm) y `rollo4x6` continuo térmico (101.6×152.4mm).
+- Hardening mecánico para impresoras láser (HP LaserJet / EPSON / Brother): cota vertical de 254mm en hoja Carta con márgenes de 4mm, erradicando hojas en blanco por margen de agarre del rodillo.
+- Diseño logístico de 3 bandas: Cabecera negra 100% con código de obra y bulto; Cuerpo asimétrico 60/40 con regla tipográfica híbrida (16.5px $\le 45$ chars / 14px $>45$ chars, caja de cantidad en 21px bold monospace).
+- Código QR colosal de 45mm × 45mm (resolución nativa 200px) con alcance óptico de hasta 2.8m, origen de producción inmutable (`CANONICAL_ORIGIN`) y sufijos seriales dinámicos `-S1`/`-S2` para bultos fraccionados en taller.
 
 ---
 

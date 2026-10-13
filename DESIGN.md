@@ -195,13 +195,84 @@ Las filas de peligro tienen `border-left: 3px solid signal-red` y fondo tenue `r
 ### Dropdown Panel
 - **Shape:** `bg-surface-slab`, borde `border-wire`, radius 8px.
 - **Shadow:** `0 10px 25px rgba(0,0,0,0.5)` — shadow pronunciado.
-- **Animation:** `x-transition` de Alpine.js (fade + scale, ~150ms).
-- **Dismiss:** Click outside (`@click.away`).
+- **Interacción:** Control de estado reactivo en React (`isOpen`), portal/flotante con transiciones Tailwind (`transition-all duration-150 ease-out`).
+- **Dismiss:** Click outside gestionado con ref (`useEffect` listener en `document`).
+
+### Modales y Terminales Industriales
+- **Backdrop:** `fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4`.
+- **Contenedor:** `bg-surface-slab border border-border-wire rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col`.
+- **Cabecera Modal:** Borde inferior `border-border-wire`, título semántico, badge de contexto y botón de cierre `[ ✕ ]`.
+- **Scroll Interno:** `overflow-y-auto` con scrollbar industrial delgada.
 
 ### Glossary Toggle
 - **Shape:** Botón full-width, fondo `surface-raised/40`, hover `surface-raised`. Borde inferior sutil.
 - **Icon + Label:** 📖 + "Glosario y Referencia" + subtítulo `text-slate-500` "Columnas · Leyenda · Guía de uso".
-- **Body:** Revela con `x-transition.duration.300ms` (no x-collapse, Alpine core only).
+- **Interacción:** Acordeón reactivo controlado por estado en React.
+
+---
+
+## Rotulado Físico y Micro-Tipografía de Planta (Fase 12)
+
+La etiqueta pegada en el bulto físico es el puente tangencial entre el software de gestión y los operarios en las líneas de fabricación. Su diseño obedece a estrictas restricciones mecánicas de sustrato, óptica y contraste.
+
+### 1. Geometrías de Sustrato y Troqueles Soportados
+
+| Formato | Sustrato Físico | Configuración de Grilla | Dimensiones por Etiqueta | Caso de Uso en Planta |
+|:---|:---|:---|:---|:---|
+| **`8up` (Default)** | Hoja Carta estándar | 4 filas × 2 columnas (8-UP) | ~102mm × 60mm | **Formato oficial predeterminado:** Máximo aprovechamiento de hoja adhesiva y legibilidad equilibrada para estanterías y cajas de piezas medianas. |
+| **`10up`** | Hoja Carta troquel comercial (Avery 5163 / 8163) | 5 filas × 2 columnas (10-UP) | 101.6mm × 50.8mm (4" × 2") | Hojas pre-troqueladas comerciales de papelería sin necesidad de guillotina manual. Gap de 2.5mm. |
+| **`4up`** | Hoja Carta estándar | 2 filas × 2 columnas (4-UP) | ~105mm × 140mm | Bultos voluminosos, atados de perfiles largos o pallets de madera. |
+| **`rollo4x6`** | Rollo térmico continuo | 1 etiqueta por página continua | 101.6mm × 152.4mm (4" × 6") | Impresoras térmicas industriales directas (Zebra ZT230, Xprinter XP-420B). |
+
+### 2. Hardening Mecánico de Impresión Láser (HP LaserJet / EPSON)
+
+- **Cota Máxima de Altura:** `.page-container { height: 254mm; }`.
+- **Márgenes de Hoja:** `@page { size: letter portrait; margin: 4mm 4mm; }`.
+- **Mecánica del Rodillo:** Una hoja Letter mide $279.4\text{ mm}$ de alto. Las impresoras láser de escritorio reservan entre $6\text{ mm}$ y $12\text{ mm}$ para el rodillo de tracción inferior. Si el CSS excede $\sim 260\text{ mm}$, el driver de la impresora detecta desbordamiento y expulsa forzosamente una hoja en blanco innecesaria. Con $254\text{ mm} + 8\text{ mm} = 262\text{ mm}$, se garantiza que el lote se imprima en la cantidad exacta de páginas sin hojas en blanco intermedias ni finales.
+- **Ajustes Obligatorios de Diálogo (`Ctrl + P`):**
+  - **Márgenes:** Seleccionar **"Ninguno" ("None")** (el CSS ya contiene los 4mm técnicos de seguridad).
+  - **Escala:** Seleccionar **"100%" (Predeterminada)** para no desfasar la grilla de los troqueles Avery.
+  - **Gráficos en Segundo Plano:** Activar **"Gráficos en segundo plano"** para que los fondos negros invertidos se impriman con contraste total.
+
+### 3. Anatomía Visual de 3 Bandas Industriales
+
+Cada etiqueta compacta (`8up` y `10up`) está estructurada en 3 bandas funcionales para jerarquizar la información:
+
+```
+┌────────────────────────────────────────────────────────────┐
+│ 🏷️ [CÓDIGO OBRA] · [NOMBRE OBRA]               BTO 1/3     │ ◄── BANDA 1: Cabecera 100% Invertida
+├────────────────────────────────┬───────────────────────────┤
+│ NOMBRE DEL INSUMO              │                           │
+│ (Regla Híbrida 16.5px / 14px)  │                           │
+│ SKU: TORN-001                  │        CÓDIGO QR          │ ◄── BANDA 2: Cuerpo Asimétrico
+│ OAB-20261013-01 · 13/10/2026   │      COLOSAL 45×45mm       │     (60% Texto / 40% QR)
+│                                │      (Resolución 200px)   │
+│ ┌────────────────────────────┐ │                           │
+│ │ CANT: 150 und              │ │                           │
+│ └────────────────────────────┘ │ PKG-SANESCA-20261013-001  │
+├────────────────────────────────┴───────────────────────────┤
+│ SANESCA PRO · LOGÍSTICA DE PLANTA · RECEPCIÓN CONFORME     │ ◄── BANDA 3: Pie de Auditoría
+└────────────────────────────────────────────────────────────┘
+```
+
+### 4. Micro-Tipografía Adaptativa de Planta
+
+- **Banda 1 (Cabecera):** Fondo negro sólido `#000000`, texto blanco `#ffffff`, `font-black` (weight 900), tamaño `14px` (8-UP) / `11px` (10-UP), `letter-spacing: 0.5px`, truncamiento elíptico en `34` caracteres para MTO. Badge de bulto con fondo blanco y texto negro en `10.5px` monospace.
+- **Nombre del Insumo (Regla Adaptativa Híbrida):**
+  - Si longitud $\le 45$ caracteres: `16.5px` (8-UP) / `14px` (10-UP), `font-extrabold` (weight 800), line-height `1.15`.
+  - Si longitud $> 45$ caracteres: escala automáticamente a `14px` (8-UP) / `12px` (10-UP) con `line-clamp: 2` para evitar cualquier desbordamiento o invasión de la caja de cantidad.
+- **Código SKU:** `13px` monospace, `font-bold`. Si el material no posee código corto propio o es idéntico al nombre, se sanitiza a `S/C` (Sin Código).
+- **Folio OAB & Fecha:** `10px` monospace, color `#000000`.
+- **Caja de Cantidad:** `21px` (8-UP) / `18px` (10-UP) extra-bold monospace (`CANT: X und`), encerrada en contenedor con fondo gris suave `#f1f5f9`, borde negro de `1px` y padding interno de `2px 6px`.
+
+### 5. Código QR Colosal de 45mm × 45mm
+
+- **Dimensiones Físicas:** Cuadrante exacto de $45\text{ mm} \times 45\text{ mm}$ en `8up` y $\sim 38\text{ mm} \times 38\text{ mm}$ en `10up`.
+- **Resolución Gráfica:** Generado dinámicamente mediante librería nativa `qrcode` con ancho base de `200px` (en lugar de 100-128px estándar), margen 0 (`margin: 0`) y nivel de corrección de error 'M'. Esto erradica el aliasing o desenfoque al ser rasterizado por el motor de impresión del navegador.
+- **Ratio Óptico de Lectura:** Basado en el estándar de escaneo óptico industrial (ratio 1:10), un código QR de 45mm permite lectura rápida y nítida a una distancia de **hasta 2.8 metros** utilizando lectores ópticos inalámbricos (Honeywell, Zebra) o cámaras de smartphone desde el suelo hasta el estante superior.
+- **Payload Canónico Inmutable:** Siempre apunta a `https://sanesca-inventario.pages.dev/bulto/{pkgId}` con serial único determinista y sufijo de saldo `-S1`/`-S2` si el bulto ha sido fraccionado en taller.
+
+---
 
 ## Do's and Don'ts
 

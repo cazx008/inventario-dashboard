@@ -104,6 +104,44 @@ El sistema erradica la compra reactiva a ciegas y la manipulación estática del
   - Actualización reactiva optimista instantánea en frontend (stock, déficit, KPIs y badge de reconteo) con revalidación asíncrona SWR en segundo plano.
   - Blindaje Zero Trust RBAC con guardián perimetral (`Auditoria_Kardex` o `Superadmin`) y pantalla de bloqueo disuasivo `AccessDeniedModal`.
 
+### 12. Identidad, Seguridad Criptográfica RBAC y 2FA Telegram (Fase 10 Seguridad)
+- Autenticación criptográfica mediante HMAC-SHA256 para sesiones en Telegram WebApp y validación de PIN operativo para puestos fijos de PC.
+- Matriz de permisos RBAC gobernada directamente desde Notion (`Puestos de trabajo`).
+- Flujo interactivo 2FA vía Telegram con tickets efímeros y nonces de un solo uso para reseteo de PIN por parte del Superadmin (Mikel Itriago).
+- Protección anti-fuerza bruta en Upstash Redis y visor denso de auditoría forense (`AccessAuditModal`).
+
+### 13. Reservas Make-to-Order (MTO), Asignaciones por Tienda y Shoe Box en Rampa (Fase 10 MTO & 10F)
+- Sistema integral de reservas MTO para apartar insumos físicos por obra/tienda y evitar la canibalización de materiales comprados para proyectos específicos.
+- Tablero panorámico de asignaciones (`StoreAllocationModal.tsx`) y popover flotante ergonómico (`AllocationsPopover.tsx`) para reasignaciones entre obras y liquidación de sobrantes.
+- Gestión reactiva y deltas atómicos en Cloudflare Edge KV (`INVENTORY_KV` `live_allocations`) con latencia sub-5ms y reconciliación forense contra Notion (`/api/inventory/reconcile.js`).
+- Protocolo "Shoe Box" de rampa: pre-asignación in situ durante la recepción física para clasificar bultos inmediatamente en estantes identificados por tienda.
+
+### 14. Gestión Maestra del Catálogo, Ficha Técnica ISO y Health Checker (Fase 11)
+- Desacoplamiento estricto y modelo atómico dual: Catálogo Maestro (`BD_Catalogo_Insumos`) y Control de Stock Físico (`BD_Control_Stock_Existencias`).
+- Modal maestro integral (`ItemMasterModal.tsx`): Directorio unificado, Ficha Técnica asistida por Ontología ISO (Conceptos normalizados, subcategorías, unidades de medida bloqueadas) y generador de rótulos térmicos.
+- Consulta unificada y buffer en Cloudflare Edge KV (`/api/catalog/items.js`, `/api/catalog/concepts.js`).
+- Upsert dual atómico con rollback compensatorio y bloqueo estricto de cambio de unidad de medida (UoM) para preservar la coherencia del Kardex.
+- Health Checker de Catálogo (`/api/catalog/audit.js`): auditoría de integridad referencial, detección de huérfanos, inconsistencias de esquema y auto-sanación con un solo clic.
+- Vista modular ergonómica de 15 columnas con sorting interactivo y nombres completos legibles.
+
+### 15. Sistema Integral de Identificación y Rótulos MTO: Bultos Heterogéneos, Saldo de Taller y Motor Multi-Densidad con QR 45mm (Fase 12)
+- Identificación física inequívoca del material en planta desde el muelle de descarga hasta el banco de ensamble en taller.
+- Admisión de desglose asimétrico de bultos y soporte nativo para *Bulto Pico* (cantidades remanentes heterogéneas).
+- Fraccionamiento en taller con saldo remanente rotulado bajo serial dinámico `-S1`, `-S2`, preservando la trazabilidad de bultos abiertos en proceso de fabricación.
+- Selector quirúrgico interactivo de etiquetas para reimpresión selectiva ante deterioro o extravío en piso de planta.
+- Cédula digital de bulto móvil escaneable desde terminales móviles (390px) y PC.
+- Hardening físico de impresión: cota vertical de 254mm en hoja Carta con márgenes de 4mm, erradicando hojas en blanco provocadas por el margen de agarre mecánico de impresoras láser (HP LaserJet / EPSON / Brother).
+- Motor multi-densidad de sustratos:
+  - `8up` (Carta Compacto — Default): 8 etiquetas por hoja (4×2), ~102mm × 60mm.
+  - `10up` (Carta Comercial Avery 5163 / 8163): 10 etiquetas por hoja (5×2), 101.6mm × 50.8mm.
+  - `4up` (Carta Grande): 4 etiquetas por hoja (2×2), ~105mm × 140mm.
+  - `rollo4x6` (Rollo Continuo Térmico): 4" × 6" (101.6mm × 152.4mm) para impresoras térmicas industriales (Zebra, Xprinter).
+- Sanitización inteligente de SKU duplicado (`S/C`).
+- Rediseño logístico de 3 bandas industriales:
+  1. Cabecera 100% en fondo negro con código de obra y bulto.
+  2. Cuerpo asimétrico 60/40 con regla tipográfica híbrida adaptativa (16.5px $\le 45$ chars / 14px $>45$ chars, caja de cantidad en 21px bold monospace).
+  3. Código QR colosal de 45mm × 45mm (resolución 200px nativa) legible a ~2.8m con pistolas ópticas o smartphones, con URL de producción inmutable (`CANONICAL_ORIGIN`).
+
 ## Stack Tecnológico
 
 - **Frontend:** React 18, TypeScript, Vite, Tailwind CSS, Lucide React.
@@ -135,3 +173,5 @@ El sistema erradica la compra reactiva a ciegas y la manipulación estática del
 6. **Trazabilidad Industrial Tripartita (MTS / MTO Obra / MTO BOM):** Ningún material abandona el almacén central sin quedar imputado a un centro de costo general, orden de tienda o renglón de mobiliario específico.
 7. **Cero Freno a Fabricación (Auditoría Ex-Post vs Bloqueo Ex-Ante):** El taller despacha libremente a demanda del operario; las desviaciones, mermas y desperdicios se calculan analíticamente al cierre formal de la orden sin estrangular el ritmo productivo de planta.
 8. **Cierre Transaccional Hermético y Gobernanza Forense:** Una orden concluida y auditada no admite entregas rutinarias; las excepciones por garantía requieren PIN de supervisor y toda desviación queda sellada con snapshot inmutable en ERP.
+9. **Identificación Física y Legibilidad en Planta (QR Colosal de 45mm y Densidad Adaptativa):** La etiqueta en el bulto es la interfaz física del sistema en el taller. Un QR colosal de 45mm legible a distancia (ratio 1:10 hasta 2.8m con pistolas Honeywell/Zebra o teléfonos) y tipografía adaptativa de alto contraste erradican el error humano de identificación y aceleran el despacho sin confusiones de material.
+

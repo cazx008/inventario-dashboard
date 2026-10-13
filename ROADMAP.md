@@ -29,6 +29,10 @@
 | **Micro-Parche 11.1** | ✅ 100% Completada | Consolidación y Blindaje Definitivo: SWR Dual-Truth Loopback, Paridad Esquema Notion ('Nombre'), Candados Tripartitos D6-11, Paginación Cursor Completa y Micro-Lotes Anti-Timeout — Desplegada y Certificada en vivo (`https://sanesca-inventario.pages.dev/`) |
 | **Fase 11.2** | ✅ 100% Completada | Optimización Ergonómica, Auditoría de Integridad y Reestructuración del Catálogo Maestro de Insumos: Nombres Visibles, 15 Columnas Modulares, Sorting Interactivo y Scroll Unificado (PLAN-006) — Desplegada y Certificada en vivo (`https://sanesca-inventario.pages.dev/`) |
 | **Fase 11.3** | ✅ 100% Completada | Blindaje Integral del Ciclo Make-to-Order (MTO): Tríada Canónica Odoo 18 en Notion, Selectores In Situ en Rampa/Revisión, Saneamiento Tipográfico de Etiquetas Térmicas 4-UP/4x6 y Previsualización Directa (PLAN-007 / INC-005) — Desplegada y Certificada en vivo (`https://sanesca-inventario.pages.dev/`) |
+| **Fase 12.1** | ✅ 100% Completada | Desglose Heterogéneo de Bultos, Bulto Pico, Fraccionamiento en Taller (S1/S2) y Reimpresión Quirúrgica Móvil — Desplegada y Certificada en vivo (`https://sanesca-inventario.pages.dev/`) |
+| **Fase 12.2** | ✅ 100% Completada | Hardening Físico de Impresión HP Laser (Cota $\le 254$mm), Serial Dinámico `-S{N}` y Micro-Tipografía Adaptativa — Desplegada y Certificada en vivo (`https://sanesca-inventario.pages.dev/`) |
+| **Fase 12.3** | ✅ 100% Completada | Motor Multi-Densidad de Etiquetas (8-UP Carta Default, 10-UP Avery 5163/8163, 4-UP Grande y Rollo 4x6" Continuo) y Sanitización de SKU Duplicado — Desplegada y Certificada en vivo (`https://sanesca-inventario.pages.dev/`) |
+| **Fase 12.4** | ✅ 100% Completada | Rediseño Logístico Definitivo 3-Bandas con QR Colosal de 45mm × 45mm (Resolución 200px) y Regla Adaptativa Híbrida (16.5px / 14px) — Desplegada y Certificada en vivo (`https://sanesca-inventario.pages.dev/`) |
 
 ---
 
@@ -407,11 +411,61 @@
 
 ---
 
+## Fase 12 — Detalle: Identificación MTO, Bultos Heterogéneos, Hardening Físico y Motor Multi-Densidad de Etiquetas
+
+### Sub-fase 12.1: Desglose Heterogéneo, Bulto Pico, Fraccionamiento en Taller y Reimpresión Quirúrgica (✅ Completada)
+- **Desglose Asimétrico de Bultos:** Admisión de bultos con cantidades heterogéneas y detección de *Bulto Pico* (ej. 3 bultos de 100 und + 1 bulto pico de 40 und) tanto en la recepción en rampa como en el generador de rótulos.
+- **Fraccionamiento en Taller y Saldo Remanente (`-S{N}`):** Protocolo para bultos abiertos en piso de planta donde se consume una porción y se preserva el saldo remanente rotulado con sub-índice serial dinámico `-S1`, `-S2`, etc., previniendo bultos fantasma o pérdidas de trazabilidad física.
+- **Selector Quirúrgico y Reimpresión Móvil:** Interfaz interactiva de selección de etiquetas individuales o por lote (checkboxes, "Seleccionar Todo", "Deseleccionar Todo") que permite reimprimir exclusivamente una etiqueta rota o extraviada sin desperdiciar papel adhesivo.
+- **Cédula Digital de Bulto Móvil:** Integración en el modal para escanear y visualizar el detalle pericial de cualquier bulto desde terminales móviles (390px) y de escritorio.
+- **Commits asociados:** `2575843`, `27d7a53`.
+- **OpenSpec canónica:** `openspec/specs/fraccionamiento-bulto-taller/spec.md`, `openspec/specs/reimpresion-quirurgica-inventario/spec.md`.
+
+### Sub-fase 12.2: Hardening Físico de Impresión HP Laser y Micro-Tipografía Adaptativa (✅ Completada)
+- **Cota Mecánica Imprimible de Impresoras Láser:** Fijación de la altura máxima del contenedor imprimible en `height: 254mm;` con márgenes `@page { size: letter portrait; margin: 4mm 4mm; }` en CSS. Esto garantiza que la suma vertical (254mm + 8mm = 262mm) respete holgadamente el largo de la hoja Carta estándar (279.4mm), eliminando definitivamente la expulsión de una segunda página en blanco provocada por el margen de agarre mecánico del rodillo de tracción en impresoras HP LaserJet, EPSON y Brother.
+- **Micro-Tipografía Adaptativa de Planta:** Ajuste de jerarquías para legibilidad industrial con contrastes monocromáticos absolutos (negro `#000000` sobre blanco `#ffffff`).
+- **QR Canónico con Origen de Producción:** Configuración forzada de `CANONICAL_ORIGIN = 'https://sanesca-inventario.pages.dev'` en todos los payloads de código QR, garantizando que el escaneo con pistola o smartphone siempre abra la ficha del insumo en el entorno de producción Cloudflare Pages y nunca en `localhost`.
+- **Commit asociado:** `27d7a53`.
+- **OpenSpec canónica:** `openspec/specs/hardening-impresion-etiquetas/spec.md`.
+
+### Sub-fase 12.3: Motor Multi-Densidad de Etiquetas y Sanitización de SKU Duplicado (✅ Completada)
+- **Selector de 4 Densidades de Sustrato:**
+  1. `8up` (Carta Compacto — Default): 8 etiquetas por hoja (4 filas × 2 columnas), ~102mm × 60mm. Optimizado para máximo ahorro de papel adhesivo y máxima legibilidad en almacén.
+  2. `10up` (Carta Comercial Avery 5163 / 8163): 10 etiquetas por hoja (5 filas × 2 columnas), troquel estándar de mercado 4" × 2" (101.6mm × 50.8mm), gap 2.5mm.
+  3. `4up` (Carta Grande): 4 etiquetas por hoja (2 filas × 2 columnas), ~105mm × 140mm, para bultos voluminosos o pallets.
+  4. `rollo4x6` (Rollo Térmico Continuo): 1 etiqueta por página continua de 4" × 6" (101.6mm × 152.4mm) para impresoras térmicas dedicadas (Zebra, Xprinter).
+- **Sanitización Inteligente de SKU Duplicado:** Detección de casos donde el código SKU es idéntico al nombre del material, supera 25 caracteres o viene vacío, reemplazándolo limpiamente por `S/C` (Sin Código) para evitar redundancias visuales y saturación en el rótulo.
+- **Commit asociado:** `7d1220a`.
+- **OpenSpec canónica:** `openspec/specs/etiquetas-compactas-multi-densidad/spec.md`.
+
+### Sub-fase 12.4: Rediseño Logístico Definitivo 3-Bandas con QR Colosal de 45mm × 45mm (✅ Completada)
+- **Arquitectura Visual de 3 Bandas Industriales:**
+  1. **Banda 1 (Cabecera Superior 100% Ancho):** Banner negro sólido invertido de alto impacto visual con ícono semántico (`🏷️` para MTO o `📦` para Stock General), nombre normalizado del destino (`[CÓDIGO] · [OBRA]`) y badge de bulto (`BTO X/Y`, `BULTO PICO: Z` o `SALDO ABIERTO`).
+  2. **Banda 2 (Cuerpo Principal Asimétrico):**
+     - **Columna Izquierda (~60% ancho):**
+       - Nombre del Insumo con **Regla Adaptativa Híbrida**: 16.5px para $\le 45$ caracteres; escala a 14px (8-UP) / 12px (10-UP) para $>45$ caracteres, con limitación `line-clamp: 2`.
+       - Código SKU en 13px bold monospace con prefijo `SKU:` (o `S/C`).
+       - Folio OAB y fecha de recepción en 10px monospace (`OAB-YYYYMMDD-## · DD/MM/YYYY`).
+       - Caja de Cantidad destacada en 21px extra-bold monospace (`CANT: X und`) con fondo gris suave `#f1f5f9` y marco perimetral negro de 1px.
+     - **Columna Derecha (~40% ancho):**
+       - **Código QR Colosal de 45mm × 45mm:** Renderizado en canvas nativo con resolución base de 200px, margen 0 y nivel de corrección de error 'M', garantizando lectura instantánea a distancia operativa de hasta 2.8 metros con lectores ópticos o smartphones.
+       - Subtítulo del Serial Único PKG-ID en 8.5px monospace centrado debajo del QR.
+  3. **Banda 3 (Pie de Auditoría):** Sub-información de trazabilidad y tipo de recepción.
+- **Simulador Visual y Verificación Previa:** Creación de simulador interactivo standalone HTML (`simulador_propuestas_etiquetas.html`) y contrastación visual fotográfica antes de la inyección final en producción.
+- **Commits asociados:** `7d1220a`, `9b55a59`.
+- **OpenSpec canónica:** `openspec/specs/layout-logistico-qr45-etiquetas/spec.md`.
+- **Evidencias Registradas:**
+  - `fase12_4_01_etiquetas_logistico_qr45_live.png` (8-UP Carta Default en vivo en Cloudflare Pages).
+  - `fase12_4_02_etiquetas_10up_live.png` (10-UP Avery 5163 en vivo en Cloudflare Pages).
+  - `walkthrough_fase_12_4_etiquetas_logistico_qr45.md` (Reporte de entrega).
+
+---
+
 ## Archivos Clave del Proyecto
 
 | Archivo | Rol |
 |:---|:---|
-| `src/components/PrintSheetProjectLabels.tsx` | Plantilla formal de impresión térmica de etiquetas de proyecto: Formato 4-UP Carta y Rollo Térmico 4x6" con sanitización de texto e inyección MTO |
+| `src/components/PrintSheetProjectLabels.tsx` | Motor multi-densidad de impresión de rótulos logísticos MTO: Soporte 8-UP Carta (Default), 10-UP Avery 5163/8163, 4-UP Grande y Rollo 4x6", diseño 3-bandas con QR colosal de 45mm, regla adaptativa híbrida (16.5px / 14px), caja de cantidad 21px, desglose heterogéneo y bulto pico |
 | `src/components/AllocationsPopover.tsx` | Popover flotante ergonómico de asignaciones vivas MTO e indicador de apartados |
 | `src/components/BultoVerificationModal.tsx` | Modal de verificación y escaneo de bultos en logística de despacho |
 | `src/components/ItemMasterModal.tsx` | Componente modal maestro: Directorio, Ficha Técnica asistida por Ontología ISO, Rótulo Térmico y Health Checker (Fase 11) |
