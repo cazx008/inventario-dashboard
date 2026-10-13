@@ -1,0 +1,245 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "compare",
+  "type": "architecture",
+  "comparatorVersion": 1,
+  "canonicalVersion": 1,
+  "completeness": "complete",
+  "proofLevel": "revision-pinned",
+  "base": {
+    "title": "Sanesca PRO — Arquitectura Inventario (Pre-Fase 11.3)",
+    "rawSha256": "212f51da270e4d34e77d623661dddcd59335aa8013d71ec24b923b72ed83150e",
+    "semanticSha256": "e516f5dfe1b23d8b514eca54b5b840a50b3bb935b2f7ce62897e8e6f5f310ee4",
+    "bytes": 11854,
+    "revision": "5418c69e825dab8c9ff1a2835f3cee7ad67248ed"
+  },
+  "head": {
+    "title": "Sanesca PRO — Arquitectura del Dashboard de Inventario",
+    "rawSha256": "82f21c8e3a271e63196bde9cb0c71ff3dae49bf1c3e250891852f6a03f1b45d6",
+    "semanticSha256": "17862ec7b3b4a2cf0f91901168ac7168528842c577da6f9ecf2f5e3497500005",
+    "bytes": 13006,
+    "revision": "7715f309e98507687eba603ce4072d28d11586ed"
+  },
+  "summary": {
+    "components": {
+      "added": 1,
+      "changed": 4,
+      "evidenceChanged": 1,
+      "removed": 1,
+      "moved": 0
+    },
+    "connections": {
+      "added": 3,
+      "changed": 0,
+      "removed": 2,
+      "rerouted": 0
+    },
+    "boundaries": {
+      "added": 0,
+      "changed": 1,
+      "removed": 0,
+      "geometryChanged": 0
+    },
+    "presentationChanged": true,
+    "provenanceChanged": true
+  },
+  "changes": {
+    "components": [
+      {
+        "id": "cf_allocations",
+        "headLabel": "API Asignaciones MTO",
+        "status": "added",
+        "classifications": [
+          "semantic"
+        ],
+        "changedFields": []
+      },
+      {
+        "id": "cf_oab",
+        "baseLabel": "API Compras OAB",
+        "headLabel": "API Compras OAB",
+        "status": "changed",
+        "classifications": [
+          "semantic"
+        ],
+        "changedFields": [
+          "/sublabel"
+        ]
+      },
+      {
+        "id": "cf_reception",
+        "baseLabel": "API Recepción Libre",
+        "status": "removed",
+        "classifications": [
+          "semantic"
+        ],
+        "changedFields": []
+      },
+      {
+        "id": "notion_catalog",
+        "baseLabel": "BD_Catalogo_Insumos",
+        "headLabel": "BD_Catalogo_Insumos",
+        "status": "evidence-changed",
+        "classifications": [
+          "evidence"
+        ],
+        "changedFields": [
+          "/sources"
+        ]
+      },
+      {
+        "id": "notion_stock",
+        "baseLabel": "BD_Control_Stock",
+        "headLabel": "BD_Control_Stock",
+        "status": "changed",
+        "classifications": [
+          "semantic"
+        ],
+        "changedFields": [
+          "/sublabel"
+        ]
+      },
+      {
+        "id": "ui_oab",
+        "baseLabel": "Revisión OAB",
+        "headLabel": "Revisión OAB",
+        "status": "changed",
+        "classifications": [
+          "semantic"
+        ],
+        "changedFields": [
+          "/sublabel"
+        ]
+      },
+      {
+        "id": "ui_rampa",
+        "baseLabel": "Terminal de Rampa",
+        "headLabel": "Terminal de Rampa",
+        "status": "changed",
+        "classifications": [
+          "semantic"
+        ],
+        "changedFields": [
+          "/sublabel"
+        ]
+      }
+    ],
+    "connections": [
+      {
+        "id": "conn_alloc_projects",
+        "head": {
+          "from": "cf_allocations",
+          "to": "notion_projects",
+          "label": "Asignar Obra MTO"
+        },
+        "status": "added",
+        "classifications": [
+          "topology"
+        ],
+        "changedFields": []
+      },
+      {
+        "id": "conn_alloc_r2",
+        "head": {
+          "from": "cf_allocations",
+          "to": "cloudflare_r2",
+          "label": "Remito WebP"
+        },
+        "status": "added",
+        "classifications": [
+          "topology"
+        ],
+        "changedFields": []
+      },
+      {
+        "id": "conn_rampa_alloc",
+        "head": {
+          "from": "ui_rampa",
+          "to": "cf_allocations",
+          "label": "POST /allocations"
+        },
+        "status": "added",
+        "classifications": [
+          "topology"
+        ],
+        "changedFields": []
+      },
+      {
+        "id": "conn_rampa_reception",
+        "base": {
+          "from": "ui_rampa",
+          "to": "cf_reception",
+          "label": "POST /reception"
+        },
+        "status": "removed",
+        "classifications": [
+          "topology"
+        ],
+        "changedFields": []
+      },
+      {
+        "id": "conn_reception_stock",
+        "base": {
+          "from": "cf_reception",
+          "to": "notion_stock",
+          "label": "Carga Stock Libre (Fuga)"
+        },
+        "status": "removed",
+        "classifications": [
+          "topology"
+        ],
+        "changedFields": []
+      }
+    ],
+    "boundaries": [
+      {
+        "key": "region:Plano 2: Cloudflare Edge Serverless Functions",
+        "kind": "region",
+        "label": "Plano 2: Cloudflare Edge Serverless Functions",
+        "status": "changed",
+        "classifications": [
+          "scope"
+        ],
+        "changedFields": [
+          "/wraps"
+        ]
+      }
+    ]
+  },
+  "provenance": {
+    "changedFields": [
+      "/revision"
+    ],
+    "base": {
+      "revision": "5418c69e825dab8c9ff1a2835f3cee7ad67248ed",
+      "provider": "github"
+    },
+    "head": {
+      "revision": "7715f309e98507687eba603ce4072d28d11586ed",
+      "provider": "github"
+    }
+  },
+  "identity": {
+    "components": "components[].id",
+    "connections": "connections[].id (required)",
+    "boundaries": "boundaries[].kind + boundaries[].label (derived)"
+  },
+  "view": {
+    "visualPreset": "classic"
+  },
+  "limitations": [
+    "Authored Architecture IR only; no runtime impact, causality, risk, or mergeability is inferred.",
+    "Boundary identity is conservatively derived from kind + label."
+  ],
+  "artifact": {
+    "sha256": "2758149cc2b81d2a03d8c30c4d49d11b9a0b888810caf13e1b69fd8d85f22664",
+    "bytes": 2276931
+  },
+  "validation": {
+    "checksPassed": 28,
+    "checkCount": 28,
+    "baseComposition": "pass",
+    "headComposition": "pass"
+  }
+}

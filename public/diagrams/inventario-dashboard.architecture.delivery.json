@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "9afded63-1f2a-4365-a130-4a49d86e3a51",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "C:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\Proyectos-index\\Arquitectura-Sanesca\\08_Web\\inventario-dashboard\\.archify\\architecture-inventario-dashboard-20261012-130846\\candidate.json",
+  "output": "C:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\Proyectos-index\\Arquitectura-Sanesca\\08_Web\\inventario-dashboard\\public\\diagrams\\inventario-dashboard.architecture.html",
+  "specification": {
+    "sha256": "82f21c8e3a271e63196bde9cb0c71ff3dae49bf1c3e250891852f6a03f1b45d6",
+    "bytes": 13006
+  },
+  "artifact": {
+    "sha256": "643761fb54066333816f698e09e2d230c07463138f55b040c801de4cb4776225",
+    "bytes": 800603
+  }
+}

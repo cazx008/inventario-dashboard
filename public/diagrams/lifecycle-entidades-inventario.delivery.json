@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "3fbfb750-10e1-4f79-9fbb-56a7687ed38a",
+  "status": "current",
+  "command": "deliver",
+  "type": "lifecycle",
+  "input": "c:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\Proyectos-index\\Arquitectura-Sanesca\\08_Web\\inventario-dashboard\\.archify\\lifecycle-entidades-inventario-20261012-145500\\candidate.json",
+  "output": "C:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\Proyectos-index\\Arquitectura-Sanesca\\08_Web\\inventario-dashboard\\public\\diagrams\\lifecycle-entidades-inventario.html",
+  "specification": {
+    "sha256": "60501b849a8338bedc46665d8375f1dd43d5b247830ac0539988be2b02a96970",
+    "bytes": 7709
+  },
+  "artifact": {
+    "sha256": "7a059a1263bf69019ac883f61e749e0bef137efbf58a2a3189e87fda8de11cc5",
+    "bytes": 784335
+  }
+}

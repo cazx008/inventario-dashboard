@@ -17,7 +17,8 @@ import {
   SlidersHorizontal,
   Zap,
   Flag,
-  Check
+  Check,
+  Printer
 } from 'lucide-react';
 import { 
   StoreAllocation, 
@@ -32,6 +33,7 @@ import {
 import { InventoryItem } from '../types/inventory';
 import { OrderSearchModal } from './OrderSearchModal';
 import { OrderReference } from '../types/oab';
+import { ProjectLabelItem } from './PrintSheetProjectLabels';
 
 interface StoreAllocationModalProps {
   isOpen: boolean;
@@ -44,6 +46,7 @@ interface StoreAllocationModalProps {
   userRole?: string;
   hasPermission?: (permission: string) => boolean;
   triggerHaptic?: (type: 'success' | 'error' | 'warning' | 'light' | 'medium') => void;
+  onReprintLabel?: (item: ProjectLabelItem) => void;
 }
 
 export const StoreAllocationModal: React.FC<StoreAllocationModalProps> = ({
@@ -54,7 +57,8 @@ export const StoreAllocationModal: React.FC<StoreAllocationModalProps> = ({
   onRefreshAllocations,
   initialSelectedItem,
   initialSelectedAllocation,
-  triggerHaptic
+  triggerHaptic,
+  onReprintLabel
 }) => {
   // Pestaña activa: 'projects' | 'matrix'
   const [activeTab, setActiveTab] = useState<'projects' | 'matrix'>('projects');
@@ -352,6 +356,33 @@ export const StoreAllocationModal: React.FC<StoreAllocationModalProps> = ({
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleTriggerReprint = (alloc: StoreAllocation) => {
+    if (!onReprintLabel) return;
+    const matchingItem = allItems.find(it => 
+      (alloc.insumoId && it.id === alloc.insumoId) || 
+      (alloc.dashboardId && (it.id === alloc.dashboardId || it.dashboardId === alloc.dashboardId)) || 
+      it.nombre.toLowerCase() === alloc.insumoNombre.toLowerCase()
+    );
+    const cant = alloc.cantidadApartada > 0 ? alloc.cantidadApartada : (alloc.cantidadTransito || 1);
+    onReprintLabel({
+      id: `reprint_${alloc.id}`,
+      insumoId: alloc.insumoId,
+      dashboardId: alloc.dashboardId,
+      nombre: alloc.insumoNombre,
+      codigo: alloc.codigo || matchingItem?.codigo,
+      categoria: matchingItem?.categoriaMaterial || 'MTO',
+      folioOAB: alloc.folioOAB || 'MTO-ASIG',
+      fechaRecepcion: new Date().toISOString().split('T')[0],
+      proyectoNombre: alloc.proyectoNombre,
+      cantidadRecibidaHoy: cant,
+      bultos: alloc.bultos || 1,
+      cantEnBulto: alloc.cantEnBulto || cant,
+      desgloseBultos: alloc.desgloseBultos,
+      unidadMedida: alloc.unidad || matchingItem?.unidadMedida || matchingItem?.unidad || 'und'
+    });
+    if (triggerHaptic) triggerHaptic('light');
   };
 
   const handleOpenLiquidation = (project: ProjectSummary) => {
@@ -682,6 +713,18 @@ export const StoreAllocationModal: React.FC<StoreAllocationModalProps> = ({
                                 </div>
 
                                 <div className="flex items-center gap-1 shrink-0">
+                                  {onReprintLabel && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleTriggerReprint(alloc)}
+                                      className="p-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-semibold flex items-center gap-1 transition active:scale-95"
+                                      title={`Reimprimir etiquetas físicas MTO para ${alloc.insumoNombre}`}
+                                    >
+                                      <Printer className="w-3 h-3" />
+                                      <span className="hidden sm:inline">Rótulo</span>
+                                    </button>
+                                  )}
+
                                   <button
                                     onClick={() => handleOpenReassign(alloc)}
                                     className="p-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[10px] font-semibold flex items-center gap-1 transition active:scale-95"

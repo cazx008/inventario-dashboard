@@ -35,6 +35,7 @@ import {
 } from '../services/offlineReceptionStorage';
 import { compressImageFile } from '../utils/imageCompressor';
 import { PrintSheetProjectLabels, ProjectLabelItem } from './PrintSheetProjectLabels';
+import { BultoBreakdownDrawer } from './BultoBreakdownDrawer';
 
 interface ReceptionTerminalModalProps {
   isOpen: boolean;
@@ -81,6 +82,8 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
   const [showLabelModal, setShowLabelModal] = useState<boolean>(false);
   const [activeLineIdxForOrder, setActiveLineIdxForOrder] = useState<number | null>(null);
   const [isOrderSearchOpen, setIsOrderSearchOpen] = useState<boolean>(false);
+  const [drawerOpen, setDrawerOpen] = useState<boolean>(false);
+  const [activeDrawerItemIdx, setActiveDrawerItemIdx] = useState<number | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -428,7 +431,8 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
       copy[idx] = {
         ...item,
         bultos: safeBultos,
-        cantEnBulto: Math.max(1, Math.ceil(received / safeBultos))
+        cantEnBulto: Math.max(1, Math.ceil(received / safeBultos)),
+        desgloseBultos: undefined
       };
       return copy;
     });
@@ -437,7 +441,11 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
   const handleCantEnBultoChange = (idx: number, cantVal: number) => {
     setItemsToReceive(prev => {
       const copy = [...prev];
-      copy[idx] = { ...copy[idx], cantEnBulto: Math.max(1, cantVal) };
+      copy[idx] = { 
+        ...copy[idx], 
+        cantEnBulto: Math.max(1, cantVal),
+        desgloseBultos: undefined 
+      };
       return copy;
     });
   };
@@ -450,7 +458,28 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
       copy[idx] = {
         ...item,
         bultos: 1,
-        cantEnBulto: Math.max(1, received)
+        cantEnBulto: Math.max(1, received),
+        desgloseBultos: undefined
+      };
+      return copy;
+    });
+  };
+
+  const handleOpenBreakdownDrawer = (idx: number) => {
+    setActiveDrawerItemIdx(idx);
+    setDrawerOpen(true);
+  };
+
+  const handleApplyDesglose = (desglose: number[]) => {
+    if (activeDrawerItemIdx === null) return;
+    setItemsToReceive(prev => {
+      const copy = [...prev];
+      const item = copy[activeDrawerItemIdx];
+      copy[activeDrawerItemIdx] = {
+        ...item,
+        desgloseBultos: desglose,
+        bultos: desglose.length,
+        cantEnBulto: desglose[0] || item.cantEnBulto || 1
       };
       return copy;
     });
@@ -506,7 +535,9 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
           backorderPendiente: pending,
           isParcial,
           bultos,
-          cantEnBulto
+          cantEnBulto,
+          desgloseBultos: l.desgloseBultos,
+          unidadMedida: l.unidadMedida || 'und'
         });
       }
     });
@@ -590,7 +621,10 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
         notasDiscrepancia: l.notasDiscrepancia,
         pedidoId: l.pedidoId,
         proyectoId: l.proyectoId,
-        proyectoNombre: l.proyectoNombre
+        proyectoNombre: l.proyectoNombre,
+        bultos: l.bultos,
+        cantEnBulto: l.cantEnBulto,
+        desgloseBultos: l.desgloseBultos
       }))
     };
 
@@ -1250,42 +1284,73 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
                         )}
                       </div>
 
-                      {(item.rotularEtiqueta ?? Boolean(item.proyectoNombre)) && (
-                        <div className="flex items-center gap-2 text-xs">
-                          <div className="flex items-center gap-1">
-                            <span className="text-[10px] text-slate-400 uppercase font-semibold">Bultos:</span>
-                            <input
-                              type="number"
-                              min="1"
-                              max="99"
-                              value={item.bultos || 1}
-                              onChange={(e) => handleBultosChange(idx, Math.max(1, parseInt(e.target.value) || 1))}
-                              className="w-12 px-1.5 py-0.5 text-center font-mono font-bold text-xs bg-surface border border-borderSubtle rounded text-slate-100"
-                            />
-                          </div>
+                      {(item.rotularEtiqueta ?? Boolean(item.proyectoNombre)) && (() => {
+                        const received = item.cantidadRecibidaHoy ?? item.cantidadRecibida ?? 1;
+                        const std = Math.max(1, item.cantEnBulto || Math.ceil(received / (item.bultos || 1)));
+                        const hasCustomDesglose = Boolean(item.desgloseBultos && item.desgloseBultos.length > 0);
+                        const fullBultos = Math.floor(received / std);
+                        const remainder = received % std;
+                        const hasPico = !hasCustomDesglose && remainder > 0 && (item.bultos || 1) > 1;
 
-                          <div className="flex items-center gap-1">
-                            <span className="text-[10px] text-slate-400 uppercase font-semibold">Cant/Bulto:</span>
-                            <input
-                              type="number"
-                              min="1"
-                              value={item.cantEnBulto || Math.ceil((item.cantidadRecibidaHoy ?? item.cantidadRecibida ?? 1) / (item.bultos || 1))}
-                              onChange={(e) => handleCantEnBultoChange(idx, Math.max(1, parseInt(e.target.value) || 1))}
-                              className="w-16 px-1.5 py-0.5 text-center font-mono font-bold text-xs bg-surface border border-borderSubtle rounded text-emerald-400"
-                            />
-                            <span className="text-[10px] text-slate-500 font-mono">und</span>
-                          </div>
+                        return (
+                          <div className="flex flex-wrap items-center gap-2 text-xs">
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-slate-400 uppercase font-semibold">Bultos:</span>
+                              <input
+                                type="number"
+                                min="1"
+                                max="99"
+                                value={item.bultos || 1}
+                                onChange={(e) => handleBultosChange(idx, Math.max(1, parseInt(e.target.value) || 1))}
+                                className="w-12 px-1.5 py-0.5 text-center font-mono font-bold text-xs bg-surface border border-borderSubtle rounded text-slate-100"
+                              />
+                            </div>
 
-                          <button
-                            type="button"
-                            onClick={() => handleResetLoteCompleto(idx)}
-                            className="px-2 py-0.5 text-[10px] font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded transition active:scale-95"
-                            title="1 Etiqueta por el lote total recibido"
-                          >
-                            1 Lote Completo
-                          </button>
-                        </div>
-                      )}
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-slate-400 uppercase font-semibold">Cant/Bulto:</span>
+                              <input
+                                type="number"
+                                min="1"
+                                value={item.cantEnBulto || Math.ceil((item.cantidadRecibidaHoy ?? item.cantidadRecibida ?? 1) / (item.bultos || 1))}
+                                onChange={(e) => handleCantEnBultoChange(idx, Math.max(1, parseInt(e.target.value) || 1))}
+                                className="w-16 px-1.5 py-0.5 text-center font-mono font-bold text-xs bg-surface border border-borderSubtle rounded text-emerald-400"
+                              />
+                              <span className="text-[10px] text-slate-500 font-mono">{item.unidadMedida || 'und'}</span>
+                            </div>
+
+                            {/* Badge Informativo de Bulto Pico o Desglose Asimétrico (D14) */}
+                            {hasCustomDesglose ? (
+                              <span className="px-2 py-0.5 text-[10px] font-mono font-bold bg-purple-950/40 text-purple-300 border border-purple-800/60 rounded">
+                                📐 [{item.desgloseBultos!.join('+')}] {item.unidadMedida || 'und'}
+                              </span>
+                            ) : hasPico ? (
+                              <span className="px-2 py-0.5 text-[10px] font-mono font-semibold bg-sky-950/40 text-sky-300 border border-sky-800/60 rounded" title="Cálculo automático de bulto pico">
+                                📦 {fullBultos}×{std} + 1 pico de {remainder}
+                              </span>
+                            ) : null}
+
+                            {/* Botón Drawer Desglose Asimétrico (D14) */}
+                            <button
+                              type="button"
+                              onClick={() => handleOpenBreakdownDrawer(idx)}
+                              className="px-2 py-0.5 text-[10px] font-bold bg-brand-500/10 hover:bg-brand-500/20 text-brand-300 border border-brand-500/30 rounded transition active:scale-95 flex items-center gap-1"
+                              title="Configurar bultos asimétricos o irregulares enviados por el proveedor"
+                            >
+                              <span>📐</span>
+                              <span>Desglose Irregular</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleResetLoteCompleto(idx)}
+                              className="px-2 py-0.5 text-[10px] font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded transition active:scale-95"
+                              title="1 Etiqueta por el lote total recibido"
+                            >
+                              1 Lote Completo
+                            </button>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 );
@@ -1416,6 +1481,23 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
             setIsOrderSearchOpen(false);
             setActiveLineIdxForOrder(null);
           }}
+        />
+      )}
+
+      {/* Drawer Táctil de Desglose Asimétrico de Bultos (D14) */}
+      {drawerOpen && activeDrawerItemIdx !== null && itemsToReceive[activeDrawerItemIdx] && (
+        <BultoBreakdownDrawer
+          isOpen={drawerOpen}
+          onClose={() => {
+            setDrawerOpen(false);
+            setActiveDrawerItemIdx(null);
+          }}
+          materialNombre={itemsToReceive[activeDrawerItemIdx].nombre}
+          sku={itemsToReceive[activeDrawerItemIdx].codigo}
+          cantidadTotal={itemsToReceive[activeDrawerItemIdx].cantidadRecibidaHoy ?? itemsToReceive[activeDrawerItemIdx].cantidadRecibida ?? 1}
+          unidadMedida={itemsToReceive[activeDrawerItemIdx].unidadMedida || 'und'}
+          initialDesglose={itemsToReceive[activeDrawerItemIdx].desgloseBultos}
+          onApplyDesglose={handleApplyDesglose}
         />
       )}
     </div>

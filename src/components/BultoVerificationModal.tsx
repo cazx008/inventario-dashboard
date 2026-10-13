@@ -11,7 +11,12 @@ import {
   ShieldCheck, 
   Send,
   Boxes,
-  Loader2
+  Loader2,
+  Scissors,
+  Minus,
+  Plus,
+  ArrowLeft,
+  Check
 } from 'lucide-react';
 
 export interface BultoData {
@@ -19,6 +24,9 @@ export interface BultoData {
   material: string;
   tienda: string;
   bulto: string; // formato "1_2" o "1"
+  cantBulto?: number;
+  pkgId?: string;
+  unidadMedida?: string;
 }
 
 interface BultoVerificationModalProps {
@@ -50,6 +58,9 @@ export const BultoVerificationModal: React.FC<BultoVerificationModalProps> = ({
   const [allocationInfo, setAllocationInfo] = useState<any | null>(null);
   const [authPromptOpen, setAuthPromptOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const [showFraccionar, setShowFraccionar] = useState(false);
+  const [bundleQty, setBundleQty] = useState<number>(10);
+  const [consumoQty, setConsumoQty] = useState<number>(1);
 
   // Parsear formato bulto "1_2" -> Bulto 1 de 2
   const bultoRaw = bultoData?.bulto || '1_1';
@@ -99,6 +110,17 @@ export const BultoVerificationModal: React.FC<BultoVerificationModalProps> = ({
     };
   }, [isOpen, bultoData]);
 
+  // Inicializar cantidad de bulto y consumo cuando se abre el modal o carga la reserva
+  useEffect(() => {
+    if (!isOpen || !bultoData) return;
+    const initialQty = bultoData.cantBulto && bultoData.cantBulto > 0 
+      ? bultoData.cantBulto 
+      : (allocationInfo?.cantidadApartada ? Math.max(1, Math.ceil(allocationInfo.cantidadApartada / (totalBultos || 1))) : 10);
+    setBundleQty(initialQty);
+    setConsumoQty(Math.min(1, initialQty));
+    setShowFraccionar(false);
+  }, [isOpen, bultoData, allocationInfo, totalBultos]);
+
   if (!isOpen || !bultoData) return null;
 
   const isMTO = bultoData.tienda && !bultoData.tienda.toLowerCase().includes('stock general');
@@ -107,7 +129,7 @@ export const BultoVerificationModal: React.FC<BultoVerificationModalProps> = ({
   const cantRechazada = allocationInfo?.cantidadRechazada ?? 0;
 
   // Manejo de acciones con requerimiento de autenticación / PIN (D1-10B.1)
-  const handleActionClick = (actionType: 'dispatch' | 'reprint' | 'oab') => {
+  const handleActionClick = (actionType: 'dispatch' | 'reprint' | 'oab' | 'fractionate') => {
     if (!isAuthenticated) {
       setPendingAction(actionType);
       setAuthPromptOpen(true);
@@ -118,8 +140,10 @@ export const BultoVerificationModal: React.FC<BultoVerificationModalProps> = ({
     executeAction(actionType);
   };
 
-  const executeAction = (actionType: 'dispatch' | 'reprint' | 'oab') => {
-    if (actionType === 'dispatch') {
+  const executeAction = (actionType: 'dispatch' | 'reprint' | 'oab' | 'fractionate') => {
+    if (actionType === 'fractionate') {
+      setShowFraccionar(true);
+    } else if (actionType === 'dispatch') {
       if (onDispatchToTaller) {
         onDispatchToTaller({
           material: bultoData.material,
@@ -137,6 +161,60 @@ export const BultoVerificationModal: React.FC<BultoVerificationModalProps> = ({
       if (onOpenOAB) {
         onOpenOAB(bultoData.folio);
       }
+      onClose();
+    }
+  };
+
+  const handleConfirmFraccionamiento = () => {
+    const saldo = Math.max(0, bundleQty - consumoQty);
+    if (saldo === 0) {
+      // Consumo total (D16)
+      if (onDispatchToTaller) {
+        onDispatchToTaller({
+          material: bultoData.material,
+          tienda: bultoData.tienda,
+          folio: bultoData.folio,
+          cantEstimada: bundleQty
+        });
+      }
+      if (triggerHaptic) triggerHaptic('success');
+      onClose();
+    } else {
+      // Saldo parcial con sustitución física y serial derivado dinámico -S{N} (D16 / D4)
+      let derivedPkgId: string | undefined = undefined;
+      if (bultoData.pkgId) {
+        const baseWithoutSuffix = bultoData.pkgId.replace(/-S\d+$/i, '');
+        let nextSuffix = '-S1';
+        const match = bultoData.pkgId.match(/-S(\d+)$/i);
+        if (match) {
+          const currentNum = parseInt(match[1], 10) || 1;
+          nextSuffix = `-S${currentNum + 1}`;
+        }
+        derivedPkgId = `${baseWithoutSuffix}${nextSuffix}`;
+      }
+
+      if (onReprintLabel) {
+        onReprintLabel(bultoData, {
+          isBultoAbierto: true,
+          saldoRemanente: saldo,
+          cantEnBulto: saldo,
+          cantidadRecibidaHoy: saldo,
+          bultos: 1,
+          desgloseBultos: [saldo],
+          customPkgId: derivedPkgId,
+          pkgIdPrefix: bultoData.pkgId ? bultoData.pkgId.replace(/-\d{2}$/, '') : undefined,
+          unidadMedida: bultoData.unidadMedida || 'und'
+        });
+      }
+      if (onDispatchToTaller) {
+        onDispatchToTaller({
+          material: bultoData.material,
+          tienda: bultoData.tienda,
+          folio: bultoData.folio,
+          cantEstimada: consumoQty
+        });
+      }
+      if (triggerHaptic) triggerHaptic('success');
       onClose();
     }
   };
@@ -275,35 +353,199 @@ export const BultoVerificationModal: React.FC<BultoVerificationModalProps> = ({
             </div>
           )}
 
-          {/* Tríada Operativa de Planta (D5-10B.1) */}
+          {/* Tríada Operativa de Planta & Fraccionamiento en Taller (D16) */}
           <div className="pt-2 space-y-2">
-            <button
-              onClick={() => handleActionClick('dispatch')}
-              className="w-full py-3 px-4 rounded-xl font-bold text-sm bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-950/30 flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
-            >
-              <Send className="w-4 h-4" />
-              <span>Despachar a Taller / Producción</span>
-            </button>
+            {showFraccionar ? (
+              <div className="bg-slate-950/90 border border-amber-500/40 rounded-xl p-4 space-y-3.5 animate-in fade-in slide-in-from-bottom-2">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                  <div className="flex items-center gap-2 text-amber-400 font-bold text-xs uppercase tracking-wider">
+                    <Scissors className="w-4 h-4" />
+                    <span>Fraccionar Bulto · Saldo en Taller</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowFraccionar(false)}
+                    className="text-xs text-slate-400 hover:text-white flex items-center gap-1 transition"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>Volver</span>
+                  </button>
+                </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={() => handleActionClick('reprint')}
-                className="py-2.5 px-3 rounded-xl font-semibold text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center justify-center gap-1.5 transition-colors"
-              >
-                <Printer className="w-3.5 h-3.5 text-slate-400" />
-                <span>Reimprimir Etiqueta</span>
-              </button>
+                {/* Cantidad Total del Bulto y Consumo */}
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div className="bg-slate-900 border border-slate-800 rounded-lg p-2.5">
+                    <span className="text-[10px] text-slate-400 font-medium uppercase block">Total en Bulto</span>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <input
+                        type="number"
+                        min="1"
+                        value={bundleQty}
+                        onChange={(e) => {
+                          const val = Math.max(1, parseInt(e.target.value, 10) || 1);
+                          setBundleQty(val);
+                          if (consumoQty > val) setConsumoQty(val);
+                        }}
+                        className="w-16 bg-slate-950 border border-slate-700 rounded px-2 py-0.5 text-sm font-mono font-bold text-white text-center focus:border-amber-500 outline-none"
+                      />
+                      <span className="text-slate-400 text-xs font-mono">und</span>
+                    </div>
+                  </div>
 
-              {hasPermission('Revisar_OAB') && (
+                  <div className="bg-slate-900 border border-slate-800 rounded-lg p-2.5">
+                    <span className="text-[10px] text-slate-400 font-medium uppercase block">Consumo en Corte</span>
+                    <div className="flex items-center gap-1 mt-1">
+                      <button
+                        type="button"
+                        onClick={() => setConsumoQty(prev => Math.max(1, prev - 1))}
+                        className="w-7 h-7 bg-slate-800 hover:bg-slate-700 rounded flex items-center justify-center text-slate-200 active:scale-95"
+                      >
+                        <Minus className="w-3 h-3" />
+                      </button>
+                      <input
+                        type="number"
+                        min="1"
+                        max={bundleQty}
+                        value={consumoQty}
+                        onChange={(e) => {
+                          const val = Math.min(bundleQty, Math.max(1, parseInt(e.target.value, 10) || 1));
+                          setConsumoQty(val);
+                        }}
+                        className="w-14 bg-slate-950 border border-slate-700 rounded px-1.5 py-0.5 text-sm font-mono font-bold text-amber-300 text-center focus:border-amber-500 outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setConsumoQty(prev => Math.min(bundleQty, prev + 1))}
+                        className="w-7 h-7 bg-slate-800 hover:bg-slate-700 rounded flex items-center justify-center text-slate-200 active:scale-95"
+                      >
+                        <Plus className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Botones de Selección Rápida */}
+                <div className="flex items-center gap-1.5 pt-0.5">
+                  <span className="text-[10px] text-slate-500 font-bold uppercase mr-1">Atajos:</span>
+                  <button
+                    type="button"
+                    onClick={() => setConsumoQty(Math.max(1, Math.round(bundleQty * 0.25)))}
+                    className="px-2 py-0.5 text-[10px] font-mono font-bold bg-slate-900 border border-slate-700 hover:border-slate-500 rounded text-slate-300 transition"
+                  >
+                    25%
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConsumoQty(Math.max(1, Math.round(bundleQty * 0.5)))}
+                    className="px-2 py-0.5 text-[10px] font-mono font-bold bg-slate-900 border border-slate-700 hover:border-slate-500 rounded text-slate-300 transition"
+                  >
+                    50%
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConsumoQty(bundleQty)}
+                    className="px-2 py-0.5 text-[10px] font-mono font-bold bg-slate-900 border border-slate-700 hover:border-slate-500 rounded text-slate-300 transition"
+                  >
+                    100% (Total)
+                  </button>
+                </div>
+
+                {/* Banner Reactivo de Saldo */}
+                {bundleQty - consumoQty > 0 ? (() => {
+                  let expectedSuffix = '-S1';
+                  if (bultoData.pkgId) {
+                    const match = bultoData.pkgId.match(/-S(\d+)$/i);
+                    if (match) {
+                      const currentNum = parseInt(match[1], 10) || 1;
+                      expectedSuffix = `-S${currentNum + 1}`;
+                    }
+                  }
+                  return (
+                    <div className="p-3 bg-amber-950/40 border border-amber-600/50 rounded-xl space-y-1">
+                      <div className="flex items-center gap-2 text-amber-300 font-bold text-xs uppercase tracking-wide">
+                        <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                        <span>⚠️ BULTO ABIERTO · SALDO: {bundleQty - consumoQty} und</span>
+                      </div>
+                      <p className="text-[11px] text-amber-200/80 leading-relaxed">
+                        Se emitirá un nuevo rótulo de advertencia con sufijo <b>{expectedSuffix}</b> para sustituir el rótulo físico en el paquete.
+                      </p>
+                    </div>
+                  );
+                })() : (
+                  <div className="p-3 bg-emerald-950/40 border border-emerald-600/50 rounded-xl space-y-1">
+                    <div className="flex items-center gap-2 text-emerald-300 font-bold text-xs uppercase tracking-wide">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span>CONSUMO TOTAL (100%)</span>
+                    </div>
+                    <p className="text-[11px] text-emerald-200/80 leading-relaxed">
+                      El bulto ha sido consumido por completo en taller. No se requiere nuevo rótulo físico.
+                    </p>
+                  </div>
+                )}
+
+                {/* Botón de Confirmación */}
                 <button
-                  onClick={() => handleActionClick('oab')}
-                  className="py-2.5 px-3 rounded-xl font-semibold text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center justify-center gap-1.5 transition-colors"
+                  type="button"
+                  onClick={handleConfirmFraccionamiento}
+                  className={`w-full py-2.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition active:scale-[0.98] ${
+                    bundleQty - consumoQty > 0
+                      ? 'bg-amber-600 hover:bg-amber-500 text-slate-950 font-black'
+                      : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                  }`}
                 >
-                  <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Ver Expediente OAB</span>
+                  {bundleQty - consumoQty > 0 ? (
+                    <>
+                      <Printer className="w-4 h-4" />
+                      <span>Confirmar y Emitir Rótulo de Saldo ({bundleQty - consumoQty} und)</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4" />
+                      <span>Confirmar Consumo Total en Taller</span>
+                    </>
+                  )}
                 </button>
-              )}
-            </div>
+              </div>
+            ) : (
+              <>
+                <button
+                  onClick={() => handleActionClick('dispatch')}
+                  className="w-full py-3 px-4 rounded-xl font-bold text-sm bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-950/30 flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+                >
+                  <Send className="w-4 h-4" />
+                  <span>Despachar a Taller / Producción</span>
+                </button>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => handleActionClick('fractionate')}
+                    className="py-2.5 px-3 rounded-xl font-semibold text-xs bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center justify-center gap-1.5 transition-colors"
+                    title="Registrar consumo parcial en corte y emitir rótulo de saldo remanente"
+                  >
+                    <Scissors className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Fraccionar / Saldo Taller</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleActionClick('reprint')}
+                    className="py-2.5 px-3 rounded-xl font-semibold text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center justify-center gap-1.5 transition-colors"
+                  >
+                    <Printer className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Reimprimir Etiqueta</span>
+                  </button>
+                </div>
+
+                {hasPermission('Revisar_OAB') && (
+                  <button
+                    onClick={() => handleActionClick('oab')}
+                    className="w-full py-2 px-3 rounded-xl font-medium text-xs bg-slate-900/60 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-800 flex items-center justify-center gap-1.5 transition-colors"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Ver Expediente OAB</span>
+                  </button>
+                )}
+              </>
+            )}
           </div>
         </div>
 

@@ -1,0 +1,963 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "browser-check",
+  "evidenceKind": "automated-browser",
+  "status": "fail",
+  "visualReview": "not-requested",
+  "provenance": "unknown",
+  "artifact": {
+    "path": "C:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\Proyectos-index\\Arquitectura-Sanesca\\08_Web\\inventario-dashboard\\public\\diagrams\\inventario-dashboard.architecture-delta.html",
+    "sha256": "2758149cc2b81d2a03d8c30c4d49d11b9a0b888810caf13e1b69fd8d85f22664",
+    "bytes": 2276931
+  },
+  "state": {
+    "detail": "read",
+    "motion": "still"
+  },
+  "chrome": {
+    "status": "available",
+    "executable": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
+  },
+  "diagnostics": [
+    {
+      "code": "viewer/theme-state",
+      "severity": "error",
+      "message": "The rendered artifact resolved dark instead of the requested light theme at 1440x900.",
+      "subject": {
+        "artifact": "C:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\Proyectos-index\\Arquitectura-Sanesca\\08_Web\\inventario-dashboard\\public\\diagrams\\inventario-dashboard.architecture-delta.html",
+        "viewport": {
+          "width": 1440,
+          "height": 900,
+          "theme": "light"
+        }
+      },
+      "evidence": {
+        "requestedTheme": "light",
+        "resolvedTheme": "dark"
+      },
+      "supportedFixes": [
+        "restore deterministic light theme resolution, then rerun browser-check"
+      ]
+    },
+    {
+      "code": "viewer/viewport-overflow",
+      "severity": "error",
+      "message": "The rendered artifact overflows the 1440x900 light viewport.",
+      "subject": {
+        "artifact": "C:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\Proyectos-index\\Arquitectura-Sanesca\\08_Web\\inventario-dashboard\\public\\diagrams\\inventario-dashboard.architecture-delta.html",
+        "viewport": {
+          "width": 1440,
+          "height": 900,
+          "theme": "light"
+        }
+      },
+      "evidence": {
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "scrollWidth": 1440,
+        "scrollHeight": 1228,
+        "overflowX": false,
+        "overflowY": true,
+        "overflowDisposition": "unexpected-overflow",
+        "readerLayout": null,
+        "readerOverflow": null,
+        "readerFit": null,
+        "pageComposition": {
+          "bodyPaddingPx": 40,
+          "headerPx": 0,
+          "diagramChromePx": 0,
+          "svgPx": 0,
+          "cardsPx": 0,
+          "viewBoxHeight": 0
+        },
+        "pageCompositionMeasurement": "CSS pixels at this viewport; body padding, header, diagram chrome, SVG and cards stack vertically and sum to scrollHeight"
+      },
+      "supportedFixes": [
+        "contain the rendered layout within 1440x900, then rerun browser-check"
+      ]
+    },
+    {
+      "code": "viewer/theme-state",
+      "severity": "error",
+      "message": "The rendered artifact resolved dark instead of the requested light theme at 1600x1000.",
+      "subject": {
+        "artifact": "C:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\Proyectos-index\\Arquitectura-Sanesca\\08_Web\\inventario-dashboard\\public\\diagrams\\inventario-dashboard.architecture-delta.html",
+        "viewport": {
+          "width": 1600,
+          "height": 1000,
+          "theme": "light"
+        }
+      },
+      "evidence": {
+        "requestedTheme": "light",
+        "resolvedTheme": "dark"
+      },
+      "supportedFixes": [
+        "restore deterministic light theme resolution, then rerun browser-check"
+      ]
+    },
+    {
+      "code": "viewer/viewport-overflow",
+      "severity": "error",
+      "message": "The rendered artifact overflows the 1600x1000 light viewport.",
+      "subject": {
+        "artifact": "C:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\Proyectos-index\\Arquitectura-Sanesca\\08_Web\\inventario-dashboard\\public\\diagrams\\inventario-dashboard.architecture-delta.html",
+        "viewport": {
+          "width": 1600,
+          "height": 1000,
+          "theme": "light"
+        }
+      },
+      "evidence": {
+        "innerWidth": 1600,
+        "innerHeight": 1000,
+        "scrollWidth": 1600,
+        "scrollHeight": 1324,
+        "overflowX": false,
+        "overflowY": true,
+        "overflowDisposition": "unexpected-overflow",
+        "readerLayout": null,
+        "readerOverflow": null,
+        "readerFit": null,
+        "pageComposition": {
+          "bodyPaddingPx": 64,
+          "headerPx": 0,
+          "diagramChromePx": 0,
+          "svgPx": 0,
+          "cardsPx": 0,
+          "viewBoxHeight": 0
+        },
+        "pageCompositionMeasurement": "CSS pixels at this viewport; body padding, header, diagram chrome, SVG and cards stack vertically and sum to scrollHeight"
+      },
+      "supportedFixes": [
+        "contain the rendered layout within 1600x1000, then rerun browser-check"
+      ]
+    },
+    {
+      "code": "viewer/theme-state",
+      "severity": "error",
+      "message": "The rendered artifact resolved dark instead of the requested light theme at 1920x1080.",
+      "subject": {
+        "artifact": "C:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\Proyectos-index\\Arquitectura-Sanesca\\08_Web\\inventario-dashboard\\public\\diagrams\\inventario-dashboard.architecture-delta.html",
+        "viewport": {
+          "width": 1920,
+          "height": 1080,
+          "theme": "light"
+        }
+      },
+      "evidence": {
+        "requestedTheme": "light",
+        "resolvedTheme": "dark"
+      },
+      "supportedFixes": [
+        "restore deterministic light theme resolution, then rerun browser-check"
+      ]
+    },
+    {
+      "code": "viewer/viewport-overflow",
+      "severity": "error",
+      "message": "The rendered artifact overflows the 1920x1080 light viewport.",
+      "subject": {
+        "artifact": "C:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\Proyectos-index\\Arquitectura-Sanesca\\08_Web\\inventario-dashboard\\public\\diagrams\\inventario-dashboard.architecture-delta.html",
+        "viewport": {
+          "width": 1920,
+          "height": 1080,
+          "theme": "light"
+        }
+      },
+      "evidence": {
+        "innerWidth": 1920,
+        "innerHeight": 1080,
+        "scrollWidth": 1920,
+        "scrollHeight": 1382,
+        "overflowX": false,
+        "overflowY": true,
+        "overflowDisposition": "unexpected-overflow",
+        "readerLayout": null,
+        "readerOverflow": null,
+        "readerFit": null,
+        "pageComposition": {
+          "bodyPaddingPx": 64,
+          "headerPx": 0,
+          "diagramChromePx": 0,
+          "svgPx": 0,
+          "cardsPx": 0,
+          "viewBoxHeight": 0
+        },
+        "pageCompositionMeasurement": "CSS pixels at this viewport; body padding, header, diagram chrome, SVG and cards stack vertically and sum to scrollHeight"
+      },
+      "supportedFixes": [
+        "contain the rendered layout within 1920x1080, then rerun browser-check"
+      ]
+    },
+    {
+      "code": "viewer/theme-state",
+      "severity": "error",
+      "message": "The rendered artifact resolved dark instead of the requested light theme at 2048x1320.",
+      "subject": {
+        "artifact": "C:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\Proyectos-index\\Arquitectura-Sanesca\\08_Web\\inventario-dashboard\\public\\diagrams\\inventario-dashboard.architecture-delta.html",
+        "viewport": {
+          "width": 2048,
+          "height": 1320,
+          "theme": "light"
+        }
+      },
+      "evidence": {
+        "requestedTheme": "light",
+        "resolvedTheme": "dark"
+      },
+      "supportedFixes": [
+        "restore deterministic light theme resolution, then rerun browser-check"
+      ]
+    },
+    {
+      "code": "viewer/viewport-overflow",
+      "severity": "error",
+      "message": "The rendered artifact overflows the 2048x1320 light viewport.",
+      "subject": {
+        "artifact": "C:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\Proyectos-index\\Arquitectura-Sanesca\\08_Web\\inventario-dashboard\\public\\diagrams\\inventario-dashboard.architecture-delta.html",
+        "viewport": {
+          "width": 2048,
+          "height": 1320,
+          "theme": "light"
+        }
+      },
+      "evidence": {
+        "innerWidth": 2048,
+        "innerHeight": 1320,
+        "scrollWidth": 2048,
+        "scrollHeight": 1506,
+        "overflowX": false,
+        "overflowY": true,
+        "overflowDisposition": "unexpected-overflow",
+        "readerLayout": null,
+        "readerOverflow": null,
+        "readerFit": null,
+        "pageComposition": {
+          "bodyPaddingPx": 64,
+          "headerPx": 0,
+          "diagramChromePx": 0,
+          "svgPx": 0,
+          "cardsPx": 0,
+          "viewBoxHeight": 0
+        },
+        "pageCompositionMeasurement": "CSS pixels at this viewport; body padding, header, diagram chrome, SVG and cards stack vertically and sum to scrollHeight"
+      },
+      "supportedFixes": [
+        "contain the rendered layout within 2048x1320, then rerun browser-check"
+      ]
+    },
+    {
+      "code": "viewer/viewport-overflow",
+      "severity": "error",
+      "message": "The rendered artifact overflows the 1440x900 dark viewport.",
+      "subject": {
+        "artifact": "C:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\Proyectos-index\\Arquitectura-Sanesca\\08_Web\\inventario-dashboard\\public\\diagrams\\inventario-dashboard.architecture-delta.html",
+        "viewport": {
+          "width": 1440,
+          "height": 900,
+          "theme": "dark"
+        }
+      },
+      "evidence": {
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "scrollWidth": 1440,
+        "scrollHeight": 1228,
+        "overflowX": false,
+        "overflowY": true,
+        "overflowDisposition": "unexpected-overflow",
+        "readerLayout": null,
+        "readerOverflow": null,
+        "readerFit": null,
+        "pageComposition": {
+          "bodyPaddingPx": 40,
+          "headerPx": 0,
+          "diagramChromePx": 0,
+          "svgPx": 0,
+          "cardsPx": 0,
+          "viewBoxHeight": 0
+        },
+        "pageCompositionMeasurement": "CSS pixels at this viewport; body padding, header, diagram chrome, SVG and cards stack vertically and sum to scrollHeight"
+      },
+      "supportedFixes": [
+        "contain the rendered layout within 1440x900, then rerun browser-check"
+      ]
+    },
+    {
+      "code": "viewer/viewport-overflow",
+      "severity": "error",
+      "message": "The rendered artifact overflows the 2048x1320 dark viewport.",
+      "subject": {
+        "artifact": "C:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\Proyectos-index\\Arquitectura-Sanesca\\08_Web\\inventario-dashboard\\public\\diagrams\\inventario-dashboard.architecture-delta.html",
+        "viewport": {
+          "width": 2048,
+          "height": 1320,
+          "theme": "dark"
+        }
+      },
+      "evidence": {
+        "innerWidth": 2048,
+        "innerHeight": 1320,
+        "scrollWidth": 2048,
+        "scrollHeight": 1506,
+        "overflowX": false,
+        "overflowY": true,
+        "overflowDisposition": "unexpected-overflow",
+        "readerLayout": null,
+        "readerOverflow": null,
+        "readerFit": null,
+        "pageComposition": {
+          "bodyPaddingPx": 64,
+          "headerPx": 0,
+          "diagramChromePx": 0,
+          "svgPx": 0,
+          "cardsPx": 0,
+          "viewBoxHeight": 0
+        },
+        "pageCompositionMeasurement": "CSS pixels at this viewport; body padding, header, diagram chrome, SVG and cards stack vertically and sum to scrollHeight"
+      },
+      "supportedFixes": [
+        "contain the rendered layout within 2048x1320, then rerun browser-check"
+      ]
+    }
+  ],
+  "containment": {
+    "status": "fail",
+    "policy": "fit-or-reader-declared-readable-vertical-scroll",
+    "viewports": [
+      {
+        "width": 1440,
+        "height": 900,
+        "theme": "light",
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "scrollWidth": 1440,
+        "scrollHeight": 1228,
+        "overflowX": false,
+        "overflowY": true,
+        "verticalScrollAccepted": false,
+        "overflowDisposition": "unexpected-overflow",
+        "readerLayout": null,
+        "readerOverflow": null,
+        "readerFit": null,
+        "ok": false,
+        "readerWidth": null,
+        "diagramWidth": null,
+        "pageComposition": {
+          "bodyPaddingPx": 40,
+          "headerPx": 0,
+          "diagramChromePx": 0,
+          "svgPx": 0,
+          "cardsPx": 0,
+          "viewBoxHeight": 0
+        },
+        "viewBoxWidth": null,
+        "minimumProjectedNodeTextPx": null,
+        "minimumProjectedNonEdgeTextPx": null,
+        "minimumProjectedEdgeTextPx": null,
+        "minimumProjectedNodeText": null,
+        "minimumProjectedNodeTextDetail": null,
+        "minimumProjectedNodeTextOwner": null,
+        "minimumRequiredNodeTextPx": 6,
+        "readabilityOk": true,
+        "hasLegend": false,
+        "hasNavigationDock": false,
+        "legendDockIntersectionArea": 0,
+        "dockStageIntersectionArea": 0,
+        "dockStageGap": null,
+        "requiredDockStageGap": 0,
+        "viewerChromeStageOk": true,
+        "viewerChromeReserve": 0,
+        "viewerChromeActive": false,
+        "viewerChromeOk": true,
+        "resolvedTheme": "dark"
+      },
+      {
+        "width": 1600,
+        "height": 1000,
+        "theme": "light",
+        "innerWidth": 1600,
+        "innerHeight": 1000,
+        "scrollWidth": 1600,
+        "scrollHeight": 1324,
+        "overflowX": false,
+        "overflowY": true,
+        "verticalScrollAccepted": false,
+        "overflowDisposition": "unexpected-overflow",
+        "readerLayout": null,
+        "readerOverflow": null,
+        "readerFit": null,
+        "ok": false,
+        "readerWidth": null,
+        "diagramWidth": null,
+        "pageComposition": {
+          "bodyPaddingPx": 64,
+          "headerPx": 0,
+          "diagramChromePx": 0,
+          "svgPx": 0,
+          "cardsPx": 0,
+          "viewBoxHeight": 0
+        },
+        "viewBoxWidth": null,
+        "minimumProjectedNodeTextPx": null,
+        "minimumProjectedNonEdgeTextPx": null,
+        "minimumProjectedEdgeTextPx": null,
+        "minimumProjectedNodeText": null,
+        "minimumProjectedNodeTextDetail": null,
+        "minimumProjectedNodeTextOwner": null,
+        "minimumRequiredNodeTextPx": 6,
+        "readabilityOk": true,
+        "hasLegend": false,
+        "hasNavigationDock": false,
+        "legendDockIntersectionArea": 0,
+        "dockStageIntersectionArea": 0,
+        "dockStageGap": null,
+        "requiredDockStageGap": 0,
+        "viewerChromeStageOk": true,
+        "viewerChromeReserve": 0,
+        "viewerChromeActive": false,
+        "viewerChromeOk": true,
+        "resolvedTheme": "dark"
+      },
+      {
+        "width": 1920,
+        "height": 1080,
+        "theme": "light",
+        "innerWidth": 1920,
+        "innerHeight": 1080,
+        "scrollWidth": 1920,
+        "scrollHeight": 1382,
+        "overflowX": false,
+        "overflowY": true,
+        "verticalScrollAccepted": false,
+        "overflowDisposition": "unexpected-overflow",
+        "readerLayout": null,
+        "readerOverflow": null,
+        "readerFit": null,
+        "ok": false,
+        "readerWidth": null,
+        "diagramWidth": null,
+        "pageComposition": {
+          "bodyPaddingPx": 64,
+          "headerPx": 0,
+          "diagramChromePx": 0,
+          "svgPx": 0,
+          "cardsPx": 0,
+          "viewBoxHeight": 0
+        },
+        "viewBoxWidth": null,
+        "minimumProjectedNodeTextPx": null,
+        "minimumProjectedNonEdgeTextPx": null,
+        "minimumProjectedEdgeTextPx": null,
+        "minimumProjectedNodeText": null,
+        "minimumProjectedNodeTextDetail": null,
+        "minimumProjectedNodeTextOwner": null,
+        "minimumRequiredNodeTextPx": 6,
+        "readabilityOk": true,
+        "hasLegend": false,
+        "hasNavigationDock": false,
+        "legendDockIntersectionArea": 0,
+        "dockStageIntersectionArea": 0,
+        "dockStageGap": null,
+        "requiredDockStageGap": 0,
+        "viewerChromeStageOk": true,
+        "viewerChromeReserve": 0,
+        "viewerChromeActive": false,
+        "viewerChromeOk": true,
+        "resolvedTheme": "dark"
+      },
+      {
+        "width": 2048,
+        "height": 1320,
+        "theme": "light",
+        "innerWidth": 2048,
+        "innerHeight": 1320,
+        "scrollWidth": 2048,
+        "scrollHeight": 1506,
+        "overflowX": false,
+        "overflowY": true,
+        "verticalScrollAccepted": false,
+        "overflowDisposition": "unexpected-overflow",
+        "readerLayout": null,
+        "readerOverflow": null,
+        "readerFit": null,
+        "ok": false,
+        "readerWidth": null,
+        "diagramWidth": null,
+        "pageComposition": {
+          "bodyPaddingPx": 64,
+          "headerPx": 0,
+          "diagramChromePx": 0,
+          "svgPx": 0,
+          "cardsPx": 0,
+          "viewBoxHeight": 0
+        },
+        "viewBoxWidth": null,
+        "minimumProjectedNodeTextPx": null,
+        "minimumProjectedNonEdgeTextPx": null,
+        "minimumProjectedEdgeTextPx": null,
+        "minimumProjectedNodeText": null,
+        "minimumProjectedNodeTextDetail": null,
+        "minimumProjectedNodeTextOwner": null,
+        "minimumRequiredNodeTextPx": 6,
+        "readabilityOk": true,
+        "hasLegend": false,
+        "hasNavigationDock": false,
+        "legendDockIntersectionArea": 0,
+        "dockStageIntersectionArea": 0,
+        "dockStageGap": null,
+        "requiredDockStageGap": 0,
+        "viewerChromeStageOk": true,
+        "viewerChromeReserve": 0,
+        "viewerChromeActive": false,
+        "viewerChromeOk": true,
+        "resolvedTheme": "dark"
+      }
+    ]
+  },
+  "themeStates": {
+    "status": "fail",
+    "viewports": [
+      {
+        "width": 1440,
+        "height": 900,
+        "requestedTheme": "light",
+        "resolvedTheme": "dark",
+        "ok": false
+      },
+      {
+        "width": 1600,
+        "height": 1000,
+        "requestedTheme": "light",
+        "resolvedTheme": "dark",
+        "ok": false
+      },
+      {
+        "width": 1920,
+        "height": 1080,
+        "requestedTheme": "light",
+        "resolvedTheme": "dark",
+        "ok": false
+      },
+      {
+        "width": 2048,
+        "height": 1320,
+        "requestedTheme": "light",
+        "resolvedTheme": "dark",
+        "ok": false
+      },
+      {
+        "width": 1440,
+        "height": 900,
+        "requestedTheme": "dark",
+        "resolvedTheme": "dark",
+        "ok": true
+      },
+      {
+        "width": 2048,
+        "height": 1320,
+        "requestedTheme": "dark",
+        "resolvedTheme": "dark",
+        "ok": true
+      }
+    ]
+  },
+  "readability": {
+    "status": "pass",
+    "minimumProjectedNodeTextPx": 6,
+    "viewports": [
+      {
+        "width": 1440,
+        "height": 900,
+        "theme": "light",
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "scrollWidth": 1440,
+        "scrollHeight": 1228,
+        "overflowX": false,
+        "overflowY": true,
+        "verticalScrollAccepted": false,
+        "overflowDisposition": "unexpected-overflow",
+        "readerLayout": null,
+        "readerOverflow": null,
+        "readerFit": null,
+        "ok": false,
+        "readerWidth": null,
+        "diagramWidth": null,
+        "pageComposition": {
+          "bodyPaddingPx": 40,
+          "headerPx": 0,
+          "diagramChromePx": 0,
+          "svgPx": 0,
+          "cardsPx": 0,
+          "viewBoxHeight": 0
+        },
+        "viewBoxWidth": null,
+        "minimumProjectedNodeTextPx": null,
+        "minimumProjectedNonEdgeTextPx": null,
+        "minimumProjectedEdgeTextPx": null,
+        "minimumProjectedNodeText": null,
+        "minimumProjectedNodeTextDetail": null,
+        "minimumProjectedNodeTextOwner": null,
+        "minimumRequiredNodeTextPx": 6,
+        "readabilityOk": true,
+        "hasLegend": false,
+        "hasNavigationDock": false,
+        "legendDockIntersectionArea": 0,
+        "dockStageIntersectionArea": 0,
+        "dockStageGap": null,
+        "requiredDockStageGap": 0,
+        "viewerChromeStageOk": true,
+        "viewerChromeReserve": 0,
+        "viewerChromeActive": false,
+        "viewerChromeOk": true,
+        "resolvedTheme": "dark"
+      },
+      {
+        "width": 1600,
+        "height": 1000,
+        "theme": "light",
+        "innerWidth": 1600,
+        "innerHeight": 1000,
+        "scrollWidth": 1600,
+        "scrollHeight": 1324,
+        "overflowX": false,
+        "overflowY": true,
+        "verticalScrollAccepted": false,
+        "overflowDisposition": "unexpected-overflow",
+        "readerLayout": null,
+        "readerOverflow": null,
+        "readerFit": null,
+        "ok": false,
+        "readerWidth": null,
+        "diagramWidth": null,
+        "pageComposition": {
+          "bodyPaddingPx": 64,
+          "headerPx": 0,
+          "diagramChromePx": 0,
+          "svgPx": 0,
+          "cardsPx": 0,
+          "viewBoxHeight": 0
+        },
+        "viewBoxWidth": null,
+        "minimumProjectedNodeTextPx": null,
+        "minimumProjectedNonEdgeTextPx": null,
+        "minimumProjectedEdgeTextPx": null,
+        "minimumProjectedNodeText": null,
+        "minimumProjectedNodeTextDetail": null,
+        "minimumProjectedNodeTextOwner": null,
+        "minimumRequiredNodeTextPx": 6,
+        "readabilityOk": true,
+        "hasLegend": false,
+        "hasNavigationDock": false,
+        "legendDockIntersectionArea": 0,
+        "dockStageIntersectionArea": 0,
+        "dockStageGap": null,
+        "requiredDockStageGap": 0,
+        "viewerChromeStageOk": true,
+        "viewerChromeReserve": 0,
+        "viewerChromeActive": false,
+        "viewerChromeOk": true,
+        "resolvedTheme": "dark"
+      },
+      {
+        "width": 1920,
+        "height": 1080,
+        "theme": "light",
+        "innerWidth": 1920,
+        "innerHeight": 1080,
+        "scrollWidth": 1920,
+        "scrollHeight": 1382,
+        "overflowX": false,
+        "overflowY": true,
+        "verticalScrollAccepted": false,
+        "overflowDisposition": "unexpected-overflow",
+        "readerLayout": null,
+        "readerOverflow": null,
+        "readerFit": null,
+        "ok": false,
+        "readerWidth": null,
+        "diagramWidth": null,
+        "pageComposition": {
+          "bodyPaddingPx": 64,
+          "headerPx": 0,
+          "diagramChromePx": 0,
+          "svgPx": 0,
+          "cardsPx": 0,
+          "viewBoxHeight": 0
+        },
+        "viewBoxWidth": null,
+        "minimumProjectedNodeTextPx": null,
+        "minimumProjectedNonEdgeTextPx": null,
+        "minimumProjectedEdgeTextPx": null,
+        "minimumProjectedNodeText": null,
+        "minimumProjectedNodeTextDetail": null,
+        "minimumProjectedNodeTextOwner": null,
+        "minimumRequiredNodeTextPx": 6,
+        "readabilityOk": true,
+        "hasLegend": false,
+        "hasNavigationDock": false,
+        "legendDockIntersectionArea": 0,
+        "dockStageIntersectionArea": 0,
+        "dockStageGap": null,
+        "requiredDockStageGap": 0,
+        "viewerChromeStageOk": true,
+        "viewerChromeReserve": 0,
+        "viewerChromeActive": false,
+        "viewerChromeOk": true,
+        "resolvedTheme": "dark"
+      },
+      {
+        "width": 2048,
+        "height": 1320,
+        "theme": "light",
+        "innerWidth": 2048,
+        "innerHeight": 1320,
+        "scrollWidth": 2048,
+        "scrollHeight": 1506,
+        "overflowX": false,
+        "overflowY": true,
+        "verticalScrollAccepted": false,
+        "overflowDisposition": "unexpected-overflow",
+        "readerLayout": null,
+        "readerOverflow": null,
+        "readerFit": null,
+        "ok": false,
+        "readerWidth": null,
+        "diagramWidth": null,
+        "pageComposition": {
+          "bodyPaddingPx": 64,
+          "headerPx": 0,
+          "diagramChromePx": 0,
+          "svgPx": 0,
+          "cardsPx": 0,
+          "viewBoxHeight": 0
+        },
+        "viewBoxWidth": null,
+        "minimumProjectedNodeTextPx": null,
+        "minimumProjectedNonEdgeTextPx": null,
+        "minimumProjectedEdgeTextPx": null,
+        "minimumProjectedNodeText": null,
+        "minimumProjectedNodeTextDetail": null,
+        "minimumProjectedNodeTextOwner": null,
+        "minimumRequiredNodeTextPx": 6,
+        "readabilityOk": true,
+        "hasLegend": false,
+        "hasNavigationDock": false,
+        "legendDockIntersectionArea": 0,
+        "dockStageIntersectionArea": 0,
+        "dockStageGap": null,
+        "requiredDockStageGap": 0,
+        "viewerChromeStageOk": true,
+        "viewerChromeReserve": 0,
+        "viewerChromeActive": false,
+        "viewerChromeOk": true,
+        "resolvedTheme": "dark"
+      }
+    ]
+  },
+  "viewerChrome": {
+    "status": "pass",
+    "viewports": [
+      {
+        "width": 1440,
+        "height": 900,
+        "theme": "light",
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "scrollWidth": 1440,
+        "scrollHeight": 1228,
+        "overflowX": false,
+        "overflowY": true,
+        "verticalScrollAccepted": false,
+        "overflowDisposition": "unexpected-overflow",
+        "readerLayout": null,
+        "readerOverflow": null,
+        "readerFit": null,
+        "ok": false,
+        "readerWidth": null,
+        "diagramWidth": null,
+        "pageComposition": {
+          "bodyPaddingPx": 40,
+          "headerPx": 0,
+          "diagramChromePx": 0,
+          "svgPx": 0,
+          "cardsPx": 0,
+          "viewBoxHeight": 0
+        },
+        "viewBoxWidth": null,
+        "minimumProjectedNodeTextPx": null,
+        "minimumProjectedNonEdgeTextPx": null,
+        "minimumProjectedEdgeTextPx": null,
+        "minimumProjectedNodeText": null,
+        "minimumProjectedNodeTextDetail": null,
+        "minimumProjectedNodeTextOwner": null,
+        "minimumRequiredNodeTextPx": 6,
+        "readabilityOk": true,
+        "hasLegend": false,
+        "hasNavigationDock": false,
+        "legendDockIntersectionArea": 0,
+        "dockStageIntersectionArea": 0,
+        "dockStageGap": null,
+        "requiredDockStageGap": 0,
+        "viewerChromeStageOk": true,
+        "viewerChromeReserve": 0,
+        "viewerChromeActive": false,
+        "viewerChromeOk": true,
+        "resolvedTheme": "dark"
+      },
+      {
+        "width": 1600,
+        "height": 1000,
+        "theme": "light",
+        "innerWidth": 1600,
+        "innerHeight": 1000,
+        "scrollWidth": 1600,
+        "scrollHeight": 1324,
+        "overflowX": false,
+        "overflowY": true,
+        "verticalScrollAccepted": false,
+        "overflowDisposition": "unexpected-overflow",
+        "readerLayout": null,
+        "readerOverflow": null,
+        "readerFit": null,
+        "ok": false,
+        "readerWidth": null,
+        "diagramWidth": null,
+        "pageComposition": {
+          "bodyPaddingPx": 64,
+          "headerPx": 0,
+          "diagramChromePx": 0,
+          "svgPx": 0,
+          "cardsPx": 0,
+          "viewBoxHeight": 0
+        },
+        "viewBoxWidth": null,
+        "minimumProjectedNodeTextPx": null,
+        "minimumProjectedNonEdgeTextPx": null,
+        "minimumProjectedEdgeTextPx": null,
+        "minimumProjectedNodeText": null,
+        "minimumProjectedNodeTextDetail": null,
+        "minimumProjectedNodeTextOwner": null,
+        "minimumRequiredNodeTextPx": 6,
+        "readabilityOk": true,
+        "hasLegend": false,
+        "hasNavigationDock": false,
+        "legendDockIntersectionArea": 0,
+        "dockStageIntersectionArea": 0,
+        "dockStageGap": null,
+        "requiredDockStageGap": 0,
+        "viewerChromeStageOk": true,
+        "viewerChromeReserve": 0,
+        "viewerChromeActive": false,
+        "viewerChromeOk": true,
+        "resolvedTheme": "dark"
+      },
+      {
+        "width": 1920,
+        "height": 1080,
+        "theme": "light",
+        "innerWidth": 1920,
+        "innerHeight": 1080,
+        "scrollWidth": 1920,
+        "scrollHeight": 1382,
+        "overflowX": false,
+        "overflowY": true,
+        "verticalScrollAccepted": false,
+        "overflowDisposition": "unexpected-overflow",
+        "readerLayout": null,
+        "readerOverflow": null,
+        "readerFit": null,
+        "ok": false,
+        "readerWidth": null,
+        "diagramWidth": null,
+        "pageComposition": {
+          "bodyPaddingPx": 64,
+          "headerPx": 0,
+          "diagramChromePx": 0,
+          "svgPx": 0,
+          "cardsPx": 0,
+          "viewBoxHeight": 0
+        },
+        "viewBoxWidth": null,
+        "minimumProjectedNodeTextPx": null,
+        "minimumProjectedNonEdgeTextPx": null,
+        "minimumProjectedEdgeTextPx": null,
+        "minimumProjectedNodeText": null,
+        "minimumProjectedNodeTextDetail": null,
+        "minimumProjectedNodeTextOwner": null,
+        "minimumRequiredNodeTextPx": 6,
+        "readabilityOk": true,
+        "hasLegend": false,
+        "hasNavigationDock": false,
+        "legendDockIntersectionArea": 0,
+        "dockStageIntersectionArea": 0,
+        "dockStageGap": null,
+        "requiredDockStageGap": 0,
+        "viewerChromeStageOk": true,
+        "viewerChromeReserve": 0,
+        "viewerChromeActive": false,
+        "viewerChromeOk": true,
+        "resolvedTheme": "dark"
+      },
+      {
+        "width": 2048,
+        "height": 1320,
+        "theme": "light",
+        "innerWidth": 2048,
+        "innerHeight": 1320,
+        "scrollWidth": 2048,
+        "scrollHeight": 1506,
+        "overflowX": false,
+        "overflowY": true,
+        "verticalScrollAccepted": false,
+        "overflowDisposition": "unexpected-overflow",
+        "readerLayout": null,
+        "readerOverflow": null,
+        "readerFit": null,
+        "ok": false,
+        "readerWidth": null,
+        "diagramWidth": null,
+        "pageComposition": {
+          "bodyPaddingPx": 64,
+          "headerPx": 0,
+          "diagramChromePx": 0,
+          "svgPx": 0,
+          "cardsPx": 0,
+          "viewBoxHeight": 0
+        },
+        "viewBoxWidth": null,
+        "minimumProjectedNodeTextPx": null,
+        "minimumProjectedNonEdgeTextPx": null,
+        "minimumProjectedEdgeTextPx": null,
+        "minimumProjectedNodeText": null,
+        "minimumProjectedNodeTextDetail": null,
+        "minimumProjectedNodeTextOwner": null,
+        "minimumRequiredNodeTextPx": 6,
+        "readabilityOk": true,
+        "hasLegend": false,
+        "hasNavigationDock": false,
+        "legendDockIntersectionArea": 0,
+        "dockStageIntersectionArea": 0,
+        "dockStageGap": null,
+        "requiredDockStageGap": 0,
+        "viewerChromeStageOk": true,
+        "viewerChromeReserve": 0,
+        "viewerChromeActive": false,
+        "viewerChromeOk": true,
+        "resolvedTheme": "dark"
+      }
+    ]
+  },
+  "captures": {
+    "status": "not-requested",
+    "screenshots": [],
+    "contactSheet": null
+  },
+  "sidecars": {
+    "receipt": "inventario-dashboard.architecture-delta.browser-check.json",
+    "files": []
+  }
+}

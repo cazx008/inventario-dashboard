@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "2fcdfb23-1842-4647-983c-144efa6ef3f3",
+  "status": "current",
+  "command": "deliver",
+  "type": "workflow",
+  "input": "c:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\Proyectos-index\\Arquitectura-Sanesca\\08_Web\\inventario-dashboard\\.archify\\workflow-recepcion-rampa-etiquetado-20261012-143500\\candidate.json",
+  "output": "C:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\Proyectos-index\\Arquitectura-Sanesca\\08_Web\\inventario-dashboard\\public\\diagrams\\workflow-recepcion-rampa-etiquetado.html",
+  "specification": {
+    "sha256": "6831513fa25c38df7833f33155adc5bb51c53224049b76d9e095d07721d2b923",
+    "bytes": 7193
+  },
+  "artifact": {
+    "sha256": "2155532b0d10da8b963f702d2420c822d65a69e2695b13702ebbad9d1146603f",
+    "bytes": 769502
+  }
+}

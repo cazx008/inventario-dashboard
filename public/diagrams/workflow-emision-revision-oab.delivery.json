@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "2521ee8c-efd5-4d60-896e-0e4b8c690449",
+  "status": "current",
+  "command": "deliver",
+  "type": "workflow",
+  "input": "c:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\Proyectos-index\\Arquitectura-Sanesca\\08_Web\\inventario-dashboard\\.archify\\workflow-emision-revision-oab-20261012-144500\\candidate.json",
+  "output": "C:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\Proyectos-index\\Arquitectura-Sanesca\\08_Web\\inventario-dashboard\\public\\diagrams\\workflow-emision-revision-oab.html",
+  "specification": {
+    "sha256": "4b8c43f916cc1ee55ed7e6a18a39350f43bc92ec619cfa686cb8ea3516c7f1b7",
+    "bytes": 6164
+  },
+  "artifact": {
+    "sha256": "1f831d1f955d6d483d71a1dd9941d0d44b048b30a7679db58d4463f1e5212737",
+    "bytes": 764593
+  }
+}

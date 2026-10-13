@@ -1,6 +1,6 @@
 import React from 'react';
 import { InsumoSummary, StoreAllocation } from '../services/inventoryService';
-import { Building2, ArrowRightLeft, Plus, ExternalLink, X, ShieldCheck } from 'lucide-react';
+import { Building2, ArrowRightLeft, Plus, ExternalLink, X, ShieldCheck, Printer } from 'lucide-react';
 
 interface AllocationsPopoverProps {
   materialNombre: string;
@@ -10,6 +10,7 @@ interface AllocationsPopoverProps {
   onOpenPanoramic?: (proyectoId?: string) => void;
   onDirectAllocate?: () => void;
   onReassign?: (alloc: StoreAllocation) => void;
+  onReprintLabel?: (alloc: StoreAllocation) => void;
   onClose: () => void;
 }
 
@@ -21,6 +22,7 @@ export const AllocationsPopover: React.FC<AllocationsPopoverProps> = ({
   onOpenPanoramic,
   onDirectAllocate,
   onReassign,
+  onReprintLabel,
   onClose,
 }) => {
   const desglose = summary?.desglose || [];
@@ -107,17 +109,31 @@ export const AllocationsPopover: React.FC<AllocationsPopoverProps> = ({
                 </div>
               </div>
 
-              {onReassign && (
-                <button
-                  type="button"
-                  onClick={() => onReassign(alloc)}
-                  className="px-2 py-1 rounded bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 hover:text-amber-200 text-[10px] font-semibold flex items-center gap-1 active:scale-95 transition shrink-0"
-                  title={`Reasignar ${alloc.insumoNombre} de ${alloc.proyectoNombre} a otra obra`}
-                >
-                  <ArrowRightLeft className="w-2.5 h-2.5" />
-                  <span>Reasignar</span>
-                </button>
-              )}
+              <div className="flex items-center gap-1 shrink-0">
+                {onReprintLabel && (
+                  <button
+                    type="button"
+                    onClick={() => onReprintLabel(alloc)}
+                    className="px-2 py-1 rounded bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 hover:text-emerald-200 text-[10px] font-semibold flex items-center gap-1 active:scale-95 transition"
+                    title={`Reimprimir etiqueta MTO para ${alloc.proyectoNombre}`}
+                  >
+                    <Printer className="w-2.5 h-2.5" />
+                    <span>Rótulo</span>
+                  </button>
+                )}
+
+                {onReassign && (
+                  <button
+                    type="button"
+                    onClick={() => onReassign(alloc)}
+                    className="px-2 py-1 rounded bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 hover:text-amber-200 text-[10px] font-semibold flex items-center gap-1 active:scale-95 transition"
+                    title={`Reasignar ${alloc.insumoNombre} de ${alloc.proyectoNombre} a otra obra`}
+                  >
+                    <ArrowRightLeft className="w-2.5 h-2.5" />
+                    <span>Reasignar</span>
+                  </button>
+                )}
+              </div>
             </div>
           ))
         )}

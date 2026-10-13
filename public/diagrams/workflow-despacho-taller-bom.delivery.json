@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "9231007d-cf3d-459c-9d1c-af993b088138",
+  "status": "current",
+  "command": "deliver",
+  "type": "workflow",
+  "input": "c:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\Proyectos-index\\Arquitectura-Sanesca\\08_Web\\inventario-dashboard\\.archify\\workflow-despacho-taller-bom-20261012-145000\\candidate.json",
+  "output": "C:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\Proyectos-index\\Arquitectura-Sanesca\\08_Web\\inventario-dashboard\\public\\diagrams\\workflow-despacho-taller-bom.html",
+  "specification": {
+    "sha256": "60438661ba26974a72b42c2459e1849fd32e2d7b2f0bed834faf892348c4dc9b",
+    "bytes": 6290
+  },
+  "artifact": {
+    "sha256": "e2aa1a91bc685c558cbbd4672bc0721c1d4a0d8becb62fcfd8977d00a3d48d21",
+    "bytes": 766837
+  }
+}

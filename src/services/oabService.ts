@@ -28,6 +28,10 @@ export interface ReceptionItemPayload {
   pedidoId?: string;
   proyectoId?: string;
   proyectoNombre?: string;
+  bultos?: number;
+  cantEnBulto?: number;
+  bultoPico?: number;
+  desgloseBultos?: number[];
 }
 
 export interface RegisterReceptionPayload {

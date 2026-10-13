@@ -22,6 +22,7 @@ interface InventoryTableProps {
   onOpenStoreAllocations?: (item?: InventoryItem, alloc?: StoreAllocation) => void;
   onOpenDirectAllocate?: (item: InventoryItem) => void;
   onOpenReassignAlloc?: (alloc: StoreAllocation, item: InventoryItem) => void;
+  onReprintLabel?: (alloc: StoreAllocation, item: InventoryItem) => void;
   loading?: boolean;
   loadError?: boolean;
   onRetry?: () => void;
@@ -46,6 +47,7 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({
   onOpenStoreAllocations,
   onOpenDirectAllocate,
   onOpenReassignAlloc,
+  onReprintLabel,
   loading = false,
   loadError = false,
   onRetry,
@@ -243,6 +245,10 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({
                 onReassign={(alloc) => {
                   setActivePopoverId(null);
                   onOpenReassignAlloc?.(alloc, row);
+                }}
+                onReprintLabel={(alloc) => {
+                  setActivePopoverId(null);
+                  onReprintLabel?.(alloc, row);
                 }}
                 onClose={() => setActivePopoverId(null)}
               />

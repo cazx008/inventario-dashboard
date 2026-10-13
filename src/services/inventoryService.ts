@@ -392,6 +392,10 @@ export interface StoreAllocation {
   cantidadConsumida: number;
   unidad?: string;
   costoUnitarioUSD?: number;
+  folioOAB?: string;
+  desgloseBultos?: number[];
+  bultos?: number;
+  cantEnBulto?: number;
   updatedAt: number;
 }
 

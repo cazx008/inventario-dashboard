@@ -7,3 +7,5 @@ worker/.wrangler/
 dist/
 .dev.vars
 *.bak
+.impeccable/
+.archify/

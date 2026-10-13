@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "a498cb03-2326-4384-b6c5-237ed2056f58",
+  "status": "current",
+  "command": "deliver",
+  "type": "dataflow",
+  "input": "C:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\Proyectos-index\\Arquitectura-Sanesca\\08_Web\\inventario-dashboard\\.archify\\dataflow-linaje-materiales-costeo-20261013\\candidate.json",
+  "output": "C:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\Proyectos-index\\Arquitectura-Sanesca\\08_Web\\inventario-dashboard\\public\\diagrams\\dataflow-linaje-materiales-costeo.html",
+  "specification": {
+    "sha256": "ba711ddd9d173659f388d5830cc16a1a49ff438f10ff3b8c1d86f05e27d3df04",
+    "bytes": 8065
+  },
+  "artifact": {
+    "sha256": "694bf4304ac85e9f93430a4a285a0880ba42fa9da0d2d841c22d56e281e4cee5",
+    "bytes": 767689
+  }
+}

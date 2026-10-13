@@ -287,6 +287,8 @@ export default function App() {
       const tiendaParam = params.get('tienda');
       const folioParam = params.get('folio');
       const kardexParam = params.get('kardex');
+      const cantBultoParam = params.get('cant_bulto');
+      const pkgIdParam = params.get('pkg_id');
 
       // D1-10B.1: Intercepción Prioritaria para Cédula Digital del Bulto Móvil (Lectura Libre en Planta)
       if (bultoParam && materialParam) {
@@ -294,7 +296,9 @@ export default function App() {
           folio: folioParam || '',
           material: materialParam,
           tienda: tiendaParam || '',
-          bulto: bultoParam
+          bulto: bultoParam,
+          cantBulto: cantBultoParam ? parseFloat(cantBultoParam) : undefined,
+          pkgId: pkgIdParam || undefined
         });
         setBultoModalOpen(true);
         return;
@@ -1095,6 +1099,24 @@ export default function App() {
             setSelectedItemForAlloc(item);
             setStoreAllocationModalOpen(true);
           }}
+          onReprintLabel={(alloc, item) => {
+            const cant = alloc.cantidadApartada || 1;
+            const cantBulto = item.cant_en_bulto || 1;
+            const bultos = Math.max(1, Math.ceil(cant / cantBulto));
+            setReprintLabelsItems([{
+              folioOAB: alloc.folioOAB || 'MTO-DIRECT',
+              nombre: alloc.insumoNombre,
+              codigo: item.codigo || alloc.insumoId || '',
+              categoria: item.categoriaMaterial || 'MTO Directo',
+              proyectoNombre: alloc.proyectoNombre,
+              cantidadRecibidaHoy: cant,
+              bultos: bultos,
+              cantEnBulto: cantBulto,
+              bultoPico: (cant % cantBulto !== 0) ? (cant % cantBulto) : undefined,
+              unidadMedida: item.unidadMedida || item.unidad || 'und',
+              fechaRecepcion: new Date().toISOString().split('T')[0]
+            }]);
+          }}
           loading={loading}
           loadError={loadError}
           onRetry={handleRefresh}
@@ -1410,7 +1432,7 @@ export default function App() {
             }
             setDispatchModalOpen(true);
           }}
-          onReprintLabel={(bData) => {
+          onReprintLabel={(bData, labelInfo) => {
             const foundItem = items.find(it => 
               it.nombre.toLowerCase().includes(bData.material.toLowerCase()) || 
               (it.codigo || '').toLowerCase() === bData.material.toLowerCase()
@@ -1419,15 +1441,25 @@ export default function App() {
               ? bData.bulto.split('_').map(n => parseInt(n, 10) || 1)
               : [1, 1];
             
+            const stdCantBulto = foundItem?.cant_en_bulto || 1;
+            const cantActual = labelInfo?.saldoRemanente ?? labelInfo?.cantidadRecibidaHoy ?? (labelInfo?.cantEnBulto || stdCantBulto);
+            const isAbierto = Boolean(labelInfo?.isBultoAbierto);
+
             setReprintLabelsItems([{
-              folioOAB: bData.folio,
+              folioOAB: bData.folio || 'MTO-TALLER',
               nombre: foundItem?.nombre || bData.material,
               codigo: foundItem?.codigo || bData.material,
               categoria: foundItem?.categoriaMaterial || 'Insumos',
               proyectoNombre: bData.tienda,
-              cantidadRecibidaHoy: foundItem?.stockBase || 1,
-              bultos: tBultos,
-              cantEnBulto: 1,
+              cantidadRecibidaHoy: cantActual,
+              bultos: isAbierto ? 1 : tBultos,
+              cantEnBulto: cantActual,
+              desgloseBultos: labelInfo?.desgloseBultos || (isAbierto ? [cantActual] : undefined),
+              unidadMedida: foundItem?.unidadMedida || foundItem?.unidad || bData.unidadMedida || 'und',
+              isBultoAbierto: isAbierto,
+              saldoRemanente: labelInfo?.saldoRemanente,
+              customPkgId: labelInfo?.customPkgId || (isAbierto ? undefined : bData.pkgId),
+              pkgIdPrefix: labelInfo?.pkgIdPrefix,
               fechaRecepcion: new Date().toISOString().split('T')[0]
             }]);
           }}
@@ -1463,6 +1495,9 @@ export default function App() {
         userRole={auth.profile?.puestos?.[0]}
         hasPermission={(perm) => auth.hasPermission(perm as any)}
         triggerHaptic={(type) => auth.triggerHaptic(type)}
+        onReprintLabel={(item) => {
+          setReprintLabelsItems([item]);
+        }}
       />
 
       {/* Modal Maestro: Catálogo de Insumos, Ficha Técnica y Health Checker (Fase 11) */}

@@ -28,6 +28,9 @@ export interface InventoryItem {
   stockLibre?: number;
   costoUnitarioUSD?: number;
   insumoId?: string; // id en BD_Materiales_Insumos
+  dashboardId?: string;
+  cant_en_bulto?: number;
+  unidadMedida?: string;
   isOptimisticSync?: boolean;
   syncNote?: string;
 }

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "3cb96c1e-13bd-4f1a-918d-f461df00a368",
+  "status": "current",
+  "command": "deliver",
+  "type": "sequence",
+  "input": "C:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\Proyectos-index\\Arquitectura-Sanesca\\08_Web\\inventario-dashboard\\.archify\\sequence-recepcion-atomica-mto-20261013\\candidate.json",
+  "output": "C:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\Proyectos-index\\Arquitectura-Sanesca\\08_Web\\inventario-dashboard\\public\\diagrams\\sequence-recepcion-atomica-mto.html",
+  "specification": {
+    "sha256": "9f92aa056e9b6d82415c590d41d375cce535a6f69933d92bffbf104836ab0ce2",
+    "bytes": 6073
+  },
+  "artifact": {
+    "sha256": "5a98d165668330b34317232b27cb3ba9330993cff76f0248869fea851f1674dc",
+    "bytes": 765492
+  }
+}

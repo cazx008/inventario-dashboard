@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "b9d15ef8-35f6-49ba-ae4b-878ae20a86be",
+  "status": "current",
+  "command": "deliver",
+  "type": "sequence",
+  "input": "C:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\Proyectos-index\\Arquitectura-Sanesca\\08_Web\\inventario-dashboard\\.archify\\sequence-auth-2fa-pc-20261013\\candidate.json",
+  "output": "C:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\Proyectos-index\\Arquitectura-Sanesca\\08_Web\\inventario-dashboard\\public\\diagrams\\sequence-auth-2fa-pc.html",
+  "specification": {
+    "sha256": "15e5a9f2de91d8435472804c2dce24b77e5c8e35fd519ac5a2988b6ced0b52e6",
+    "bytes": 5745
+  },
+  "artifact": {
+    "sha256": "8fae50223b64f6f6e5b9e950626cc96b6a452242621fd33332162dc51d21cd26",
+    "bytes": 763455
+  }
+}

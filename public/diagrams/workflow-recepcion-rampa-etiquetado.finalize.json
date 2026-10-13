@@ -1,0 +1,1762 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "workflow",
+  "quality": "showcase",
+  "startedAt": "2026-10-12T18:42:21.901Z",
+  "specification": {
+    "path": "c:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\Proyectos-index\\Arquitectura-Sanesca\\08_Web\\inventario-dashboard\\.archify\\workflow-recepcion-rampa-etiquetado-20261012-143500\\candidate.json",
+    "sha256": "6831513fa25c38df7833f33155adc5bb51c53224049b76d9e095d07721d2b923",
+    "bytes": 7193
+  },
+  "artifact": {
+    "path": "c:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\Proyectos-index\\Arquitectura-Sanesca\\08_Web\\inventario-dashboard\\public\\diagrams\\workflow-recepcion-rampa-etiquetado.html",
+    "sha256": "2155532b0d10da8b963f702d2420c822d65a69e2695b13702ebbad9d1146603f",
+    "bytes": 769502
+  },
+  "stages": {
+    "validate": {
+      "status": "pass",
+      "exitCode": 0,
+      "durationMs": null,
+      "execution": "embedded-in-deliver",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "c:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\.agents\\skills\\archify\\bin\\archify.mjs",
+        "deliver",
+        "workflow",
+        "c:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\Proyectos-index\\Arquitectura-Sanesca\\08_Web\\inventario-dashboard\\.archify\\workflow-recepcion-rampa-etiquetado-20261012-143500\\candidate.json",
+        "c:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\Proyectos-index\\Arquitectura-Sanesca\\08_Web\\inventario-dashboard\\public\\diagrams\\workflow-recepcion-rampa-etiquetado.html",
+        "--quality",
+        "showcase",
+        "--repo-root",
+        "c:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\Proyectos-index\\Arquitectura-Sanesca\\08_Web\\inventario-dashboard",
+        "--json"
+      ],
+      "receipt": {
+        "schemaVersion": 1,
+        "ok": true,
+        "command": "validate",
+        "specification": {
+          "sha256": "6831513fa25c38df7833f33155adc5bb51c53224049b76d9e095d07721d2b923",
+          "bytes": 7193
+        },
+        "validation": {
+          "checksPassed": 9,
+          "checkCount": 9,
+          "compositionProfile": "showcase",
+          "compositionStatus": "pass",
+          "errors": 0,
+          "warnings": 0
+        }
+      }
+    },
+    "deliver": {
+      "status": "pass",
+      "exitCode": 0,
+      "durationMs": 1915,
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "c:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\.agents\\skills\\archify\\bin\\archify.mjs",
+        "deliver",
+        "workflow",
+        "c:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\Proyectos-index\\Arquitectura-Sanesca\\08_Web\\inventario-dashboard\\.archify\\workflow-recepcion-rampa-etiquetado-20261012-143500\\candidate.json",
+        "c:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\Proyectos-index\\Arquitectura-Sanesca\\08_Web\\inventario-dashboard\\public\\diagrams\\workflow-recepcion-rampa-etiquetado.html",
+        "--quality",
+        "showcase",
+        "--repo-root",
+        "c:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\Proyectos-index\\Arquitectura-Sanesca\\08_Web\\inventario-dashboard",
+        "--json"
+      ],
+      "receipt": {
+        "schemaVersion": 1,
+        "receiptId": "2fcdfb23-1842-4647-983c-144efa6ef3f3",
+        "ok": true,
+        "command": "deliver",
+        "type": "workflow",
+        "input": "c:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\Proyectos-index\\Arquitectura-Sanesca\\08_Web\\inventario-dashboard\\.archify\\workflow-recepcion-rampa-etiquetado-20261012-143500\\candidate.json",
+        "output": "C:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\Proyectos-index\\Arquitectura-Sanesca\\08_Web\\inventario-dashboard\\public\\diagrams\\workflow-recepcion-rampa-etiquetado.html",
+        "specification": {
+          "sha256": "6831513fa25c38df7833f33155adc5bb51c53224049b76d9e095d07721d2b923",
+          "bytes": 7193
+        },
+        "artifact": {
+          "sha256": "2155532b0d10da8b963f702d2420c822d65a69e2695b13702ebbad9d1146603f",
+          "bytes": 769502
+        },
+        "validation": {
+          "checksPassed": 9,
+          "checkCount": 9,
+          "compositionProfile": "showcase",
+          "compositionStatus": "pass",
+          "errors": 0,
+          "warnings": 0
+        },
+        "evidence": {
+          "verified": true,
+          "repository": "https://github.com/cazx008/inventario-dashboard",
+          "revision": "7715f309e98507687eba603ce4072d28d11586ed",
+          "references": 6
+        },
+        "update": {
+          "status": "unavailable",
+          "installedVersion": null,
+          "availableVersion": null,
+          "releaseNotes": null,
+          "checkedAt": null,
+          "source": null,
+          "noticeRequired": false,
+          "noticeText": null,
+          "reason": "disabled"
+        }
+      }
+    },
+    "check": {
+      "status": "pass",
+      "exitCode": 0,
+      "durationMs": 293,
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "c:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\.agents\\skills\\archify\\bin\\archify.mjs",
+        "check",
+        "c:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\Proyectos-index\\Arquitectura-Sanesca\\08_Web\\inventario-dashboard\\public\\diagrams\\workflow-recepcion-rampa-etiquetado.html",
+        "--require-provenance"
+      ],
+      "receipt": {
+        "ok": true,
+        "file": "c:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\Proyectos-index\\Arquitectura-Sanesca\\08_Web\\inventario-dashboard\\public\\diagrams\\workflow-recepcion-rampa-etiquetado.html",
+        "artifact": {
+          "sha256": "2155532b0d10da8b963f702d2420c822d65a69e2695b13702ebbad9d1146603f",
+          "bytes": 769502
+        },
+        "checks": [
+          {
+            "name": "single_svg",
+            "ok": true,
+            "details": [
+              "found 1 <svg> block(s)"
+            ]
+          },
+          {
+            "name": "finite_svg",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "orthogonal_arrows",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "label_route_clearance",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "relationship_crossings",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "relationship_corridors",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "container_border_runs",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "route_rhythm",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "legend_clearance",
+            "ok": true,
+            "details": []
+          }
+        ],
+        "composition": {
+          "schemaVersion": 1,
+          "profile": "showcase",
+          "status": "pass",
+          "summary": {
+            "errors": 0,
+            "warnings": 0
+          },
+          "metrics": {
+            "properCrossings": 0,
+            "resolvedCrossovers": 0,
+            "ambiguousCorridors": 0,
+            "arrowheadCollisions": 0,
+            "containerBorderRuns": 0,
+            "labelRouteClearanceIssues": 0,
+            "labelCanvasOverflowIssues": 0,
+            "minLabelRouteClearance": 63.9,
+            "desktopReadabilityIssues": 0,
+            "viewportHeightIssues": 0,
+            "minProjectedNodeTextPx": 6.098360655737705,
+            "maxBends": 3,
+            "routesOverSuggestedBends": 1,
+            "maxStretch": 2.797,
+            "routesOverSuggestedStretch": 1,
+            "minSegmentPx": 16,
+            "minInteriorSegmentPx": 81,
+            "shortSegmentCount": 0,
+            "shortEndpointSegmentCount": 0,
+            "shortInteriorSegmentCount": 0,
+            "microSegmentCount": 0
+          },
+          "suggestedLimits": {
+            "bendsPerRelationship": 2,
+            "stretch": 1.35,
+            "segmentPx": 16,
+            "microSegmentPx": 8
+          },
+          "routeReview": {
+            "crossings": [],
+            "detours": [
+              {
+                "relationship": {
+                  "from": "impresion_rotulado",
+                  "to": "estiba_mto",
+                  "label": "Traslado Bahía",
+                  "collectionIndex": 4,
+                  "artifactIndex": 5
+                },
+                "bends": 2,
+                "stretch": 2.797
+              },
+              {
+                "relationship": {
+                  "from": "impresion_rotulado",
+                  "to": "evidencia_r2",
+                  "label": "Foto Remito",
+                  "collectionIndex": 5,
+                  "artifactIndex": 6
+                },
+                "bends": 3,
+                "stretch": 1.078,
+                "directCorridorBlockers": [
+                  {
+                    "id": "estiba_mto",
+                    "label": "Estiba Bahía MTO",
+                    "box": [
+                      803.6,
+                      338,
+                      130,
+                      68
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "leadingSpace": {
+            "measured": false,
+            "reviewSuggested": false
+          },
+          "desktopReadability": {
+            "budgetBasis": "legacy-930",
+            "readerContract": "declared-wide-v1",
+            "availableDiagramWidth": 930,
+            "actualBudgetPx": 930,
+            "limit": "legacy",
+            "requestedTargetPx": null,
+            "requestedTargetMet": null,
+            "hardFloorPx": 6,
+            "hardFloorMet": true,
+            "minimumOwner": {
+              "kind": "node",
+              "id": "transporte_arribo"
+            },
+            "minimumSourceTextPx": 8,
+            "minimumProjectedTextPx": 6.098360655737705,
+            "semanticTextCount": 28
+          },
+          "issues": []
+        },
+        "provenance": "current",
+        "deliveryReceiptId": "2fcdfb23-1842-4647-983c-144efa6ef3f3"
+      }
+    },
+    "browser-check": {
+      "status": "pass",
+      "exitCode": 0,
+      "durationMs": 2852,
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "c:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\.agents\\skills\\archify\\bin\\archify.mjs",
+        "browser-check",
+        "c:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\Proyectos-index\\Arquitectura-Sanesca\\08_Web\\inventario-dashboard\\public\\diagrams\\workflow-recepcion-rampa-etiquetado.html",
+        "--json",
+        "--require-provenance"
+      ],
+      "execution": "in-process",
+      "receipt": {
+        "schemaVersion": 1,
+        "ok": true,
+        "command": "browser-check",
+        "evidenceKind": "automated-browser",
+        "status": "pass",
+        "visualReview": "not-requested",
+        "provenance": "current",
+        "deliveryReceiptId": "2fcdfb23-1842-4647-983c-144efa6ef3f3",
+        "artifact": {
+          "path": "c:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\Proyectos-index\\Arquitectura-Sanesca\\08_Web\\inventario-dashboard\\public\\diagrams\\workflow-recepcion-rampa-etiquetado.html",
+          "sha256": "2155532b0d10da8b963f702d2420c822d65a69e2695b13702ebbad9d1146603f",
+          "bytes": 769502
+        },
+        "state": {
+          "detail": "read",
+          "motion": "still"
+        },
+        "chrome": {
+          "status": "available",
+          "executable": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
+        },
+        "diagnostics": [],
+        "containment": {
+          "status": "pass",
+          "policy": "fit-or-reader-declared-readable-vertical-scroll",
+          "viewports": [
+            {
+              "width": 1440,
+              "height": 900,
+              "theme": "light",
+              "innerWidth": 1440,
+              "innerHeight": 900,
+              "scrollWidth": 1440,
+              "scrollHeight": 900,
+              "overflowX": false,
+              "overflowY": false,
+              "verticalScrollAccepted": false,
+              "overflowDisposition": "contained",
+              "readerLayout": "adaptive",
+              "readerOverflow": null,
+              "readerFit": null,
+              "ok": true,
+              "readerWidth": 1123,
+              "diagramWidth": 1093,
+              "pageComposition": {
+                "bodyPaddingPx": 12,
+                "headerPx": 94,
+                "diagramChromePx": 78,
+                "svgPx": 704,
+                "cardsPx": 0,
+                "viewBoxHeight": 786
+              },
+              "viewBoxWidth": 1220,
+              "workflowLanes": [
+                {
+                  "frameId": "lane-0",
+                  "heightPx": 95,
+                  "nodeCount": 5,
+                  "nodeIds": [
+                    "transporte_arribo",
+                    "descarga_conteo",
+                    "inspeccion_calidad",
+                    "clasificacion_mto",
+                    "impresion_rotulado"
+                  ],
+                  "nodeSpanPx": 61,
+                  "spaceAboveNodesPx": 30,
+                  "spaceBelowNodesPx": 4
+                },
+                {
+                  "frameId": "lane-1",
+                  "heightPx": 95,
+                  "nodeCount": 1,
+                  "nodeIds": [
+                    "hoja_oab"
+                  ],
+                  "nodeSpanPx": 47,
+                  "spaceAboveNodesPx": 38,
+                  "spaceBelowNodesPx": 11
+                },
+                {
+                  "frameId": "lane-2",
+                  "heightPx": 95,
+                  "nodeCount": 1,
+                  "nodeIds": [
+                    "estiba_mto"
+                  ],
+                  "nodeSpanPx": 61,
+                  "spaceAboveNodesPx": 30,
+                  "spaceBelowNodesPx": 4
+                },
+                {
+                  "frameId": "lane-3",
+                  "heightPx": 95,
+                  "nodeCount": 2,
+                  "nodeIds": [
+                    "evidencia_r2",
+                    "asiento_kardex"
+                  ],
+                  "nodeSpanPx": 61,
+                  "spaceAboveNodesPx": 30,
+                  "spaceBelowNodesPx": 4
+                },
+                {
+                  "frameId": "lane-4",
+                  "heightPx": 95,
+                  "nodeCount": 1,
+                  "nodeIds": [
+                    "rechazo_cuarentena"
+                  ],
+                  "nodeSpanPx": 61,
+                  "spaceAboveNodesPx": 30,
+                  "spaceBelowNodesPx": 4
+                }
+              ],
+              "minimumProjectedNodeTextPx": 7.167213114754098,
+              "minimumProjectedNonEdgeTextPx": 7.167213114754098,
+              "minimumProjectedEdgeTextPx": 7.167213114754098,
+              "minimumProjectedNodeText": "Guía / Factura Física",
+              "minimumProjectedNodeTextDetail": "context",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "node",
+                "id": "transporte_arribo"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 54,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            },
+            {
+              "width": 1600,
+              "height": 1000,
+              "theme": "light",
+              "innerWidth": 1600,
+              "innerHeight": 1000,
+              "scrollWidth": 1600,
+              "scrollHeight": 1000,
+              "overflowX": false,
+              "overflowY": false,
+              "verticalScrollAccepted": false,
+              "overflowDisposition": "contained",
+              "readerLayout": "adaptive",
+              "readerOverflow": null,
+              "readerFit": null,
+              "ok": true,
+              "readerWidth": 1176,
+              "diagramWidth": 1146,
+              "pageComposition": {
+                "bodyPaddingPx": 64,
+                "headerPx": 102,
+                "diagramChromePx": 84,
+                "svgPx": 738,
+                "cardsPx": 0,
+                "viewBoxHeight": 786
+              },
+              "viewBoxWidth": 1220,
+              "workflowLanes": [
+                {
+                  "frameId": "lane-0",
+                  "heightPx": 100,
+                  "nodeCount": 5,
+                  "nodeIds": [
+                    "transporte_arribo",
+                    "descarga_conteo",
+                    "inspeccion_calidad",
+                    "clasificacion_mto",
+                    "impresion_rotulado"
+                  ],
+                  "nodeSpanPx": 64,
+                  "spaceAboveNodesPx": 32,
+                  "spaceBelowNodesPx": 4
+                },
+                {
+                  "frameId": "lane-1",
+                  "heightPx": 100,
+                  "nodeCount": 1,
+                  "nodeIds": [
+                    "hoja_oab"
+                  ],
+                  "nodeSpanPx": 49,
+                  "spaceAboveNodesPx": 39,
+                  "spaceBelowNodesPx": 11
+                },
+                {
+                  "frameId": "lane-2",
+                  "heightPx": 100,
+                  "nodeCount": 1,
+                  "nodeIds": [
+                    "estiba_mto"
+                  ],
+                  "nodeSpanPx": 64,
+                  "spaceAboveNodesPx": 32,
+                  "spaceBelowNodesPx": 4
+                },
+                {
+                  "frameId": "lane-3",
+                  "heightPx": 100,
+                  "nodeCount": 2,
+                  "nodeIds": [
+                    "evidencia_r2",
+                    "asiento_kardex"
+                  ],
+                  "nodeSpanPx": 64,
+                  "spaceAboveNodesPx": 32,
+                  "spaceBelowNodesPx": 4
+                },
+                {
+                  "frameId": "lane-4",
+                  "heightPx": 100,
+                  "nodeCount": 1,
+                  "nodeIds": [
+                    "rechazo_cuarentena"
+                  ],
+                  "nodeSpanPx": 64,
+                  "spaceAboveNodesPx": 32,
+                  "spaceBelowNodesPx": 4
+                }
+              ],
+              "minimumProjectedNodeTextPx": 7.5147540983606556,
+              "minimumProjectedNonEdgeTextPx": 7.5147540983606556,
+              "minimumProjectedEdgeTextPx": 7.5147540983606556,
+              "minimumProjectedNodeText": "Guía / Factura Física",
+              "minimumProjectedNodeTextDetail": "context",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "node",
+                "id": "transporte_arribo"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 54,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "theme": "light",
+              "innerWidth": 1920,
+              "innerHeight": 1080,
+              "scrollWidth": 1920,
+              "scrollHeight": 1080,
+              "overflowX": false,
+              "overflowY": false,
+              "verticalScrollAccepted": false,
+              "overflowDisposition": "contained",
+              "readerLayout": "adaptive",
+              "readerOverflow": null,
+              "readerFit": null,
+              "ok": true,
+              "readerWidth": 1300,
+              "diagramWidth": 1270,
+              "pageComposition": {
+                "bodyPaddingPx": 64,
+                "headerPx": 102,
+                "diagramChromePx": 84,
+                "svgPx": 818,
+                "cardsPx": 0,
+                "viewBoxHeight": 786
+              },
+              "viewBoxWidth": 1220,
+              "workflowLanes": [
+                {
+                  "frameId": "lane-0",
+                  "heightPx": 110,
+                  "nodeCount": 5,
+                  "nodeIds": [
+                    "transporte_arribo",
+                    "descarga_conteo",
+                    "inspeccion_calidad",
+                    "clasificacion_mto",
+                    "impresion_rotulado"
+                  ],
+                  "nodeSpanPx": 71,
+                  "spaceAboveNodesPx": 35,
+                  "spaceBelowNodesPx": 4
+                },
+                {
+                  "frameId": "lane-1",
+                  "heightPx": 110,
+                  "nodeCount": 1,
+                  "nodeIds": [
+                    "hoja_oab"
+                  ],
+                  "nodeSpanPx": 54,
+                  "spaceAboveNodesPx": 44,
+                  "spaceBelowNodesPx": 12
+                },
+                {
+                  "frameId": "lane-2",
+                  "heightPx": 110,
+                  "nodeCount": 1,
+                  "nodeIds": [
+                    "estiba_mto"
+                  ],
+                  "nodeSpanPx": 71,
+                  "spaceAboveNodesPx": 35,
+                  "spaceBelowNodesPx": 4
+                },
+                {
+                  "frameId": "lane-3",
+                  "heightPx": 110,
+                  "nodeCount": 2,
+                  "nodeIds": [
+                    "evidencia_r2",
+                    "asiento_kardex"
+                  ],
+                  "nodeSpanPx": 71,
+                  "spaceAboveNodesPx": 35,
+                  "spaceBelowNodesPx": 4
+                },
+                {
+                  "frameId": "lane-4",
+                  "heightPx": 110,
+                  "nodeCount": 1,
+                  "nodeIds": [
+                    "rechazo_cuarentena"
+                  ],
+                  "nodeSpanPx": 71,
+                  "spaceAboveNodesPx": 35,
+                  "spaceBelowNodesPx": 4
+                }
+              ],
+              "minimumProjectedNodeTextPx": 8,
+              "minimumProjectedNonEdgeTextPx": 8,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "Guía / Factura Física",
+              "minimumProjectedNodeTextDetail": "context",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "node",
+                "id": "transporte_arribo"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 54,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            },
+            {
+              "width": 2048,
+              "height": 1320,
+              "theme": "light",
+              "innerWidth": 2048,
+              "innerHeight": 1320,
+              "scrollWidth": 2048,
+              "scrollHeight": 1320,
+              "overflowX": false,
+              "overflowY": false,
+              "verticalScrollAccepted": false,
+              "overflowDisposition": "contained",
+              "readerLayout": "adaptive",
+              "readerOverflow": null,
+              "readerFit": null,
+              "ok": true,
+              "readerWidth": 1690,
+              "diagramWidth": 1640,
+              "pageComposition": {
+                "bodyPaddingPx": 64,
+                "headerPx": 94,
+                "diagramChromePx": 94,
+                "svgPx": 1057,
+                "cardsPx": 0,
+                "viewBoxHeight": 786
+              },
+              "viewBoxWidth": 1220,
+              "workflowLanes": [
+                {
+                  "frameId": "lane-0",
+                  "heightPx": 142,
+                  "nodeCount": 5,
+                  "nodeIds": [
+                    "transporte_arribo",
+                    "descarga_conteo",
+                    "inspeccion_calidad",
+                    "clasificacion_mto",
+                    "impresion_rotulado"
+                  ],
+                  "nodeSpanPx": 91,
+                  "spaceAboveNodesPx": 46,
+                  "spaceBelowNodesPx": 5
+                },
+                {
+                  "frameId": "lane-1",
+                  "heightPx": 142,
+                  "nodeCount": 1,
+                  "nodeIds": [
+                    "hoja_oab"
+                  ],
+                  "nodeSpanPx": 70,
+                  "spaceAboveNodesPx": 56,
+                  "spaceBelowNodesPx": 16
+                },
+                {
+                  "frameId": "lane-2",
+                  "heightPx": 142,
+                  "nodeCount": 1,
+                  "nodeIds": [
+                    "estiba_mto"
+                  ],
+                  "nodeSpanPx": 91,
+                  "spaceAboveNodesPx": 46,
+                  "spaceBelowNodesPx": 5
+                },
+                {
+                  "frameId": "lane-3",
+                  "heightPx": 142,
+                  "nodeCount": 2,
+                  "nodeIds": [
+                    "evidencia_r2",
+                    "asiento_kardex"
+                  ],
+                  "nodeSpanPx": 91,
+                  "spaceAboveNodesPx": 46,
+                  "spaceBelowNodesPx": 5
+                },
+                {
+                  "frameId": "lane-4",
+                  "heightPx": 142,
+                  "nodeCount": 1,
+                  "nodeIds": [
+                    "rechazo_cuarentena"
+                  ],
+                  "nodeSpanPx": 91,
+                  "spaceAboveNodesPx": 46,
+                  "spaceBelowNodesPx": 5
+                }
+              ],
+              "minimumProjectedNodeTextPx": 8,
+              "minimumProjectedNonEdgeTextPx": 8,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "Guía / Factura Física",
+              "minimumProjectedNodeTextDetail": "context",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "node",
+                "id": "transporte_arribo"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 44,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            }
+          ]
+        },
+        "themeStates": {
+          "status": "pass",
+          "viewports": [
+            {
+              "width": 1440,
+              "height": 900,
+              "requestedTheme": "light",
+              "resolvedTheme": "light",
+              "ok": true
+            },
+            {
+              "width": 1600,
+              "height": 1000,
+              "requestedTheme": "light",
+              "resolvedTheme": "light",
+              "ok": true
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "requestedTheme": "light",
+              "resolvedTheme": "light",
+              "ok": true
+            },
+            {
+              "width": 2048,
+              "height": 1320,
+              "requestedTheme": "light",
+              "resolvedTheme": "light",
+              "ok": true
+            },
+            {
+              "width": 1440,
+              "height": 900,
+              "requestedTheme": "dark",
+              "resolvedTheme": "dark",
+              "ok": true
+            },
+            {
+              "width": 2048,
+              "height": 1320,
+              "requestedTheme": "dark",
+              "resolvedTheme": "dark",
+              "ok": true
+            }
+          ]
+        },
+        "readability": {
+          "status": "pass",
+          "minimumProjectedNodeTextPx": 6,
+          "viewports": [
+            {
+              "width": 1440,
+              "height": 900,
+              "theme": "light",
+              "innerWidth": 1440,
+              "innerHeight": 900,
+              "scrollWidth": 1440,
+              "scrollHeight": 900,
+              "overflowX": false,
+              "overflowY": false,
+              "verticalScrollAccepted": false,
+              "overflowDisposition": "contained",
+              "readerLayout": "adaptive",
+              "readerOverflow": null,
+              "readerFit": null,
+              "ok": true,
+              "readerWidth": 1123,
+              "diagramWidth": 1093,
+              "pageComposition": {
+                "bodyPaddingPx": 12,
+                "headerPx": 94,
+                "diagramChromePx": 78,
+                "svgPx": 704,
+                "cardsPx": 0,
+                "viewBoxHeight": 786
+              },
+              "viewBoxWidth": 1220,
+              "workflowLanes": [
+                {
+                  "frameId": "lane-0",
+                  "heightPx": 95,
+                  "nodeCount": 5,
+                  "nodeIds": [
+                    "transporte_arribo",
+                    "descarga_conteo",
+                    "inspeccion_calidad",
+                    "clasificacion_mto",
+                    "impresion_rotulado"
+                  ],
+                  "nodeSpanPx": 61,
+                  "spaceAboveNodesPx": 30,
+                  "spaceBelowNodesPx": 4
+                },
+                {
+                  "frameId": "lane-1",
+                  "heightPx": 95,
+                  "nodeCount": 1,
+                  "nodeIds": [
+                    "hoja_oab"
+                  ],
+                  "nodeSpanPx": 47,
+                  "spaceAboveNodesPx": 38,
+                  "spaceBelowNodesPx": 11
+                },
+                {
+                  "frameId": "lane-2",
+                  "heightPx": 95,
+                  "nodeCount": 1,
+                  "nodeIds": [
+                    "estiba_mto"
+                  ],
+                  "nodeSpanPx": 61,
+                  "spaceAboveNodesPx": 30,
+                  "spaceBelowNodesPx": 4
+                },
+                {
+                  "frameId": "lane-3",
+                  "heightPx": 95,
+                  "nodeCount": 2,
+                  "nodeIds": [
+                    "evidencia_r2",
+                    "asiento_kardex"
+                  ],
+                  "nodeSpanPx": 61,
+                  "spaceAboveNodesPx": 30,
+                  "spaceBelowNodesPx": 4
+                },
+                {
+                  "frameId": "lane-4",
+                  "heightPx": 95,
+                  "nodeCount": 1,
+                  "nodeIds": [
+                    "rechazo_cuarentena"
+                  ],
+                  "nodeSpanPx": 61,
+                  "spaceAboveNodesPx": 30,
+                  "spaceBelowNodesPx": 4
+                }
+              ],
+              "minimumProjectedNodeTextPx": 7.167213114754098,
+              "minimumProjectedNonEdgeTextPx": 7.167213114754098,
+              "minimumProjectedEdgeTextPx": 7.167213114754098,
+              "minimumProjectedNodeText": "Guía / Factura Física",
+              "minimumProjectedNodeTextDetail": "context",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "node",
+                "id": "transporte_arribo"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 54,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            },
+            {
+              "width": 1600,
+              "height": 1000,
+              "theme": "light",
+              "innerWidth": 1600,
+              "innerHeight": 1000,
+              "scrollWidth": 1600,
+              "scrollHeight": 1000,
+              "overflowX": false,
+              "overflowY": false,
+              "verticalScrollAccepted": false,
+              "overflowDisposition": "contained",
+              "readerLayout": "adaptive",
+              "readerOverflow": null,
+              "readerFit": null,
+              "ok": true,
+              "readerWidth": 1176,
+              "diagramWidth": 1146,
+              "pageComposition": {
+                "bodyPaddingPx": 64,
+                "headerPx": 102,
+                "diagramChromePx": 84,
+                "svgPx": 738,
+                "cardsPx": 0,
+                "viewBoxHeight": 786
+              },
+              "viewBoxWidth": 1220,
+              "workflowLanes": [
+                {
+                  "frameId": "lane-0",
+                  "heightPx": 100,
+                  "nodeCount": 5,
+                  "nodeIds": [
+                    "transporte_arribo",
+                    "descarga_conteo",
+                    "inspeccion_calidad",
+                    "clasificacion_mto",
+                    "impresion_rotulado"
+                  ],
+                  "nodeSpanPx": 64,
+                  "spaceAboveNodesPx": 32,
+                  "spaceBelowNodesPx": 4
+                },
+                {
+                  "frameId": "lane-1",
+                  "heightPx": 100,
+                  "nodeCount": 1,
+                  "nodeIds": [
+                    "hoja_oab"
+                  ],
+                  "nodeSpanPx": 49,
+                  "spaceAboveNodesPx": 39,
+                  "spaceBelowNodesPx": 11
+                },
+                {
+                  "frameId": "lane-2",
+                  "heightPx": 100,
+                  "nodeCount": 1,
+                  "nodeIds": [
+                    "estiba_mto"
+                  ],
+                  "nodeSpanPx": 64,
+                  "spaceAboveNodesPx": 32,
+                  "spaceBelowNodesPx": 4
+                },
+                {
+                  "frameId": "lane-3",
+                  "heightPx": 100,
+                  "nodeCount": 2,
+                  "nodeIds": [
+                    "evidencia_r2",
+                    "asiento_kardex"
+                  ],
+                  "nodeSpanPx": 64,
+                  "spaceAboveNodesPx": 32,
+                  "spaceBelowNodesPx": 4
+                },
+                {
+                  "frameId": "lane-4",
+                  "heightPx": 100,
+                  "nodeCount": 1,
+                  "nodeIds": [
+                    "rechazo_cuarentena"
+                  ],
+                  "nodeSpanPx": 64,
+                  "spaceAboveNodesPx": 32,
+                  "spaceBelowNodesPx": 4
+                }
+              ],
+              "minimumProjectedNodeTextPx": 7.5147540983606556,
+              "minimumProjectedNonEdgeTextPx": 7.5147540983606556,
+              "minimumProjectedEdgeTextPx": 7.5147540983606556,
+              "minimumProjectedNodeText": "Guía / Factura Física",
+              "minimumProjectedNodeTextDetail": "context",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "node",
+                "id": "transporte_arribo"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 54,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "theme": "light",
+              "innerWidth": 1920,
+              "innerHeight": 1080,
+              "scrollWidth": 1920,
+              "scrollHeight": 1080,
+              "overflowX": false,
+              "overflowY": false,
+              "verticalScrollAccepted": false,
+              "overflowDisposition": "contained",
+              "readerLayout": "adaptive",
+              "readerOverflow": null,
+              "readerFit": null,
+              "ok": true,
+              "readerWidth": 1300,
+              "diagramWidth": 1270,
+              "pageComposition": {
+                "bodyPaddingPx": 64,
+                "headerPx": 102,
+                "diagramChromePx": 84,
+                "svgPx": 818,
+                "cardsPx": 0,
+                "viewBoxHeight": 786
+              },
+              "viewBoxWidth": 1220,
+              "workflowLanes": [
+                {
+                  "frameId": "lane-0",
+                  "heightPx": 110,
+                  "nodeCount": 5,
+                  "nodeIds": [
+                    "transporte_arribo",
+                    "descarga_conteo",
+                    "inspeccion_calidad",
+                    "clasificacion_mto",
+                    "impresion_rotulado"
+                  ],
+                  "nodeSpanPx": 71,
+                  "spaceAboveNodesPx": 35,
+                  "spaceBelowNodesPx": 4
+                },
+                {
+                  "frameId": "lane-1",
+                  "heightPx": 110,
+                  "nodeCount": 1,
+                  "nodeIds": [
+                    "hoja_oab"
+                  ],
+                  "nodeSpanPx": 54,
+                  "spaceAboveNodesPx": 44,
+                  "spaceBelowNodesPx": 12
+                },
+                {
+                  "frameId": "lane-2",
+                  "heightPx": 110,
+                  "nodeCount": 1,
+                  "nodeIds": [
+                    "estiba_mto"
+                  ],
+                  "nodeSpanPx": 71,
+                  "spaceAboveNodesPx": 35,
+                  "spaceBelowNodesPx": 4
+                },
+                {
+                  "frameId": "lane-3",
+                  "heightPx": 110,
+                  "nodeCount": 2,
+                  "nodeIds": [
+                    "evidencia_r2",
+                    "asiento_kardex"
+                  ],
+                  "nodeSpanPx": 71,
+                  "spaceAboveNodesPx": 35,
+                  "spaceBelowNodesPx": 4
+                },
+                {
+                  "frameId": "lane-4",
+                  "heightPx": 110,
+                  "nodeCount": 1,
+                  "nodeIds": [
+                    "rechazo_cuarentena"
+                  ],
+                  "nodeSpanPx": 71,
+                  "spaceAboveNodesPx": 35,
+                  "spaceBelowNodesPx": 4
+                }
+              ],
+              "minimumProjectedNodeTextPx": 8,
+              "minimumProjectedNonEdgeTextPx": 8,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "Guía / Factura Física",
+              "minimumProjectedNodeTextDetail": "context",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "node",
+                "id": "transporte_arribo"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 54,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            },
+            {
+              "width": 2048,
+              "height": 1320,
+              "theme": "light",
+              "innerWidth": 2048,
+              "innerHeight": 1320,
+              "scrollWidth": 2048,
+              "scrollHeight": 1320,
+              "overflowX": false,
+              "overflowY": false,
+              "verticalScrollAccepted": false,
+              "overflowDisposition": "contained",
+              "readerLayout": "adaptive",
+              "readerOverflow": null,
+              "readerFit": null,
+              "ok": true,
+              "readerWidth": 1690,
+              "diagramWidth": 1640,
+              "pageComposition": {
+                "bodyPaddingPx": 64,
+                "headerPx": 94,
+                "diagramChromePx": 94,
+                "svgPx": 1057,
+                "cardsPx": 0,
+                "viewBoxHeight": 786
+              },
+              "viewBoxWidth": 1220,
+              "workflowLanes": [
+                {
+                  "frameId": "lane-0",
+                  "heightPx": 142,
+                  "nodeCount": 5,
+                  "nodeIds": [
+                    "transporte_arribo",
+                    "descarga_conteo",
+                    "inspeccion_calidad",
+                    "clasificacion_mto",
+                    "impresion_rotulado"
+                  ],
+                  "nodeSpanPx": 91,
+                  "spaceAboveNodesPx": 46,
+                  "spaceBelowNodesPx": 5
+                },
+                {
+                  "frameId": "lane-1",
+                  "heightPx": 142,
+                  "nodeCount": 1,
+                  "nodeIds": [
+                    "hoja_oab"
+                  ],
+                  "nodeSpanPx": 70,
+                  "spaceAboveNodesPx": 56,
+                  "spaceBelowNodesPx": 16
+                },
+                {
+                  "frameId": "lane-2",
+                  "heightPx": 142,
+                  "nodeCount": 1,
+                  "nodeIds": [
+                    "estiba_mto"
+                  ],
+                  "nodeSpanPx": 91,
+                  "spaceAboveNodesPx": 46,
+                  "spaceBelowNodesPx": 5
+                },
+                {
+                  "frameId": "lane-3",
+                  "heightPx": 142,
+                  "nodeCount": 2,
+                  "nodeIds": [
+                    "evidencia_r2",
+                    "asiento_kardex"
+                  ],
+                  "nodeSpanPx": 91,
+                  "spaceAboveNodesPx": 46,
+                  "spaceBelowNodesPx": 5
+                },
+                {
+                  "frameId": "lane-4",
+                  "heightPx": 142,
+                  "nodeCount": 1,
+                  "nodeIds": [
+                    "rechazo_cuarentena"
+                  ],
+                  "nodeSpanPx": 91,
+                  "spaceAboveNodesPx": 46,
+                  "spaceBelowNodesPx": 5
+                }
+              ],
+              "minimumProjectedNodeTextPx": 8,
+              "minimumProjectedNonEdgeTextPx": 8,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "Guía / Factura Física",
+              "minimumProjectedNodeTextDetail": "context",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "node",
+                "id": "transporte_arribo"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 44,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            }
+          ]
+        },
+        "viewerChrome": {
+          "status": "pass",
+          "viewports": [
+            {
+              "width": 1440,
+              "height": 900,
+              "theme": "light",
+              "innerWidth": 1440,
+              "innerHeight": 900,
+              "scrollWidth": 1440,
+              "scrollHeight": 900,
+              "overflowX": false,
+              "overflowY": false,
+              "verticalScrollAccepted": false,
+              "overflowDisposition": "contained",
+              "readerLayout": "adaptive",
+              "readerOverflow": null,
+              "readerFit": null,
+              "ok": true,
+              "readerWidth": 1123,
+              "diagramWidth": 1093,
+              "pageComposition": {
+                "bodyPaddingPx": 12,
+                "headerPx": 94,
+                "diagramChromePx": 78,
+                "svgPx": 704,
+                "cardsPx": 0,
+                "viewBoxHeight": 786
+              },
+              "viewBoxWidth": 1220,
+              "workflowLanes": [
+                {
+                  "frameId": "lane-0",
+                  "heightPx": 95,
+                  "nodeCount": 5,
+                  "nodeIds": [
+                    "transporte_arribo",
+                    "descarga_conteo",
+                    "inspeccion_calidad",
+                    "clasificacion_mto",
+                    "impresion_rotulado"
+                  ],
+                  "nodeSpanPx": 61,
+                  "spaceAboveNodesPx": 30,
+                  "spaceBelowNodesPx": 4
+                },
+                {
+                  "frameId": "lane-1",
+                  "heightPx": 95,
+                  "nodeCount": 1,
+                  "nodeIds": [
+                    "hoja_oab"
+                  ],
+                  "nodeSpanPx": 47,
+                  "spaceAboveNodesPx": 38,
+                  "spaceBelowNodesPx": 11
+                },
+                {
+                  "frameId": "lane-2",
+                  "heightPx": 95,
+                  "nodeCount": 1,
+                  "nodeIds": [
+                    "estiba_mto"
+                  ],
+                  "nodeSpanPx": 61,
+                  "spaceAboveNodesPx": 30,
+                  "spaceBelowNodesPx": 4
+                },
+                {
+                  "frameId": "lane-3",
+                  "heightPx": 95,
+                  "nodeCount": 2,
+                  "nodeIds": [
+                    "evidencia_r2",
+                    "asiento_kardex"
+                  ],
+                  "nodeSpanPx": 61,
+                  "spaceAboveNodesPx": 30,
+                  "spaceBelowNodesPx": 4
+                },
+                {
+                  "frameId": "lane-4",
+                  "heightPx": 95,
+                  "nodeCount": 1,
+                  "nodeIds": [
+                    "rechazo_cuarentena"
+                  ],
+                  "nodeSpanPx": 61,
+                  "spaceAboveNodesPx": 30,
+                  "spaceBelowNodesPx": 4
+                }
+              ],
+              "minimumProjectedNodeTextPx": 7.167213114754098,
+              "minimumProjectedNonEdgeTextPx": 7.167213114754098,
+              "minimumProjectedEdgeTextPx": 7.167213114754098,
+              "minimumProjectedNodeText": "Guía / Factura Física",
+              "minimumProjectedNodeTextDetail": "context",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "node",
+                "id": "transporte_arribo"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 54,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            },
+            {
+              "width": 1600,
+              "height": 1000,
+              "theme": "light",
+              "innerWidth": 1600,
+              "innerHeight": 1000,
+              "scrollWidth": 1600,
+              "scrollHeight": 1000,
+              "overflowX": false,
+              "overflowY": false,
+              "verticalScrollAccepted": false,
+              "overflowDisposition": "contained",
+              "readerLayout": "adaptive",
+              "readerOverflow": null,
+              "readerFit": null,
+              "ok": true,
+              "readerWidth": 1176,
+              "diagramWidth": 1146,
+              "pageComposition": {
+                "bodyPaddingPx": 64,
+                "headerPx": 102,
+                "diagramChromePx": 84,
+                "svgPx": 738,
+                "cardsPx": 0,
+                "viewBoxHeight": 786
+              },
+              "viewBoxWidth": 1220,
+              "workflowLanes": [
+                {
+                  "frameId": "lane-0",
+                  "heightPx": 100,
+                  "nodeCount": 5,
+                  "nodeIds": [
+                    "transporte_arribo",
+                    "descarga_conteo",
+                    "inspeccion_calidad",
+                    "clasificacion_mto",
+                    "impresion_rotulado"
+                  ],
+                  "nodeSpanPx": 64,
+                  "spaceAboveNodesPx": 32,
+                  "spaceBelowNodesPx": 4
+                },
+                {
+                  "frameId": "lane-1",
+                  "heightPx": 100,
+                  "nodeCount": 1,
+                  "nodeIds": [
+                    "hoja_oab"
+                  ],
+                  "nodeSpanPx": 49,
+                  "spaceAboveNodesPx": 39,
+                  "spaceBelowNodesPx": 11
+                },
+                {
+                  "frameId": "lane-2",
+                  "heightPx": 100,
+                  "nodeCount": 1,
+                  "nodeIds": [
+                    "estiba_mto"
+                  ],
+                  "nodeSpanPx": 64,
+                  "spaceAboveNodesPx": 32,
+                  "spaceBelowNodesPx": 4
+                },
+                {
+                  "frameId": "lane-3",
+                  "heightPx": 100,
+                  "nodeCount": 2,
+                  "nodeIds": [
+                    "evidencia_r2",
+                    "asiento_kardex"
+                  ],
+                  "nodeSpanPx": 64,
+                  "spaceAboveNodesPx": 32,
+                  "spaceBelowNodesPx": 4
+                },
+                {
+                  "frameId": "lane-4",
+                  "heightPx": 100,
+                  "nodeCount": 1,
+                  "nodeIds": [
+                    "rechazo_cuarentena"
+                  ],
+                  "nodeSpanPx": 64,
+                  "spaceAboveNodesPx": 32,
+                  "spaceBelowNodesPx": 4
+                }
+              ],
+              "minimumProjectedNodeTextPx": 7.5147540983606556,
+              "minimumProjectedNonEdgeTextPx": 7.5147540983606556,
+              "minimumProjectedEdgeTextPx": 7.5147540983606556,
+              "minimumProjectedNodeText": "Guía / Factura Física",
+              "minimumProjectedNodeTextDetail": "context",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "node",
+                "id": "transporte_arribo"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 54,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "theme": "light",
+              "innerWidth": 1920,
+              "innerHeight": 1080,
+              "scrollWidth": 1920,
+              "scrollHeight": 1080,
+              "overflowX": false,
+              "overflowY": false,
+              "verticalScrollAccepted": false,
+              "overflowDisposition": "contained",
+              "readerLayout": "adaptive",
+              "readerOverflow": null,
+              "readerFit": null,
+              "ok": true,
+              "readerWidth": 1300,
+              "diagramWidth": 1270,
+              "pageComposition": {
+                "bodyPaddingPx": 64,
+                "headerPx": 102,
+                "diagramChromePx": 84,
+                "svgPx": 818,
+                "cardsPx": 0,
+                "viewBoxHeight": 786
+              },
+              "viewBoxWidth": 1220,
+              "workflowLanes": [
+                {
+                  "frameId": "lane-0",
+                  "heightPx": 110,
+                  "nodeCount": 5,
+                  "nodeIds": [
+                    "transporte_arribo",
+                    "descarga_conteo",
+                    "inspeccion_calidad",
+                    "clasificacion_mto",
+                    "impresion_rotulado"
+                  ],
+                  "nodeSpanPx": 71,
+                  "spaceAboveNodesPx": 35,
+                  "spaceBelowNodesPx": 4
+                },
+                {
+                  "frameId": "lane-1",
+                  "heightPx": 110,
+                  "nodeCount": 1,
+                  "nodeIds": [
+                    "hoja_oab"
+                  ],
+                  "nodeSpanPx": 54,
+                  "spaceAboveNodesPx": 44,
+                  "spaceBelowNodesPx": 12
+                },
+                {
+                  "frameId": "lane-2",
+                  "heightPx": 110,
+                  "nodeCount": 1,
+                  "nodeIds": [
+                    "estiba_mto"
+                  ],
+                  "nodeSpanPx": 71,
+                  "spaceAboveNodesPx": 35,
+                  "spaceBelowNodesPx": 4
+                },
+                {
+                  "frameId": "lane-3",
+                  "heightPx": 110,
+                  "nodeCount": 2,
+                  "nodeIds": [
+                    "evidencia_r2",
+                    "asiento_kardex"
+                  ],
+                  "nodeSpanPx": 71,
+                  "spaceAboveNodesPx": 35,
+                  "spaceBelowNodesPx": 4
+                },
+                {
+                  "frameId": "lane-4",
+                  "heightPx": 110,
+                  "nodeCount": 1,
+                  "nodeIds": [
+                    "rechazo_cuarentena"
+                  ],
+                  "nodeSpanPx": 71,
+                  "spaceAboveNodesPx": 35,
+                  "spaceBelowNodesPx": 4
+                }
+              ],
+              "minimumProjectedNodeTextPx": 8,
+              "minimumProjectedNonEdgeTextPx": 8,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "Guía / Factura Física",
+              "minimumProjectedNodeTextDetail": "context",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "node",
+                "id": "transporte_arribo"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 54,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            },
+            {
+              "width": 2048,
+              "height": 1320,
+              "theme": "light",
+              "innerWidth": 2048,
+              "innerHeight": 1320,
+              "scrollWidth": 2048,
+              "scrollHeight": 1320,
+              "overflowX": false,
+              "overflowY": false,
+              "verticalScrollAccepted": false,
+              "overflowDisposition": "contained",
+              "readerLayout": "adaptive",
+              "readerOverflow": null,
+              "readerFit": null,
+              "ok": true,
+              "readerWidth": 1690,
+              "diagramWidth": 1640,
+              "pageComposition": {
+                "bodyPaddingPx": 64,
+                "headerPx": 94,
+                "diagramChromePx": 94,
+                "svgPx": 1057,
+                "cardsPx": 0,
+                "viewBoxHeight": 786
+              },
+              "viewBoxWidth": 1220,
+              "workflowLanes": [
+                {
+                  "frameId": "lane-0",
+                  "heightPx": 142,
+                  "nodeCount": 5,
+                  "nodeIds": [
+                    "transporte_arribo",
+                    "descarga_conteo",
+                    "inspeccion_calidad",
+                    "clasificacion_mto",
+                    "impresion_rotulado"
+                  ],
+                  "nodeSpanPx": 91,
+                  "spaceAboveNodesPx": 46,
+                  "spaceBelowNodesPx": 5
+                },
+                {
+                  "frameId": "lane-1",
+                  "heightPx": 142,
+                  "nodeCount": 1,
+                  "nodeIds": [
+                    "hoja_oab"
+                  ],
+                  "nodeSpanPx": 70,
+                  "spaceAboveNodesPx": 56,
+                  "spaceBelowNodesPx": 16
+                },
+                {
+                  "frameId": "lane-2",
+                  "heightPx": 142,
+                  "nodeCount": 1,
+                  "nodeIds": [
+                    "estiba_mto"
+                  ],
+                  "nodeSpanPx": 91,
+                  "spaceAboveNodesPx": 46,
+                  "spaceBelowNodesPx": 5
+                },
+                {
+                  "frameId": "lane-3",
+                  "heightPx": 142,
+                  "nodeCount": 2,
+                  "nodeIds": [
+                    "evidencia_r2",
+                    "asiento_kardex"
+                  ],
+                  "nodeSpanPx": 91,
+                  "spaceAboveNodesPx": 46,
+                  "spaceBelowNodesPx": 5
+                },
+                {
+                  "frameId": "lane-4",
+                  "heightPx": 142,
+                  "nodeCount": 1,
+                  "nodeIds": [
+                    "rechazo_cuarentena"
+                  ],
+                  "nodeSpanPx": 91,
+                  "spaceAboveNodesPx": 46,
+                  "spaceBelowNodesPx": 5
+                }
+              ],
+              "minimumProjectedNodeTextPx": 8,
+              "minimumProjectedNonEdgeTextPx": 8,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "Guía / Factura Física",
+              "minimumProjectedNodeTextDetail": "context",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "node",
+                "id": "transporte_arribo"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 44,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            }
+          ]
+        },
+        "captures": {
+          "status": "not-requested",
+          "screenshots": [],
+          "contactSheet": null
+        },
+        "sidecars": {
+          "receipt": "workflow-recepcion-rampa-etiquetado.browser-check.json",
+          "files": []
+        }
+      }
+    }
+  },
+  "diagnostics": [],
+  "evidence": {
+    "receipt": "C:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\Proyectos-index\\Arquitectura-Sanesca\\08_Web\\inventario-dashboard\\public\\diagrams\\workflow-recepcion-rampa-etiquetado.finalize.json",
+    "summaryReceipt": "C:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\Proyectos-index\\Arquitectura-Sanesca\\08_Web\\inventario-dashboard\\public\\diagrams\\workflow-recepcion-rampa-etiquetado.finalize-summary.json",
+    "browserCheckReceipt": "c:\\Users\\ADM-SISTEMA\\Documents\\Desarrolla\\Proyectos-index\\Arquitectura-Sanesca\\08_Web\\inventario-dashboard\\public\\diagrams\\workflow-recepcion-rampa-etiquetado.browser-check.json"
+  },
+  "visualReview": "not-requested",
+  "finishedAt": "2026-10-12T18:42:28.377Z",
+  "durationMs": 6475,
+  "update": {
+    "status": "current",
+    "installedVersion": "3.0.1",
+    "availableVersion": "3.0.1",
+    "releaseNotes": null,
+    "checkedAt": "2026-10-12T17:10:14.349Z",
+    "source": "cache",
+    "noticeRequired": false,
+    "noticeText": null
+  }
+}

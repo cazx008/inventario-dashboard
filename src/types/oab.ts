@@ -44,6 +44,9 @@ export interface OABLineItem {
   rotularEtiqueta?: boolean;
   bultos?: number;
   cantEnBulto?: number;
+  bultoPico?: number;
+  desgloseBultos?: number[];
+  unidadMedida?: string;
 }
 
 export interface PackagingSuggestion {
