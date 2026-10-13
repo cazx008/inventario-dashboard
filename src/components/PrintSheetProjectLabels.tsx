@@ -54,7 +54,7 @@ interface ExpandedLabel {
   barcodeDataUrl?: string;
 }
 
-type PrintFormat = '4up' | 'rollo4x6';
+type PrintFormat = '8up' | '10up' | '4up' | 'rollo4x6';
 
 // Helper determinista para abreviatura de proyecto / tienda (D15)
 function getProjectAbbrev(proyectoNombre: string): string {
@@ -86,7 +86,7 @@ export const PrintSheetProjectLabels: React.FC<PrintSheetProjectLabelsProps> = (
   items,
   onClose
 }) => {
-  const [format, setFormat] = useState<PrintFormat>('4up');
+  const [format, setFormat] = useState<PrintFormat>('8up');
   const [expandedLabels, setExpandedLabels] = useState<ExpandedLabel[]>([]);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [isGeneratingQr, setIsGeneratingQr] = useState<boolean>(true);
@@ -215,14 +215,21 @@ export const PrintSheetProjectLabels: React.FC<PrintSheetProjectLabelsProps> = (
     return expandedLabels.filter(lbl => selectedKeys.has(lbl.key));
   }, [expandedLabels, selectedKeys]);
 
-  // Agrupar en páginas de 4 para el formato 4-UP Carta
-  const pages4UP = useMemo(() => {
+  // Capacidad de etiquetas por página Carta según el formato activo
+  const itemsPerPage = useMemo(() => {
+    if (format === '10up') return 10;
+    if (format === '8up') return 8;
+    return 4;
+  }, [format]);
+
+  // Agrupar en páginas para el formato activo de Hoja Carta
+  const pagesGrid = useMemo(() => {
     const pages: ExpandedLabel[][] = [];
-    for (let i = 0; i < printableLabels.length; i += 4) {
-      pages.push(printableLabels.slice(i, i + 4));
+    for (let i = 0; i < printableLabels.length; i += itemsPerPage) {
+      pages.push(printableLabels.slice(i, i + itemsPerPage));
     }
     return pages;
-  }, [printableLabels]);
+  }, [printableLabels, itemsPerPage]);
 
   // Toggle de selección quirúrgica
   const toggleSelectKey = (key: string) => {
@@ -259,38 +266,14 @@ export const PrintSheetProjectLabels: React.FC<PrintSheetProjectLabelsProps> = (
       return;
     }
 
+    const isRollo = format === 'rollo4x6';
+    const is10UP = format === '10up';
+    const is8UP = format === '8up';
     const is4UP = format === '4up';
-    const pageStyles = is4UP
-      ? `
-        @page {
-          size: letter portrait;
-          margin: 4mm 4mm;
-        }
-        .page-container {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          grid-template-rows: 1fr 1fr;
-          gap: 4mm;
-          height: 254mm;
-          page-break-after: always;
-          break-after: page;
-          box-sizing: border-box;
-          padding: 0;
-        }
-        .label-card {
-          border: 2px solid #000000;
-          border-radius: 4px;
-          padding: 8px 10px;
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-          background: #ffffff;
-          page-break-inside: avoid;
-          box-sizing: border-box;
-          overflow: hidden;
-        }
-      `
-      : `
+
+    let pageStyles = '';
+    if (isRollo) {
+      pageStyles = `
         @page {
           size: 100mm 150mm;
           margin: 3mm;
@@ -319,25 +302,121 @@ export const PrintSheetProjectLabels: React.FC<PrintSheetProjectLabelsProps> = (
           box-sizing: border-box;
         }
       `;
+    } else if (is10UP) {
+      pageStyles = `
+        @page {
+          size: letter portrait;
+          margin: 4mm 4mm;
+        }
+        .page-container {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          grid-template-rows: repeat(5, 1fr);
+          gap: 2.5mm;
+          height: 254mm;
+          page-break-after: always;
+          break-after: page;
+          box-sizing: border-box;
+          padding: 0;
+        }
+        .label-card {
+          border: 1.5px solid #000000;
+          border-radius: 3px;
+          padding: 3.5px 5.5px;
+          display: flex;
+          flex-direction: row;
+          align-items: stretch;
+          justify-content: space-between;
+          background: #ffffff;
+          page-break-inside: avoid;
+          box-sizing: border-box;
+          overflow: hidden;
+          gap: 5px;
+        }
+      `;
+    } else if (is8UP) {
+      pageStyles = `
+        @page {
+          size: letter portrait;
+          margin: 4mm 4mm;
+        }
+        .page-container {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          grid-template-rows: repeat(4, 1fr);
+          gap: 3mm;
+          height: 254mm;
+          page-break-after: always;
+          break-after: page;
+          box-sizing: border-box;
+          padding: 0;
+        }
+        .label-card {
+          border: 1.5px solid #000000;
+          border-radius: 3px;
+          padding: 4.5px 6.5px;
+          display: flex;
+          flex-direction: row;
+          align-items: stretch;
+          justify-content: space-between;
+          background: #ffffff;
+          page-break-inside: avoid;
+          box-sizing: border-box;
+          overflow: hidden;
+          gap: 6px;
+        }
+      `;
+    } else {
+      // 4-UP Carta
+      pageStyles = `
+        @page {
+          size: letter portrait;
+          margin: 4mm 4mm;
+        }
+        .page-container {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          grid-template-rows: 1fr 1fr;
+          gap: 4mm;
+          height: 254mm;
+          page-break-after: always;
+          break-after: page;
+          box-sizing: border-box;
+          padding: 0;
+        }
+        .label-card {
+          border: 2px solid #000000;
+          border-radius: 4px;
+          padding: 8px 10px;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          background: #ffffff;
+          page-break-inside: avoid;
+          box-sizing: border-box;
+          overflow: hidden;
+        }
+      `;
+    }
 
     let bodyHtml = '';
 
-    if (is4UP) {
-      pages4UP.forEach(page => {
-        bodyHtml += `<div class="page-container">`;
-        page.forEach(lbl => {
-          bodyHtml += renderLabelHtml(lbl, '4up');
-        });
-        const remainder = 4 - page.length;
-        for (let r = 0; r < remainder; r++) {
-          bodyHtml += `<div style="border: 1px dashed #cccccc; border-radius: 4px; opacity: 0.3;"></div>`;
-        }
-        bodyHtml += `</div>`;
-      });
-    } else {
+    if (isRollo) {
       printableLabels.forEach(lbl => {
         bodyHtml += `<div class="page-container">`;
         bodyHtml += renderLabelHtml(lbl, 'rollo4x6');
+        bodyHtml += `</div>`;
+      });
+    } else {
+      pagesGrid.forEach(page => {
+        bodyHtml += `<div class="page-container">`;
+        page.forEach(lbl => {
+          bodyHtml += renderLabelHtml(lbl, format);
+        });
+        const remainder = itemsPerPage - page.length;
+        for (let r = 0; r < remainder; r++) {
+          bodyHtml += `<div style="border: 1px dashed #cccccc; border-radius: 3px; opacity: 0.3;"></div>`;
+        }
         bodyHtml += `</div>`;
       });
     }
@@ -384,6 +463,7 @@ export const PrintSheetProjectLabels: React.FC<PrintSheetProjectLabelsProps> = (
   };
 
   const renderLabelHtml = (lbl: ExpandedLabel, fmt: PrintFormat) => {
+    const isCompact = fmt === '8up' || fmt === '10up';
     const is4up = fmt === '4up';
     const rawDestino = (lbl.item.proyectoNombre || '').trim();
     const isStockFabrica = !rawDestino || 
@@ -393,6 +473,14 @@ export const PrintSheetProjectLabels: React.FC<PrintSheetProjectLabelsProps> = (
     const isMTO = !isStockFabrica;
     const isParcial = Boolean(lbl.item.isParcial);
 
+    // Sanitización inteligente de SKU (evita duplicar el nombre si no hay código corto)
+    const rawSku = (lbl.item.codigo || '').trim();
+    const rawName = (lbl.item.nombre || '').trim();
+    const isSkuDuplicateOrTooLong = !rawSku || 
+      rawSku.toLowerCase() === rawName.toLowerCase() ||
+      rawSku.length > 25;
+    const displaySku = isSkuDuplicateOrTooLong ? 'S/C' : rawSku;
+
     // Formatear banner MTO inteligentemente: [CÓDIGO] · [OBRA]
     let displayDestino = '📦 STOCK GENERAL / FÁBRICA';
     if (isMTO) {
@@ -400,12 +488,99 @@ export const PrintSheetProjectLabels: React.FC<PrintSheetProjectLabelsProps> = (
         .replace(/proyecto\s*[-—:]\s*/gi, '')
         .replace(/\s*[-—]\s+/g, ' · ')
         .trim();
-      if (cleaned.length > 60) {
-        cleaned = cleaned.substring(0, 57).trim() + '...';
+      if (cleaned.length > (isCompact ? 34 : 60)) {
+        cleaned = cleaned.substring(0, isCompact ? 31 : 57).trim() + '...';
       }
       displayDestino = cleaned || rawDestino;
     }
 
+    // --- MODO COMPACTO BIPARTITO (8-UP y 10-UP) ---
+    if (isCompact) {
+      const is10up = fmt === '10up';
+      const nameLen = rawName.length;
+      const compactNameFontSize = is10up 
+        ? (nameLen > 40 ? '9px' : '10px')
+        : (nameLen > 40 ? '10px' : '11.5px');
+
+      return `
+        <div class="label-card">
+          <!-- Columna Izquierda: Información del Insumo y Proyecto (68%) -->
+          <div style="flex: 1; display: flex; flex-direction: column; justify-content: space-between; min-width: 0; padding-right: 2px;">
+            
+            <!-- Fila Superior: Sistema y Serial PKG -->
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid #000000; padding-bottom: 2px;">
+              <div style="font-size: ${is10up ? '6.5px' : '7.5px'}; font-weight: 900; letter-spacing: 0.5px; text-transform: uppercase;">
+                SANESCA · CONTROL FÍSICO
+              </div>
+              <div style="font-family: monospace; font-size: ${is10up ? '7px' : '8px'}; font-weight: 900; background: #000000; color: #ffffff; padding: 1px 4px; border-radius: 2px; letter-spacing: 0.5px;">
+                ${lbl.pkgId}
+              </div>
+            </div>
+
+            <!-- Banner de Destino MTO / Tienda -->
+            <div style="background: #000000; color: #ffffff; padding: ${is10up ? '1.5px 4px' : '2.5px 5px'}; border-radius: 2px; margin: 2px 0; display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-size: ${is10up ? '8.5px' : '9.5px'}; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                ${isMTO ? `🏷️ ${displayDestino}` : '📦 STOCK FÁBRICA'}
+              </span>
+              <span style="font-size: 6.5px; font-family: monospace; color: #94a3b8; margin-left: 4px; shrink-0;">
+                OAB: <b>${lbl.item.folioOAB}</b>
+              </span>
+            </div>
+
+            <!-- Nombre del Insumo con Micro-Tipografía Adaptativa -->
+            <div style="margin: 1px 0;">
+              <div style="font-size: ${compactNameFontSize}; font-weight: 800; line-height: 1.15; color: #000000; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; word-break: break-word;">
+                ${lbl.item.nombre}
+              </div>
+              <div style="display: flex; gap: 6px; font-size: 7px; font-family: monospace; color: #444444; margin-top: 1px;">
+                <span>SKU: <b>${displaySku}</b></span>
+                ${lbl.item.categoria ? `<span>· CAT: <b>${lbl.item.categoria}</b></span>` : ''}
+              </div>
+            </div>
+
+            ${lbl.isBultoAbierto ? `
+              <div style="background: #fef08a; border: 1px solid #ca8a04; color: #854d0e; padding: 1px 3px; border-radius: 2px; font-size: 7px; font-weight: 800; margin: 1px 0;">
+                ⚠️ SALDO ABIERTO: ${lbl.cantEnBulto} ${lbl.unidadMedida}
+              </div>
+            ` : ''}
+
+            <!-- Pie: Bulto y Fecha de Control -->
+            <div style="border-top: 1px dashed #94a3b8; padding-top: 1.5px; margin-top: auto; display: flex; justify-content: space-between; align-items: center; font-size: 6.5px; color: #555555;">
+              <div style="font-weight: 900; color: #000000; font-size: ${is10up ? '7px' : '8px'};">
+                ${lbl.totalBultos > 1 ? `BULTO ${lbl.bultoIndex}/${lbl.totalBultos}` : 'LOTE COMPLETO (1/1)'}
+                ${lbl.isPico ? '<span style="background: #e0f2fe; color: #0369a1; padding: 0.5px 2px; border-radius: 2px; margin-left: 2px; font-size: 6px; font-weight: 800;">PICO</span>' : ''}
+              </div>
+              <div style="font-family: monospace; color: #444444;">
+                Fec: ${lbl.item.fechaRecepcion || new Date().toISOString().split('T')[0]} · MTO
+              </div>
+            </div>
+          </div>
+
+          <!-- Columna Derecha: Cantidad Destacada y Código QR (32%) -->
+          <div style="width: ${is10up ? '30%' : '32%'}; border-left: 1.5px dashed #000000; padding-left: 5px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; text-align: center; shrink-0;">
+            <!-- Bloque de Cantidad -->
+            <div style="width: 100%;">
+              <div style="font-size: 6.5px; font-weight: bold; text-transform: uppercase; color: #555555; letter-spacing: 0.5px;">
+                CANTIDAD
+              </div>
+              <div style="font-size: ${is10up ? '15px' : '17px'}; font-weight: 900; font-family: monospace; line-height: 1.1; color: #000000;">
+                ${lbl.cantEnBulto} <span style="font-size: ${is10up ? '8.5px' : '10px'}; font-weight: bold; color: #333;">${lbl.unidadMedida}</span>
+              </div>
+            </div>
+
+            <!-- Código QR Canónico -->
+            ${lbl.qrDataUrl ? `
+              <div style="text-align: center; margin-top: 1px;">
+                <img src="${lbl.qrDataUrl}" style="width: ${is10up ? '32px' : '37px'}; height: ${is10up ? '32px' : '37px'}; display: block; margin: 0 auto;" />
+                <span style="font-size: 5.5px; font-family: monospace; color: #666666;">SCAN VERIFY</span>
+              </div>
+            ` : ''}
+          </div>
+        </div>
+      `;
+    }
+
+    // --- MODO GRANDE 4-UP Y ROLLO 4x6" ---
     const bannerFontSize = is4up
       ? (displayDestino.length > 32 ? '13px' : '15px')
       : (displayDestino.length > 32 ? '17px' : '20px');
@@ -460,7 +635,7 @@ export const PrintSheetProjectLabels: React.FC<PrintSheetProjectLabelsProps> = (
             ${lbl.item.nombre}
           </div>
           <div style="display: flex; gap: 8px; font-size: 8px; font-family: monospace; color: #444444; margin-top: 2px;">
-            <span>SKU: <b>${lbl.item.codigo || 'S/C'}</b></span>
+            <span>SKU: <b>${displaySku}</b></span>
             ${lbl.item.categoria ? `<span>· CAT: <b>${lbl.item.categoria}</b></span>` : ''}
           </div>
 
@@ -571,28 +746,54 @@ export const PrintSheetProjectLabels: React.FC<PrintSheetProjectLabelsProps> = (
           </div>
 
           {/* Selector de Formato Interactivo */}
-          <div className="flex items-center gap-1.5 bg-slate-900 p-1 rounded-lg border border-slate-700">
+          <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-lg border border-slate-700">
+            <button
+              onClick={() => setFormat('8up')}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition ${
+                format === '8up'
+                  ? 'bg-brand-500 text-slate-950 font-bold shadow'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
+              }`}
+              title="8 etiquetas por hoja Carta (2x4) · Formato compacto optimizado para taller"
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>📄 8-UP (Compacto)</span>
+            </button>
+            <button
+              onClick={() => setFormat('10up')}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition ${
+                format === '10up'
+                  ? 'bg-brand-500 text-slate-950 font-bold shadow'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
+              }`}
+              title="10 etiquetas por hoja Carta (2x5) · Compatible con Avery 5163 / 8163"
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>📋 10-UP (Avery)</span>
+            </button>
             <button
               onClick={() => setFormat('4up')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition ${
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition ${
                 format === '4up'
                   ? 'bg-brand-500 text-slate-950 font-bold shadow'
                   : 'text-slate-300 hover:text-white hover:bg-slate-800'
               }`}
+              title="4 etiquetas por hoja Carta (2x2) · Formato grande para sobres o paquetes voluminosos"
             >
               <Layers className="w-3.5 h-3.5" />
-              <span>📄 4-UP Carta (2x2)</span>
+              <span>📦 4-UP (Grande)</span>
             </button>
             <button
               onClick={() => setFormat('rollo4x6')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition ${
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition ${
                 format === 'rollo4x6'
                   ? 'bg-brand-500 text-slate-950 font-bold shadow'
                   : 'text-slate-300 hover:text-white hover:bg-slate-800'
               }`}
+              title="Rollo térmico continuo 100x150mm con código de barras 1D Code 128"
             >
               <Tag className="w-3.5 h-3.5" />
-              <span>🏷️ Rollo 4x6" + Barcode</span>
+              <span>🏷️ Rollo 4x6"</span>
             </button>
           </div>
 
@@ -700,8 +901,12 @@ export const PrintSheetProjectLabels: React.FC<PrintSheetProjectLabelsProps> = (
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
             <span>
-              {format === '4up'
-                ? `Formato Hoja Carta 8.5" x 11" · 4 etiquetas por página (${pages4UP.length} hoja${pages4UP.length === 1 ? '' : 's'})`
+              {format === '8up'
+                ? `Formato Hoja Carta 8.5" x 11" · 8 etiquetas por página (${pagesGrid.length} hoja${pagesGrid.length === 1 ? '' : 's'}) · Compacto apaisado`
+                : format === '10up'
+                ? `Formato Hoja Carta 8.5" x 11" · 10 etiquetas por página (${pagesGrid.length} hoja${pagesGrid.length === 1 ? '' : 's'}) · Troquel comercial Avery 5163`
+                : format === '4up'
+                ? `Formato Hoja Carta 8.5" x 11" · 4 etiquetas por página (${pagesGrid.length} hoja${pagesGrid.length === 1 ? '' : 's'}) · Formato grande`
                 : `Formato Rollo Térmico Continuo 100x150mm · Código 1D Code 128 activado`}
             </span>
           </div>
@@ -736,15 +941,79 @@ export const PrintSheetProjectLabels: React.FC<PrintSheetProjectLabelsProps> = (
                 Seleccionar Todos los Bultos
               </button>
             </div>
+          ) : format === '8up' ? (
+            // Visualización 8-UP Carta (Compacto Apaisado)
+            pagesGrid.map((page, pIdx) => (
+              <div
+                key={`page_${pIdx}`}
+                className="bg-white text-slate-900 shadow-xl rounded p-3.5 w-full max-w-3xl aspect-[8.5/11] flex flex-col justify-between border border-slate-300"
+              >
+                <div className="text-[10px] font-mono text-slate-400 border-b border-slate-200 pb-1 mb-2 flex justify-between">
+                  <span>Hoja {pIdx + 1} de {pagesGrid.length} (Carta Compacta 8-UP · 2x4)</span>
+                  <span>SANESCA INDUSTRIAL PRINT SYSTEM</span>
+                </div>
+                <div className="grid grid-cols-2 grid-rows-4 gap-2 flex-grow">
+                  {page.map(lbl => (
+                    <div
+                      key={lbl.key}
+                      dangerouslySetInnerHTML={{ __html: renderLabelHtml(lbl, '8up') }}
+                      className="h-full relative group cursor-pointer"
+                      onClick={() => toggleSelectKey(lbl.key)}
+                      title="Haz clic para alternar la selección de este bulto"
+                    />
+                  ))}
+                  {Array.from({ length: 8 - page.length }).map((_, rIdx) => (
+                    <div
+                      key={`empty_${rIdx}`}
+                      className="border-2 border-dashed border-slate-200 rounded flex items-center justify-center text-slate-300 text-xs font-mono"
+                    >
+                      (Etiqueta Libre / En Blanco)
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))
+          ) : format === '10up' ? (
+            // Visualización 10-UP Carta (Avery 5163 / Troquel Comercial)
+            pagesGrid.map((page, pIdx) => (
+              <div
+                key={`page_${pIdx}`}
+                className="bg-white text-slate-900 shadow-xl rounded p-3 w-full max-w-3xl aspect-[8.5/11] flex flex-col justify-between border border-slate-300"
+              >
+                <div className="text-[10px] font-mono text-slate-400 border-b border-slate-200 pb-1 mb-1.5 flex justify-between">
+                  <span>Hoja {pIdx + 1} de {pagesGrid.length} (Carta 10-UP · 2x5 Avery 5163)</span>
+                  <span>SANESCA INDUSTRIAL PRINT SYSTEM</span>
+                </div>
+                <div className="grid grid-cols-2 grid-rows-5 gap-1.5 flex-grow">
+                  {page.map(lbl => (
+                    <div
+                      key={lbl.key}
+                      dangerouslySetInnerHTML={{ __html: renderLabelHtml(lbl, '10up') }}
+                      className="h-full relative group cursor-pointer"
+                      onClick={() => toggleSelectKey(lbl.key)}
+                      title="Haz clic para alternar la selección de este bulto"
+                    />
+                  ))}
+                  {Array.from({ length: 10 - page.length }).map((_, rIdx) => (
+                    <div
+                      key={`empty_${rIdx}`}
+                      className="border-2 border-dashed border-slate-200 rounded flex items-center justify-center text-slate-300 text-[10px] font-mono"
+                    >
+                      (Libre)
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))
           ) : format === '4up' ? (
-            // Visualización 4-UP Carta
-            pages4UP.map((page, pIdx) => (
+            // Visualización 4-UP Carta (Grande)
+            pagesGrid.map((page, pIdx) => (
               <div
                 key={`page_${pIdx}`}
                 className="bg-white text-slate-900 shadow-xl rounded p-4 w-full max-w-3xl aspect-[8.5/11] flex flex-col justify-between border border-slate-300"
               >
                 <div className="text-[10px] font-mono text-slate-400 border-b border-slate-200 pb-1 mb-2 flex justify-between">
-                  <span>Hoja {pIdx + 1} de {pages4UP.length} (Carta Troquelada 4-UP)</span>
+                  <span>Hoja {pIdx + 1} de {pagesGrid.length} (Carta Troquelada 4-UP · 2x2)</span>
                   <span>SANESCA INDUSTRIAL PRINT SYSTEM</span>
                 </div>
                 <div className="grid grid-cols-2 grid-rows-2 gap-3 flex-grow">
