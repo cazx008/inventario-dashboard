@@ -156,7 +156,7 @@ export const PrintSheetProjectLabels: React.FC<PrintSheetProjectLabelsProps> = (
           let qrDataUrl = '';
           try {
             qrDataUrl = await QRCode.toDataURL(qrPayload, {
-              width: 140,
+              width: 200,
               margin: 1,
               color: { dark: '#000000', light: '#ffffff' }
             });
@@ -324,14 +324,13 @@ export const PrintSheetProjectLabels: React.FC<PrintSheetProjectLabelsProps> = (
           border-radius: 3px;
           padding: 3.5px 5.5px;
           display: flex;
-          flex-direction: row;
-          align-items: stretch;
+          flex-direction: column;
           justify-content: space-between;
           background: #ffffff;
           page-break-inside: avoid;
           box-sizing: border-box;
           overflow: hidden;
-          gap: 5px;
+          height: 100%;
         }
       `;
     } else if (is8UP) {
@@ -352,18 +351,17 @@ export const PrintSheetProjectLabels: React.FC<PrintSheetProjectLabelsProps> = (
           padding: 0;
         }
         .label-card {
-          border: 1.5px solid #000000;
+          border: 2px solid #000000;
           border-radius: 3px;
           padding: 4.5px 6.5px;
           display: flex;
-          flex-direction: row;
-          align-items: stretch;
+          flex-direction: column;
           justify-content: space-between;
           background: #ffffff;
           page-break-inside: avoid;
           box-sizing: border-box;
           overflow: hidden;
-          gap: 6px;
+          height: 100%;
         }
       `;
     } else {
@@ -494,87 +492,89 @@ export const PrintSheetProjectLabels: React.FC<PrintSheetProjectLabelsProps> = (
       displayDestino = cleaned || rawDestino;
     }
 
-    // --- MODO COMPACTO BIPARTITO (8-UP y 10-UP) ---
+    // --- MODO COMPACTO LOGÍSTICO (8-UP y 10-UP) ---
     if (isCompact) {
       const is10up = fmt === '10up';
       const nameLen = rawName.length;
-      const compactNameFontSize = is10up 
-        ? (nameLen > 40 ? '9px' : '10px')
-        : (nameLen > 40 ? '10px' : '11.5px');
+
+      // Regla Adaptativa Híbrida de Tipografía aprobada:
+      // Si el insumo es extenso (>45 chars), reduce a escala 14px (8-UP) / 12px (10-UP) para evitar truncamiento
+      const isLongName = nameLen > 45;
+      const nameFontSize = is10up
+        ? (isLongName ? '12px' : '14px')
+        : (isLongName ? '14px' : '16.5px');
+
+      const qtyFontSize = is10up ? '18px' : '21px';
+      const uomFontSize = is10up ? '9px' : '11px';
+      const headerDestinoFontSize = is10up ? '11px' : '14px';
+      const headerBultoFontSize = is10up ? '8.5px' : '10.5px';
+      const qrColWidth = is10up ? '36%' : '40%';
 
       return `
-        <div class="label-card">
-          <!-- Columna Izquierda: Información del Insumo y Proyecto (68%) -->
-          <div style="flex: 1; display: flex; flex-direction: column; justify-content: space-between; min-width: 0; padding-right: 2px;">
-            
-            <!-- Fila Superior: Sistema y Serial PKG -->
-            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid #000000; padding-bottom: 2px;">
-              <div style="font-size: ${is10up ? '6.5px' : '7.5px'}; font-weight: 900; letter-spacing: 0.5px; text-transform: uppercase;">
-                SANESCA · CONTROL FÍSICO
-              </div>
-              <div style="font-family: monospace; font-size: ${is10up ? '7px' : '8px'}; font-weight: 900; background: #000000; color: #ffffff; padding: 1px 4px; border-radius: 2px; letter-spacing: 0.5px;">
-                ${lbl.pkgId}
-              </div>
-            </div>
-
-            <!-- Banner de Destino MTO / Tienda -->
-            <div style="background: #000000; color: #ffffff; padding: ${is10up ? '1.5px 4px' : '2.5px 5px'}; border-radius: 2px; margin: 2px 0; display: flex; justify-content: space-between; align-items: center;">
-              <span style="font-size: ${is10up ? '8.5px' : '9.5px'}; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                ${isMTO ? `🏷️ ${displayDestino}` : '📦 STOCK FÁBRICA'}
+        <div class="label-card" style="border: ${is10up ? '1.5px' : '2px'} solid #000000; border-radius: 3px; padding: ${is10up ? '3px 5px' : '4.5px 6.5px'}; display: flex; flex-direction: column; justify-content: space-between; background: #ffffff; box-sizing: border-box; overflow: hidden; height: 100%; width: 100%;">
+          
+          <!-- Banda 1: Header a Ancho Completo (100%) -->
+          <div style="background: #000000; color: #ffffff; padding: ${is10up ? '1.5px 4px' : '2.5px 6px'}; border-radius: 2px; display: flex; align-items: center; justify-content: space-between; width: 100%; box-sizing: border-box;">
+            <div style="display: flex; align-items: center; gap: 5px; min-width: 0; overflow: hidden;">
+              <span style="font-size: ${headerDestinoFontSize}; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                ${isMTO ? `🏷️ ${displayDestino}` : '📦 STOCK GENERAL / FÁBRICA'}
               </span>
-              <span style="font-size: 6.5px; font-family: monospace; color: #94a3b8; margin-left: 4px; shrink-0;">
+              <span style="font-size: 7px; color: #cbd5e1; font-family: monospace; white-space: nowrap; shrink-0;">
                 OAB: <b>${lbl.item.folioOAB}</b>
               </span>
             </div>
-
-            <!-- Nombre del Insumo con Micro-Tipografía Adaptativa -->
-            <div style="margin: 1px 0;">
-              <div style="font-size: ${compactNameFontSize}; font-weight: 800; line-height: 1.15; color: #000000; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; word-break: break-word;">
-                ${lbl.item.nombre}
-              </div>
-              <div style="display: flex; gap: 6px; font-size: 7px; font-family: monospace; color: #444444; margin-top: 1px;">
-                <span>SKU: <b>${displaySku}</b></span>
-                ${lbl.item.categoria ? `<span>· CAT: <b>${lbl.item.categoria}</b></span>` : ''}
-              </div>
-            </div>
-
-            ${lbl.isBultoAbierto ? `
-              <div style="background: #fef08a; border: 1px solid #ca8a04; color: #854d0e; padding: 1px 3px; border-radius: 2px; font-size: 7px; font-weight: 800; margin: 1px 0;">
-                ⚠️ SALDO ABIERTO: ${lbl.cantEnBulto} ${lbl.unidadMedida}
-              </div>
-            ` : ''}
-
-            <!-- Pie: Bulto y Fecha de Control -->
-            <div style="border-top: 1px dashed #94a3b8; padding-top: 1.5px; margin-top: auto; display: flex; justify-content: space-between; align-items: center; font-size: 6.5px; color: #555555;">
-              <div style="font-weight: 900; color: #000000; font-size: ${is10up ? '7px' : '8px'};">
-                ${lbl.totalBultos > 1 ? `BULTO ${lbl.bultoIndex}/${lbl.totalBultos}` : 'LOTE COMPLETO (1/1)'}
-                ${lbl.isPico ? '<span style="background: #e0f2fe; color: #0369a1; padding: 0.5px 2px; border-radius: 2px; margin-left: 2px; font-size: 6px; font-weight: 800;">PICO</span>' : ''}
-              </div>
-              <div style="font-family: monospace; color: #444444;">
-                Fec: ${lbl.item.fechaRecepcion || new Date().toISOString().split('T')[0]} · MTO
-              </div>
+            <div style="background: #ffffff; color: #000000; font-weight: 900; font-size: ${headerBultoFontSize}; padding: 1px 4px; border-radius: 2px; font-family: monospace; white-space: nowrap; shrink-0; margin-left: 4px;">
+              ${lbl.totalBultos > 1 ? `BULTO ${lbl.bultoIndex}/${lbl.totalBultos}` : 'LOTE (1/1)'}
+              ${lbl.isPico ? '<span style="background: #0284c7; color: #ffffff; padding: 0.5px 2px; border-radius: 1px; font-size: 6px; margin-left: 2px;">PICO</span>' : ''}
             </div>
           </div>
 
-          <!-- Columna Derecha: Cantidad Destacada y Código QR (32%) -->
-          <div style="width: ${is10up ? '30%' : '32%'}; border-left: 1.5px dashed #000000; padding-left: 5px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; text-align: center; shrink-0;">
-            <!-- Bloque de Cantidad -->
-            <div style="width: 100%;">
-              <div style="font-size: 6.5px; font-weight: bold; text-transform: uppercase; color: #555555; letter-spacing: 0.5px;">
-                CANTIDAD
+          <!-- Bloque Principal Bipartito: Columna Izquierda vs Columna Derecha (Mega QR 45mm) -->
+          <div style="display: flex; align-items: stretch; gap: 6px; margin: 3px 0 1px 0; flex: 1; min-height: 0; width: 100%; box-sizing: border-box;">
+            
+            <!-- Columna Izquierda (~60% ancho): Insumo arriba + Zócalo Cantidad abajo -->
+            <div style="flex: 1; display: flex; flex-direction: column; justify-content: space-between; min-width: 0; padding-right: 2px;">
+              
+              <!-- Arriba: Insumo y Códigos -->
+              <div>
+                <div style="font-size: ${nameFontSize}; font-weight: 900; line-height: 1.15; color: #000000; display: -webkit-box; -webkit-line-clamp: ${isLongName ? 3 : 2}; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; word-break: break-word;">
+                  ${lbl.item.nombre}
+                </div>
+                <div style="display: flex; flex-wrap: wrap; gap: 5px; font-size: ${is10up ? '7.5px' : '8.5px'}; font-family: monospace; color: #475569; margin-top: 2px;">
+                  <span>SKU: <b style="color: #0f172a;">${displaySku}</b></span>
+                  ${lbl.item.categoria ? `<span>· CAT: <b style="color: #334155;">${lbl.item.categoria}</b></span>` : ''}
+                </div>
+                ${lbl.isBultoAbierto ? `
+                  <div style="background: #fef3c7; border: 1px solid #f59e0b; color: #92400e; padding: 1px 3px; border-radius: 2px; font-size: 7.5px; font-weight: 900; margin-top: 2px;">
+                    ⚠️ SALDO ABIERTO: ${lbl.cantEnBulto} ${lbl.unidadMedida}
+                  </div>
+                ` : ''}
               </div>
-              <div style="font-size: ${is10up ? '15px' : '17px'}; font-weight: 900; font-family: monospace; line-height: 1.1; color: #000000;">
-                ${lbl.cantEnBulto} <span style="font-size: ${is10up ? '8.5px' : '10px'}; font-weight: bold; color: #333;">${lbl.unidadMedida}</span>
+
+              <!-- Abajo: Caja de Cantidad y Serial PKG -->
+              <div style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 3px; padding: 2px 4px; margin-top: auto; display: flex; align-items: center; justify-content: space-between;">
+                <div style="display: flex; align-items: baseline; gap: 3px;">
+                  <span style="font-size: 7.5px; font-weight: 900; color: #64748b; text-transform: uppercase;">CANT:</span>
+                  <span style="font-size: ${qtyFontSize}; font-weight: 900; font-family: monospace; line-height: 1; color: #000000;">
+                    ${lbl.cantEnBulto} <span style="font-size: ${uomFontSize}; font-weight: 700; color: #475569;">${lbl.unidadMedida}</span>
+                  </span>
+                </div>
+                <div style="font-size: 6.5px; font-family: monospace; color: #475569; text-align: right; line-height: 1.1;">
+                  <div style="font-weight: 800; color: #0f172a;">${lbl.pkgId}</div>
+                  <div>${lbl.item.fechaRecepcion || new Date().toISOString().split('T')[0]}</div>
+                </div>
               </div>
             </div>
 
-            <!-- Código QR Canónico -->
-            ${lbl.qrDataUrl ? `
-              <div style="text-align: center; margin-top: 1px;">
-                <img src="${lbl.qrDataUrl}" style="width: ${is10up ? '32px' : '37px'}; height: ${is10up ? '32px' : '37px'}; display: block; margin: 0 auto;" />
-                <span style="font-size: 5.5px; font-family: monospace; color: #666666;">SCAN VERIFY</span>
-              </div>
-            ` : ''}
+            <!-- Columna Derecha (~40% ancho): Mega QR Colosal 45mm con leyenda -->
+            <div style="width: ${qrColWidth}; shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; border-left: 1.5px dashed #000000; padding-left: 5px; box-sizing: border-box;">
+              ${lbl.qrDataUrl ? `
+                <div style="background: #000000; border-radius: 2px; padding: 1.5px; display: flex; align-items: center; justify-content: center; width: 100%; max-width: 140px;">
+                  <img src="${lbl.qrDataUrl}" style="width: 100%; aspect-ratio: 1/1; display: block; background: #ffffff; object-fit: contain;" />
+                </div>
+                <span style="font-size: 5.5px; font-family: monospace; color: #475569; margin-top: 2px; letter-spacing: 0.5px; font-weight: 800; text-transform: uppercase;">SCAN VERIFY</span>
+              ` : ''}
+            </div>
           </div>
         </div>
       `;
