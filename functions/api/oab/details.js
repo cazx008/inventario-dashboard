@@ -46,23 +46,36 @@ export async function onRequest(context) {
   const listParam = url.searchParams.get('list');
 
   try {
-    // Modo 1: Listar OABs pendientes de revisión/aprobación
-    if (listParam === 'pending' || !folioParam) {
+    // Modo 1: Listar OABs (histórico completo o filtrado)
+    if (listParam || !folioParam) {
+      const queryBody = {
+        sorts: [{ timestamp: 'created_time', direction: 'descending' }],
+        page_size: 100
+      };
+
+      if (listParam === 'pending') {
+        queryBody.filter = {
+          or: [
+            { property: 'Estado General', select: { equals: 'Solicitado' } },
+            { property: 'Estado General', select: { equals: 'Aprobado por Gerencia' } },
+            { property: 'Estado General', select: { equals: 'En Compra' } },
+            { property: 'Estado General', select: { equals: 'Recepción Parcial' } }
+          ]
+        };
+      } else if (listParam === 'completed') {
+        queryBody.filter = {
+          property: 'Estado General', select: { equals: 'Recibido Completo' }
+        };
+      } else if (listParam === 'canceled') {
+        queryBody.filter = {
+          property: 'Estado General', select: { equals: 'Anulada' }
+        };
+      }
+
       const pendingRes = await fetch(`https://api.notion.com/v1/databases/${OAB_DB_ID}/query`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({
-          filter: {
-            or: [
-              { property: 'Estado General', select: { equals: 'Solicitado' } },
-              { property: 'Estado General', select: { equals: 'Aprobado por Gerencia' } },
-              { property: 'Estado General', select: { equals: 'En Compra' } },
-              { property: 'Estado General', select: { equals: 'Recepción Parcial' } }
-            ]
-          },
-          sorts: [{ timestamp: 'created_time', direction: 'descending' }],
-          page_size: 25
-        })
+        body: JSON.stringify(queryBody)
       });
 
       if (!pendingRes.ok) {

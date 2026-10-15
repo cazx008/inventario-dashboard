@@ -25,7 +25,7 @@ import {
 
 const KARDEX_DB_ID = '26286805-4e27-803b-91ce-ef8f121d622d';
 const SOLICITUDES_DB_ID = '2bc86805-4e27-8036-ba88-d52ec84742ba';
-const DASHBOARD_DB_ID = '2b586805-4e27-80fe-b6e8-e4c6dc325696';
+const DASHBOARD_DB_ID = '26286805-4e27-8067-8847-d39de1bf0bde'; // BD_Catalogo_Insumos (PLAN-016)
 const PROYECTOS_DB_ID = '31e86805-4e27-80e0-8be5-f3d30532e900';
 
 async function resolveProyectoId(headersNotion, proyectoId, proyectoNombre) {
@@ -81,7 +81,11 @@ export async function onRequest(context) {
     const filterProyectoId = url.searchParams.get('proyectoId');
 
     const data = await getLiveAllocations(env);
-    let allocations = (data.allocations || []).filter(a => (Number(a.cantidadApartada || 0) > 0 || Number(a.cantidadTransito || 0) > 0 || Number(a.cantidadConsumida || 0) > 0));
+    // Filtrar exclusivamente asignaciones activas (excluir 'CONCLUIDA', archivadas o con saldo 0 en piso y tránsito)
+    let allocations = (data.allocations || []).filter(a => 
+      a.estado !== 'CONCLUIDA' && !a.archived &&
+      (Number(a.cantidadApartada || 0) > 0 || Number(a.cantidadTransito || 0) > 0)
+    );
     let debts = data.debts || [];
 
     if (filterDashboardId) {
@@ -113,16 +117,23 @@ export async function onRequest(context) {
       summaryByDashboardId[a.dashboardId].totalConsumido += (a.cantidadConsumida || 0);
       summaryByDashboardId[a.dashboardId].desglose.push(a);
 
-      // Agregado por Proyecto
-      const pKey = a.proyectoId || 'sin-proyecto';
+      // Agregado por Proyecto con resolución canónica
+      const pKey = a.proyectoId || (a.pedidoId ? `pedido-${a.pedidoId}` : (a.proyectoNombre ? `nombre-${a.proyectoNombre.toLowerCase().trim()}` : 'sin-proyecto'));
       if (!summaryByProyectoId[pKey]) {
         summaryByProyectoId[pKey] = {
-          proyectoId: a.proyectoId,
+          proyectoId: a.proyectoId || a.pedidoId || 'sin-proyecto',
           proyectoNombre: a.proyectoNombre || 'Proyecto General',
           totalItems: 0,
           totalUSD: 0,
           items: []
         };
+      }
+      // Enriquecer con el nombre más descriptivo si está disponible
+      if (a.proyectoNombre && (!summaryByProyectoId[pKey].proyectoNombre || a.proyectoNombre.length > summaryByProyectoId[pKey].proyectoNombre.length)) {
+        summaryByProyectoId[pKey].proyectoNombre = a.proyectoNombre;
+      }
+      if (a.proyectoId && (!summaryByProyectoId[pKey].proyectoId || summaryByProyectoId[pKey].proyectoId.startsWith('pedido-') || summaryByProyectoId[pKey].proyectoId.startsWith('nombre-'))) {
+        summaryByProyectoId[pKey].proyectoId = a.proyectoId;
       }
       summaryByProyectoId[pKey].totalItems += 1;
       summaryByProyectoId[pKey].totalUSD = round2(summaryByProyectoId[pKey].totalUSD + ((a.cantidadApartada || 0) * (a.costoUnitarioUSD || 0)));
@@ -205,7 +216,10 @@ export async function onRequest(context) {
         insumoId,
         materialNombre,
         codigo,
+        pedidoId,
+        pedidoCodigo,
         proyectoId,
+        proyectoCodigo,
         proyectoNombre,
         cantidad,
         unidad = 'Unid.',
@@ -224,9 +238,20 @@ export async function onRequest(context) {
       }
 
       // Validar si ya existe reserva para este insumo en este proyecto
-      let existing = allocations.find(a => a.dashboardId === dashboardId && a.proyectoId === proyectoId);
+      let existing = allocations.find(a => 
+        a.dashboardId === dashboardId && (
+          (a.proyectoId && a.proyectoId === proyectoId) ||
+          (pedidoId && a.pedidoId && a.pedidoId === pedidoId)
+        )
+      );
+
       if (existing) {
         existing.cantidadApartada = (existing.cantidadApartada || 0) + qty;
+        existing.estado = 'ACTIVA';
+        existing.archived = false;
+        if (pedidoId && !existing.pedidoId) existing.pedidoId = pedidoId;
+        if (pedidoCodigo && !existing.pedidoCodigo) existing.pedidoCodigo = pedidoCodigo;
+        if (proyectoCodigo && !existing.proyectoCodigo) existing.proyectoCodigo = proyectoCodigo;
         existing.updatedAt = Date.now();
       } else {
         allocations.push({
@@ -235,13 +260,18 @@ export async function onRequest(context) {
           insumoId: insumoId || '',
           insumoNombre: materialNombre || 'Insumo',
           codigo: codigo || '',
+          pedidoId: pedidoId || undefined,
+          pedidoCodigo: pedidoCodigo || undefined,
           proyectoId,
+          proyectoCodigo: proyectoCodigo || undefined,
           proyectoNombre,
           cantidadApartada: qty,
           cantidadTransito: 0,
           cantidadConsumida: 0,
           unidad,
           costoUnitarioUSD: Number(costoUnitarioUSD || 0),
+          estado: 'ACTIVA',
+          archived: false,
           updatedAt: Date.now()
         });
       }

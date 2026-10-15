@@ -214,13 +214,33 @@ export const BultoVerificationModal: React.FC<BultoVerificationModalProps> = ({
           cantEstimada: consumoQty
         });
       }
+
+      // Registro forense de apertura de bulto y fraccionamiento (PLAN-010)
+      try {
+        fetch('/api/audit/record', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${sessionStorage.getItem('sanesca_auth_jwt') || localStorage.getItem('sanesca_auth_jwt') || ''}`
+          },
+          body: JSON.stringify({
+            eventType: 'BULTO_OPENED_FRACCIONADO',
+            puesto: userRole || 'Operador',
+            area: 'Planta / Taller',
+            details: `Apertura y fraccionamiento de ${bultoData.pkgId || bultoData.material}. Despachadas ${consumoQty} ${bultoData.unidadMedida || 'und'} a taller. Saldo remanente de ${saldo} ${bultoData.unidadMedida || 'und'} rotulado en nuevo serial ${derivedPkgId || 'S/S'}. Obra: ${bultoData.tienda}.`,
+            isSuccess: true,
+            alertSecurity: false
+          })
+        }).catch(err => console.warn('Error registrando auditoría de fraccionamiento:', err));
+      } catch (err) {}
+
       if (triggerHaptic) triggerHaptic('success');
       onClose();
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto no-print">
+    <div className="fixed inset-0 z-70 flex items-center justify-center bg-black/85 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto no-print">
       <div className="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden text-slate-100 flex flex-col animate-in fade-in zoom-in-95 duration-200">
         
         {/* Topbar Industrial */}

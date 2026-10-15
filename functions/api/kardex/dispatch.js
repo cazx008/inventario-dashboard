@@ -107,6 +107,7 @@ export async function onRequest(context) {
     const {
       dashboardId,
       insumoId,
+      codigo, // SKU canónico del insumo (ej: 'HER-006')
       materialNombre,
       cantidadDespachada,
       unidad = 'Und',
@@ -158,6 +159,7 @@ export async function onRequest(context) {
     const dashPage = await dashPageRes.json();
     const currentStock = dashPage.properties?.['Stock (base)']?.number || 0;
     const itemActualName = dashPage.properties?.['Insumo']?.title?.[0]?.plain_text || materialNombre || 'Material';
+    const itemActualCode = codigo || dashPage.properties?.['Código']?.rich_text?.[0]?.plain_text || dashPage.properties?.['Codigo']?.rich_text?.[0]?.plain_text || dashPage.properties?.['SKU']?.rich_text?.[0]?.plain_text || '';
 
     if (currentStock < qty) {
       return new Response(JSON.stringify({
@@ -186,7 +188,9 @@ export async function onRequest(context) {
     let myAlloc = null;
     if (isStoreOrFurniture) {
       myAlloc = itemAllocations.find(a => 
-        (targetPId && a.proyectoId === targetPId) ||
+        (pedidoId && a.pedidoId && a.pedidoId === pedidoId) ||
+        (proyectoId && a.proyectoId && a.proyectoId === proyectoId) ||
+        (targetPId && (a.proyectoId === targetPId || a.pedidoId === targetPId)) ||
         (targetPName && a.proyectoNombre && a.proyectoNombre.toLowerCase() === targetPName.toLowerCase())
       );
     }
@@ -342,6 +346,10 @@ export async function onRequest(context) {
         const fromReserva = Math.min(myApartado, qty);
         myAlloc.cantidadApartada -= fromReserva;
         myAlloc.cantidadConsumida = (myAlloc.cantidadConsumida || 0) + fromReserva;
+        if (myAlloc.cantidadApartada <= 0 && (myAlloc.cantidadTransito || 0) <= 0) {
+          myAlloc.estado = 'CONCLUIDA';
+          myAlloc.archived = true;
+        }
         myAlloc.updatedAt = Date.now();
       }
     }
@@ -366,11 +374,14 @@ export async function onRequest(context) {
     }
 
     const orderTag = pedidoId ? `[ORDER_UUID:${pedidoId}] ` : '';
+    const skuClean = (codigo || itemActualCode) ? String(codigo || itemActualCode).toUpperCase().trim() : '';
+    const skuTag = skuClean ? `[SKU:${skuClean}] ` : '';
     const empaqueTag = payload.empaqueComercialInfo ? ` | Empaque: ${payload.empaqueComercialInfo}` : '';
     const sobreconsumoTag = payload.sobreconsumoFlag ? ` | ⚠️ SOBRECONSUMO BOM: ${payload.porcentajeDemanda || '>115%'}` : '';
-    const detalleExtStr = `${orderTag}Nivel: ${nivelImputacion} | Pedido: ${pedidoCodigo || 'N/A'} | Proyecto: ${targetPName || 'N/A'}${mobiliarioNombre ? ' | Mobiliario: ' + mobiliarioNombre : ''}${empaqueTag}${sobreconsumoTag}${extraLoanTag} | Despachador: ${authCheck.user?.name || 'Almacén'}`;
+    const detalleExtStr = `${orderTag}${skuTag}Nivel: ${nivelImputacion} | Pedido: ${pedidoCodigo || 'N/A'} | Proyecto: ${targetPName || 'N/A'}${mobiliarioNombre ? ' | Mobiliario: ' + mobiliarioNombre : ''}${empaqueTag}${sobreconsumoTag}${extraLoanTag} | Despachador: ${authCheck.user?.name || 'Almacén'}`;
 
-    const glosaTitle = `Salida a Taller: ${itemActualName} (-${qty} ${unidad}) → ${destinoLabel}${extraLoanTag}`;
+    const skuPrefix = skuClean ? `[${skuClean}] ` : '';
+    const glosaTitle = `Salida a Taller: ${skuPrefix}${itemActualName} (-${qty} ${unidad}) → ${destinoLabel}${extraLoanTag}`;
     const propositoParts = [
       motivoSalida,
       `Receptor: ${operarioReceptor}`,

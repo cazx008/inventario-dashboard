@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { ShoppingCart, X, Plus, Trash2, Printer, CheckCircle, AlertTriangle, Link2, DollarSign, Search, ArrowUpDown, Loader2, Sparkles, BookOpen, ShieldCheck } from 'lucide-react';
+import { ShoppingCart, X, Plus, Trash2, Printer, CheckCircle, AlertTriangle, Link2, DollarSign, Search, ArrowUpDown, Loader2, Sparkles, BookOpen, ShieldCheck, RotateCcw, Save } from 'lucide-react';
 import { InventoryItem } from '../types/inventory';
 import { OABLineItem, OABHeader, OrderReference, computePackagingSuggestion } from '../types/oab';
 import { generateFolioOAB, fetchNextFolioOAB, createOABSheet } from '../services/oabService';
@@ -83,6 +83,17 @@ const PRIORITY_THEME: Record<PriorityType, {
   },
 };
 
+const DRAFT_STORAGE_KEY = 'sanesca_oab_draft_v1';
+
+export interface OABDraftPayload {
+  folio: string;
+  fechaEmision: string;
+  tasaBCV: number;
+  notas: string;
+  lines: OABLineItem[];
+  savedAt: string;
+}
+
 export const SupplyOrderModal: React.FC<SupplyOrderModalProps> = ({
   isOpen,
   onClose,
@@ -104,6 +115,12 @@ export const SupplyOrderModal: React.FC<SupplyOrderModalProps> = ({
   const [submittedHeader, setSubmittedHeader] = useState<OABHeader | null>(null);
   const [showPrintSheet, setShowPrintSheet] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+
+  // Estados Anti-Reset y Borrador Persistente (PLAN-015 - Ruta A)
+  const [pendingDraft, setPendingDraft] = useState<OABDraftPayload | null>(null);
+  const [showDraftWelcomeModal, setShowDraftWelcomeModal] = useState(false);
+  const [showExitConfirmModal, setShowExitConfirmModal] = useState(false);
+  const isInitializedRef = useRef(false);
 
   // Criterios de ordenamiento dentro de cada grupo
   const [sortCriterion, setSortCriterion] = useState<SortCriterion>('subtotal');
@@ -139,10 +156,8 @@ export const SupplyOrderModal: React.FC<SupplyOrderModalProps> = ({
       .slice(0, 8);
   }, [searchTerm, inventoryItems, lines]);
 
-  // Initialize draft on open
-  useEffect(() => {
-    if (!isOpen) return;
-
+  // Función de Inicialización Limpia de Requisición
+  const initializeFreshDraft = (customItems?: InventoryItem[]) => {
     setFolio(generateFolioOAB());
     fetchNextFolioOAB(true).then(nextFolio => {
       if (nextFolio) setFolio(nextFolio);
@@ -153,11 +168,13 @@ export const SupplyOrderModal: React.FC<SupplyOrderModalProps> = ({
     setTasa(Number((bcvRate || 36.50).toFixed(2)));
     setSubmittedHeader(null);
     setStatusMessage(null);
+    setNotas('');
 
-    // Initial lines: items with deficit or passed items
-    const sourceItems = initialDraftItems.length > 0
-      ? initialDraftItems
-      : inventoryItems.filter(i => (i.deficit || 0) > 0);
+    const sourceItems = (customItems && customItems.length > 0)
+      ? customItems
+      : (initialDraftItems.length > 0
+          ? initialDraftItems
+          : inventoryItems.filter(i => (i.deficit || 0) > 0));
 
     const generatedLines: OABLineItem[] = sourceItems.map(item => {
       const rawDef = Math.max(0, (item.stockMinimo || 0) - (item.stockBase || 0));
@@ -184,7 +201,116 @@ export const SupplyOrderModal: React.FC<SupplyOrderModalProps> = ({
     });
 
     setLines(generatedLines);
-  }, [isOpen, inventoryItems, initialDraftItems, bcvRate]);
+    isInitializedRef.current = true;
+  };
+
+  // Manejador de Apertura y Detección de Borrador en sessionStorage
+  useEffect(() => {
+    if (!isOpen) {
+      isInitializedRef.current = false;
+      setPendingDraft(null);
+      setShowDraftWelcomeModal(false);
+      setShowExitConfirmModal(false);
+      return;
+    }
+
+    if (isInitializedRef.current) return;
+
+    try {
+      const saved = sessionStorage.getItem(DRAFT_STORAGE_KEY);
+      if (saved) {
+        const parsed: OABDraftPayload = JSON.parse(saved);
+        if (parsed && Array.isArray(parsed.lines) && parsed.lines.length > 0) {
+          setPendingDraft(parsed);
+          setShowDraftWelcomeModal(true);
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn('Error leyendo borrador OAB de sessionStorage:', e);
+    }
+
+    initializeFreshDraft();
+  }, [isOpen]);
+
+  // Restaurar borrador seleccionado por el usuario
+  const handleRestoreDraft = () => {
+    if (!pendingDraft) return;
+    setFolio(pendingDraft.folio || generateFolioOAB());
+    setFechaEmision(pendingDraft.fechaEmision || new Date().toISOString().split('T')[0]);
+    setTasa(pendingDraft.tasaBCV || Number((bcvRate || 36.50).toFixed(2)));
+    setNotas(pendingDraft.notas || '');
+    setLines(pendingDraft.lines || []);
+    setShowDraftWelcomeModal(false);
+    setPendingDraft(null);
+    isInitializedRef.current = true;
+  };
+
+  // Descartar borrador e iniciar nueva orden limpia
+  const handleDiscardDraftAndStartFresh = () => {
+    try {
+      sessionStorage.removeItem(DRAFT_STORAGE_KEY);
+    } catch (e) {}
+    setShowDraftWelcomeModal(false);
+    setPendingDraft(null);
+    initializeFreshDraft();
+  };
+
+  // Auto-guardado en sessionStorage ante cada edición del usuario
+  useEffect(() => {
+    if (!isOpen || !isInitializedRef.current) return;
+    if (lines.length === 0) return;
+
+    const draftData: OABDraftPayload = {
+      folio,
+      fechaEmision,
+      tasaBCV: tasa,
+      notas,
+      lines,
+      savedAt: new Date().toISOString()
+    };
+
+    try {
+      sessionStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draftData));
+    } catch (e) {
+      console.warn('Error guardando borrador en sessionStorage:', e);
+    }
+  }, [lines, notas, tasa, folio, isOpen]);
+
+  // Cierre seguro con diálogo de confirmación si hay modificaciones
+  const handleAttemptClose = () => {
+    if (lines.length > 0) {
+      setShowExitConfirmModal(true);
+    } else {
+      onClose();
+    }
+  };
+
+  const handleSaveDraftAndExit = () => {
+    if (lines.length > 0) {
+      const draftData: OABDraftPayload = {
+        folio,
+        fechaEmision,
+        tasaBCV: tasa,
+        notas,
+        lines,
+        savedAt: new Date().toISOString()
+      };
+      try {
+        sessionStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draftData));
+      } catch (e) {}
+    }
+    setShowExitConfirmModal(false);
+    onClose();
+  };
+
+  const handleDiscardAndExit = () => {
+    try {
+      sessionStorage.removeItem(DRAFT_STORAGE_KEY);
+    } catch (e) {}
+    setShowExitConfirmModal(false);
+    onClose();
+  };
 
   // Agrupación reactiva por Prioridad Operativa con numeración global correlativa
   const groupedLines = useMemo(() => {
@@ -304,6 +430,15 @@ export const SupplyOrderModal: React.FC<SupplyOrderModalProps> = ({
     if (activeLineIdForOrder !== null) {
       setLines(prev => prev.map(line => {
         if (getLineKey(line) !== activeLineIdForOrder) return line;
+        const isStk = !order.id || order.codigo === 'STK' || (order.proyecto && order.proyecto.toLowerCase().includes('stock general'));
+        if (isStk) {
+          return {
+            ...line,
+            pedidoId: undefined,
+            proyectoId: undefined,
+            proyectoNombre: undefined
+          };
+        }
         return {
           ...line,
           pedidoId: order.id,
@@ -456,6 +591,9 @@ export const SupplyOrderModal: React.FC<SupplyOrderModalProps> = ({
       if (onOrderCreated) {
         onOrderCreated(lines);
       }
+      try {
+        sessionStorage.removeItem(DRAFT_STORAGE_KEY);
+      } catch (e) {}
     } catch (err: any) {
       console.error('Error al emitir OAB:', err);
       setStatusMessage(`Error: ${err.message}`);
@@ -488,7 +626,7 @@ export const SupplyOrderModal: React.FC<SupplyOrderModalProps> = ({
               </div>
             </div>
             <button
-              onClick={onClose}
+              onClick={handleAttemptClose}
               className="text-slate-400 hover:text-white p-1 rounded-md hover:bg-surfaceHighest transition min-w-[36px] min-h-[36px] flex items-center justify-center"
             >
               <X className="w-4 h-4" />
@@ -864,29 +1002,48 @@ export const SupplyOrderModal: React.FC<SupplyOrderModalProps> = ({
                                 </td>
                                 <td className="p-2">
                                   {line.proyectoNombre ? (
-                                    <div className="flex items-center gap-1 text-[11px] text-brand-400 font-mono truncate max-w-[130px]">
-                                      <span className="truncate">{line.proyectoNombre}</span>
+                                    <div className="flex items-center gap-1 text-[11px] text-brand-400 font-mono truncate max-w-[140px]">
+                                      <span className="truncate" title={line.proyectoNombre}>{line.proyectoNombre}</span>
                                       <button
+                                        type="button"
                                         onClick={() => {
                                           setActiveLineIdForOrder(lineKey);
                                           setOrderModalOpen(true);
                                         }}
-                                        className="text-slate-400 hover:text-white"
+                                        className="text-slate-400 hover:text-white p-0.5 rounded hover:bg-surfaceHigh transition shrink-0"
+                                        title="Cambiar obra o pedido"
                                       >
                                         ✎
                                       </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setLines(prev => prev.map(l => getLineKey(l) === lineKey ? { ...l, pedidoId: undefined, proyectoId: undefined, proyectoNombre: undefined } : l));
+                                        }}
+                                        className="text-slate-500 hover:text-rose-400 p-0.5 rounded hover:bg-rose-500/10 transition shrink-0 text-xs font-bold"
+                                        title="Desvincular obra (pasar a Stock Común MTS)"
+                                      >
+                                        ✕
+                                      </button>
                                     </div>
                                   ) : (
-                                    <button
-                                      onClick={() => {
-                                        setActiveLineIdForOrder(lineKey);
-                                        setOrderModalOpen(true);
-                                      }}
-                                      className="text-[10px] text-slate-400 hover:text-brand-400 flex items-center gap-1 underline"
-                                    >
-                                      <Link2 className="w-3 h-3" />
-                                      <span>Vincular ERP</span>
-                                    </button>
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="inline-flex items-center gap-1 text-[10px] text-amber-300 font-mono bg-amber-500/10 border border-amber-500/30 px-1.5 py-0.5 rounded shrink-0">
+                                        <span>📦 Stock Común</span>
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setActiveLineIdForOrder(lineKey);
+                                          setOrderModalOpen(true);
+                                        }}
+                                        className="text-[10px] text-slate-400 hover:text-brand-400 flex items-center gap-0.5 underline shrink-0 transition"
+                                        title="Asignar a una obra o pedido específico"
+                                      >
+                                        <Link2 className="w-2.5 h-2.5" />
+                                        <span>Vincular</span>
+                                      </button>
+                                    </div>
                                   )}
                                 </td>
                                 <td className="p-2 text-center">
@@ -934,7 +1091,7 @@ export const SupplyOrderModal: React.FC<SupplyOrderModalProps> = ({
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                onClick={onClose}
+                onClick={handleAttemptClose}
                 className="px-3 py-2 text-xs text-slate-400 hover:text-white min-h-[36px]"
               >
                 Cerrar
@@ -1106,8 +1263,29 @@ export const SupplyOrderModal: React.FC<SupplyOrderModalProps> = ({
                     onChange={e => setQuickCategory(e.target.value)}
                     className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-100 focus:outline-none focus:border-blue-500"
                   >
-                    <option value="Herrajes y Tornillería">Herrajes y Tornillería</option>
+                    <option value="Herrajes y Accesorios">Herrajes y Accesorios</option>
+                    <option value="Adhesivos y Químicos">Adhesivos y Químicos</option>
+                    <option value="Tableros">Tableros</option>
+                    <option value="Fijaciones (Tornillería)">Fijaciones (Tornillería)</option>
+                    <option value="Laminados Decorativos">Laminados Decorativos</option>
+                    <option value="Tapacantos">Tapacantos</option>
+                    <option value="Tubería (Redonda)">Tubería (Redonda)</option>
+                    <option value="Láminas">Láminas</option>
+                    <option value="Platinas">Platinas</option>
+                    <option value="Mallas">Mallas</option>
+                    <option value="Tubería (Cuadrada/Rectangular)">Tubería (Cuadrada/Rectangular)</option>
+                    <option value="Barras y Varillas">Barras y Varillas</option>
+                    <option value="Tubería (Especializada)">Tubería (Especializada)</option>
+                    <option value="Herramientas y Abrasivos">Herramientas y Abrasivos</option>
+                    <option value="Suministros Neumáticos">Suministros Neumáticos</option>
+                    <option value="Equipo de Protección Personal (EPP)">Equipo de Protección Personal (EPP)</option>
+                    <option value="Indumentaria y Seguridad">Indumentaria y Seguridad</option>
+                    <option value="Equipos y Maquinaria">Equipos y Maquinaria</option>
+                    <option value="Suministros de Limpieza">Suministros de Limpieza</option>
+                    <option value="Perfiles y Tubos">Perfiles y Tubos</option>
+                    <option value="Abrasivos">Abrasivos</option>
                     <option value="Maderas y Tableros">Maderas y Tableros</option>
+                    <option value="Herrajes y Tornillería">Herrajes y Tornillería</option>
                     <option value="Químicos y Pegamentos">Químicos y Pegamentos</option>
                     <option value="Vidrios y Espejos">Vidrios y Espejos</option>
                     <option value="Metales y Perfilería">Metales y Perfilería</option>
@@ -1158,6 +1336,100 @@ export const SupplyOrderModal: React.FC<SupplyOrderModalProps> = ({
                   </>
                 )}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal de Bienvenida: Borrador de Solicitud Detectado */}
+      {showDraftWelcomeModal && pendingDraft && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-fade-in no-print">
+          <div className="bg-surface border border-brand-500/50 rounded-2xl w-full max-w-md p-5 sm:p-6 shadow-2xl flex flex-col items-center text-center space-y-4 ring-1 ring-brand-500/30">
+            <div className="w-12 h-12 rounded-2xl bg-brand-500/20 text-brand-400 border border-brand-500/40 flex items-center justify-center shadow-inner">
+              <Sparkles className="w-6 h-6 animate-pulse" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-100 tracking-tight">
+                Borrador de Solicitud Detectado
+              </h3>
+              <p className="text-xs text-slate-300 mt-1.5 leading-relaxed">
+                Se encontró una orden en curso con <strong className="text-brand-400">{pendingDraft.lines.length} material(es)</strong> guardada localmente ({pendingDraft.savedAt ? new Date(pendingDraft.savedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'reciente'}).
+              </p>
+              <p className="text-[11px] text-slate-400 mt-1">
+                ¿Deseas restaurar tus cantidades y prioridades personalizadas o empezar una requisición nueva?
+              </p>
+            </div>
+
+            <div className="w-full flex flex-col sm:flex-row gap-2 pt-2">
+              <button
+                type="button"
+                onClick={handleRestoreDraft}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 bg-brand-500 hover:bg-brand-600 text-slate-950 font-bold rounded-xl text-xs transition shadow-lg shadow-brand-500/20 active:scale-95"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>Restaurar Borrador</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleDiscardDraftAndStartFresh}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-4 bg-surfaceHigh hover:bg-surfaceHighest text-slate-300 border border-borderSubtle rounded-xl text-xs font-semibold transition active:scale-95"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-slate-400" />
+                <span>Empezar Nuevo</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Salida Segura: Diálogo Tripartito */}
+      {showExitConfirmModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-fade-in no-print">
+          <div className="bg-surface border border-borderSubtle rounded-2xl w-full max-w-md p-5 sm:p-6 shadow-2xl flex flex-col space-y-4">
+            <div className="flex items-center gap-3 border-b border-borderSubtle pb-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-100">
+                  ¿Deseas salir de la solicitud?
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Tienes <strong className="text-amber-300">{lines.length} material(es)</strong> configurados en esta requisición.
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Puedes conservar tu borrador para continuar luego sin perder tus cambios, o descartarlo si ya no requieres emitir esta orden.
+            </p>
+
+            <div className="flex flex-col gap-2 pt-2">
+              <button
+                type="button"
+                onClick={handleSaveDraftAndExit}
+                className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-brand-500 hover:bg-brand-600 text-slate-950 font-bold rounded-xl text-xs transition shadow active:scale-95"
+              >
+                <Save className="w-4 h-4" />
+                <span>Guardar borrador y salir</span>
+              </button>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={handleDiscardAndExit}
+                  className="flex items-center justify-center gap-1.5 py-2 px-3 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded-xl text-xs font-semibold transition active:scale-95"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Descartar borrador</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowExitConfirmModal(false)}
+                  className="flex items-center justify-center py-2 px-3 bg-surfaceHigh hover:bg-surfaceHighest text-slate-200 border border-borderSubtle rounded-xl text-xs font-semibold transition active:scale-95"
+                >
+                  <span>Seguir editando</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

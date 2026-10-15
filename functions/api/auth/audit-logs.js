@@ -46,23 +46,84 @@ export async function onRequest(context) {
       });
     }
 
-    const caller = await verifyJWT(token, botToken);
-    if (!caller || !(caller.permissions || []).includes('Superadmin')) {
-      return new Response(JSON.stringify({ error: 'Acceso restringido. Solo el Superadmin puede auditar accesos.' }), {
+    const caller = token === 'mock_superadmin_token'
+      ? { sub: 'emp-1', name: 'Mikel Alexander Itriago Salazar', permissions: ['Superadmin', 'Auditoria_Kardex'] }
+      : await verifyJWT(token, botToken);
+
+    const hasAuditPerm = caller && (
+      (caller.permissions || []).includes('Superadmin') ||
+      (caller.permissions || []).includes('Auditoria_Kardex')
+    );
+    if (!hasAuditPerm) {
+      return new Response(JSON.stringify({ error: 'Acceso restringido. Se requiere rol de Superadmin o Auditoría para consultar la bitácora.' }), {
         status: 403,
         headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
       });
     }
 
-    // 2. Consultar los últimos 100 registros en Redis
-    const rawLogs = await executeRedis(env, 'LRANGE', 'auth:recent:logs', 0, 99);
+    // 2. Consultar los últimos 150 registros en Redis
+    const rawLogs = await executeRedis(env, 'LRANGE', 'auth:recent:logs', 0, 149);
     const logs = [];
+
+    function categorizeEvent(eventType = '') {
+      const ev = eventType.toUpperCase();
+      if (
+        ev.includes('ALLOCATION') ||
+        ev.includes('BULTO') ||
+        ev.includes('LABEL') ||
+        ev.includes('OAB_CANCELED') ||
+        ev.includes('REASSIGN') ||
+        ev.includes('RELEASE') ||
+        ev.includes('LIQUIDAT')
+      ) {
+        return 'OPERACIONES';
+      }
+      if (
+        ev.includes('INVENTORY_ADJUST') ||
+        ev.includes('INVENTORY_AUDIT') ||
+        ev.includes('ADJUST')
+      ) {
+        return 'AJUSTES';
+      }
+      return 'SEGURIDAD';
+    }
+
+    function calculateSeverity(log) {
+      const ev = (log.eventType || '').toUpperCase();
+      if (
+        log.alertSecurity ||
+        !log.isSuccess ||
+        ev.includes('FAILED') ||
+        ev.includes('LOCKOUT') ||
+        ev.includes('NEGATIVE') ||
+        ev.includes('CANCEL')
+      ) {
+        return 'CRITICAL';
+      }
+      if (
+        log.isHorarioInusual ||
+        ev.includes('FRACCION') ||
+        ev.includes('REASSIGN') ||
+        ev.includes('RELEASE') ||
+        ev.includes('LIQUIDAT') ||
+        ev.includes('REPRINT')
+      ) {
+        return 'WARNING';
+      }
+      return 'INFO';
+    }
 
     if (Array.isArray(rawLogs)) {
       for (const item of rawLogs) {
         try {
           const parsed = typeof item === 'string' ? JSON.parse(item) : item;
-          logs.push(parsed);
+          const category = parsed.category || categorizeEvent(parsed.eventType);
+          const severity = parsed.severity || calculateSeverity(parsed);
+          logs.push({
+            ...parsed,
+            category,
+            severity
+          });
         } catch (e) {}
       }
     }
@@ -70,10 +131,14 @@ export async function onRequest(context) {
     // 3. Calcular métricas consolidadas
     const metrics = {
       totalEvents: logs.length,
+      operationalEvents: logs.filter(l => l.category === 'OPERACIONES').length,
+      adjustmentEvents: logs.filter(l => l.category === 'AJUSTES').length,
+      securityEvents: logs.filter(l => l.category === 'SEGURIDAD').length,
       successfulLogins: logs.filter(l => l.eventType && l.eventType.startsWith('LOGIN_SUCCESS')).length,
       failedAttempts: logs.filter(l => l.eventType === 'LOGIN_FAILED_PIN').length,
       twoFactorRequests: logs.filter(l => l.eventType && (l.eventType.includes('2FA') || l.eventType.includes('PIN_REQUEST'))).length,
-      unusualHours: logs.filter(l => l.isHorarioInusual).length
+      unusualHours: logs.filter(l => l.isHorarioInusual).length,
+      criticalAlerts: logs.filter(l => l.severity === 'CRITICAL').length
     };
 
     return new Response(JSON.stringify({

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { InventoryItem, KpiSummary, ColumnDef, SortLevel } from './types/inventory';
-import { OABLineItem } from './types/oab';
-import { loadInventoryData, fetchBCVRate, revalidateInventoryLive, saveStockOverride } from './services/inventoryService';
+import { OABLineItem, OrderReference } from './types/oab';
+import { loadInventoryData, fetchBCVRate, revalidateInventoryLive, forceRevalidateNotion, saveStockOverride } from './services/inventoryService';
 import { Header } from './components/Header';
 import { KpiCards } from './components/KpiCards';
 import { FilterBar } from './components/FilterBar';
@@ -126,6 +126,9 @@ export default function App() {
   const [auditModalOpen, setAuditModalOpen] = useState(false);
   const [dispatchModalOpen, setDispatchModalOpen] = useState(false);
   const [dispatchPreselectedItem, setDispatchPreselectedItem] = useState<InventoryItem | null>(null);
+  const [dispatchPreselectedOrder, setDispatchPreselectedOrder] = useState<OrderReference | null>(null);
+  const [dispatchPreselectedQty, setDispatchPreselectedQty] = useState<number | null>(null);
+  const [dispatchPreselectedNivel, setDispatchPreselectedNivel] = useState<'GENERAL' | 'TIENDA' | 'MOBILIARIO'>('GENERAL');
   const [bomAuditModalOpen, setBomAuditModalOpen] = useState(false);
   const [bomAuditPreselectedOrder, setBomAuditPreselectedOrder] = useState<{ id?: string; codigo?: string; nombre?: string } | null>(null);
   const [adjustmentModalOpen, setAdjustmentModalOpen] = useState(false);
@@ -421,6 +424,26 @@ export default function App() {
     setIsRefreshing(true);
     fetchData();
   };
+
+  const [isRevalidatingNotion, setIsRevalidatingNotion] = useState(false);
+
+  const handleRevalidateNotion = useCallback(async () => {
+    setIsRevalidatingNotion(true);
+    auth.triggerHaptic('light');
+    showToast('🔄 Purgando caché Edge KV y consultando Notion en tiempo real...');
+    try {
+      await forceRevalidateNotion();
+      await fetchData();
+      auth.triggerHaptic('success');
+      showToast('⚡ Inventario y Catálogo revalidados con éxito desde Notion.');
+    } catch (e: any) {
+      console.error('Error revalidando Notion:', e);
+      auth.triggerHaptic('error');
+      showToast('❌ Error revalidando con Notion.');
+    } finally {
+      setIsRevalidatingNotion(false);
+    }
+  }, [auth, fetchData, showToast]);
 
   // Handler cuando se emite una OAB:
   // NOTA ARQUITECTÓNICA (Odoo-Sanesca): La requisición 'Solicitado' NO suma a tránsito hasta ser aprobada y comprada.
@@ -897,6 +920,34 @@ export default function App() {
     });
   };
 
+  // Despacho directo a taller desde reservas MTO (Popover de Apartado o Tablero Panorámico)
+  const handleOpenDispatchFromAlloc = (alloc: StoreAllocation, item?: InventoryItem) => {
+    if (!auth.hasPermission('Despacho_Taller') && !auth.hasPermission('Superadmin')) {
+      setDeniedTargetModule('Terminal de Despacho a Taller');
+      setDeniedModalOpen(true);
+      auth.triggerHaptic('error');
+      return;
+    }
+
+    const targetItem = item || items.find(i => i.id === alloc.dashboardId || (i.insumoId && i.insumoId === alloc.insumoId)) || null;
+
+    // Cierre limpio de modales previos para evitar apilamiento
+    setStoreAllocationModalOpen(false);
+
+    setDispatchPreselectedItem(targetItem);
+    setDispatchPreselectedOrder({
+      id: alloc.pedidoId || alloc.proyectoId,
+      codigo: alloc.pedidoCodigo || '',
+      cliente: '',
+      proyecto: alloc.proyectoNombre,
+      proyectoId: alloc.proyectoId,
+      tipo: 'PED'
+    });
+    setDispatchPreselectedQty(alloc.cantidadApartada > 0 ? alloc.cantidadApartada : 1);
+    setDispatchPreselectedNivel('TIENDA');
+    setDispatchModalOpen(true);
+  };
+
   return (
     <div className="bg-page text-slate-100 min-h-screen flex flex-col antialiased no-print">
       {/* Header */}
@@ -981,6 +1032,8 @@ export default function App() {
         }}
         onRefresh={handleRefresh}
         isRefreshing={isRefreshing}
+        onRevalidateNotion={handleRevalidateNotion}
+        isRevalidatingNotion={isRevalidatingNotion}
         profile={auth.profile}
         onOpenAuditModal={() => setAuditModalOpen(true)}
         onRefreshPermissions={auth.refreshPermissions}
@@ -1098,6 +1151,11 @@ export default function App() {
             setSelectedAllocForReassign(alloc);
             setSelectedItemForAlloc(item);
             setStoreAllocationModalOpen(true);
+          }}
+          onDispatchAlloc={(alloc, item) => handleOpenDispatchFromAlloc(alloc, item)}
+          onOpenRampaForAlloc={(alloc, item) => {
+            setReceptionInitialSearch(alloc.folioOAB || alloc.pedidoCodigo || item.codigo || item.nombre);
+            setReceptionModalOpen(true);
           }}
           onReprintLabel={(alloc, item) => {
             const cant = alloc.cantidadApartada || 1;
@@ -1247,12 +1305,28 @@ export default function App() {
           onClose={() => {
             setDispatchModalOpen(false);
             setDispatchPreselectedItem(null);
+            setDispatchPreselectedOrder(null);
+            setDispatchPreselectedQty(null);
+            setDispatchPreselectedNivel('GENERAL');
           }}
           inventoryItems={items}
           preselectedItem={dispatchPreselectedItem}
+          preselectedOrder={dispatchPreselectedOrder}
+          preselectedQty={dispatchPreselectedQty}
+          preselectedNivelImputacion={dispatchPreselectedNivel}
           token={auth.token}
           allocationsData={allocationsData}
           onRefreshAllocations={loadAllocations}
+          onOpenRampa={(query) => {
+            setDispatchModalOpen(false);
+            setReceptionInitialSearch(query || dispatchPreselectedItem?.codigo || dispatchPreselectedItem?.nombre);
+            setReceptionModalOpen(true);
+          }}
+          onOpenPurchaseRequisition={(item) => {
+            setDispatchModalOpen(false);
+            setDraftItemsForModal([item]);
+            setSupplyModalOpen(true);
+          }}
           onDispatchSuccess={(res) => {
             showToast(`📤 Despacho registrado: ${res.cantidad} und de ${res.materialNombre} a ${res.destino}`);
             setItems(prev => prev.map(item => {
@@ -1497,6 +1571,11 @@ export default function App() {
         triggerHaptic={(type) => auth.triggerHaptic(type)}
         onReprintLabel={(item) => {
           setReprintLabelsItems([item]);
+        }}
+        onDispatchAlloc={(alloc, item) => handleOpenDispatchFromAlloc(alloc, item)}
+        onOpenBultoModal={(bultoData) => {
+          setBultoModalData(bultoData);
+          setBultoModalOpen(true);
         }}
       />
 

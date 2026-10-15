@@ -8,6 +8,8 @@
  * 3. Asienta movimientos de entrada positiva en BD_Kardex_Movimientos para los retazos útiles devueltos.
  */
 
+import { getLiveAllocations, setLiveAllocations } from '../_kv.js';
+
 const PEDIDOS_DB_ID = '3d086805-4e27-814b-9ff4-e694d56a58bb';
 const AUDITORIA_LOGS_DB_ID = '3ec86805-4e27-8111-8cc9-fcfb594f3b1e';
 const KARDEX_DB_ID = '26286805-4e27-803b-91ce-ef8f121d622d';
@@ -255,6 +257,36 @@ export async function onRequest(context) {
       } catch (kErr) {
         console.warn(`Error registrando retazo ${retazo.mat} en Kardex:`, kErr.message);
       }
+    }
+
+    // ------------------------------------------------------------------------
+    // 4. Purga y Conclusión de Asignaciones MTO en Edge KV
+    // ------------------------------------------------------------------------
+    try {
+      const liveAllocData = await getLiveAllocations(env);
+      let allocations = liveAllocData.allocations || [];
+      let debts = liveAllocData.debts || [];
+      let changed = false;
+      allocations = allocations.map(a => {
+        const matchOrder = (a.pedidoId && a.pedidoId === orderId) ||
+                           (orderCode && (a.pedidoCodigo === orderCode || a.proyectoNombre?.includes(orderCode)));
+        if (matchOrder && (a.estado !== 'CONCLUIDA' || !a.archived)) {
+          changed = true;
+          return {
+            ...a,
+            estado: 'CONCLUIDA',
+            archived: true,
+            cantidadApartada: 0,
+            updatedAt: Date.now()
+          };
+        }
+        return a;
+      });
+      if (changed) {
+        await setLiveAllocations(env, { allocations, debts });
+      }
+    } catch (kvErr) {
+      console.warn('[order-close-audit.js] Error purgando asignaciones KV:', kvErr.message);
     }
 
     // Respuesta Exitosa

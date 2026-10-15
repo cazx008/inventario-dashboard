@@ -878,10 +878,14 @@ export const OrderBOMAuditModal: React.FC<OrderBOMAuditModalProps> = ({
             <button
               type="button"
               onClick={() => setIsConfirmModalOpen(true)}
-              className="px-4 py-2 text-xs font-semibold rounded-xl bg-brand-500 hover:bg-brand-600 text-white shadow-lg shadow-brand-500/20 transition flex items-center gap-1.5"
+              className={`px-4 py-2 text-xs font-semibold rounded-xl shadow-lg transition flex items-center gap-1.5 ${
+                esConforme
+                  ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/30 font-bold'
+                  : 'bg-brand-500 hover:bg-brand-600 text-white shadow-brand-500/20'
+              }`}
             >
-              <CheckCircle2 className="w-4 h-4" />
-              <span>Concluir Auditoría de Cierre</span>
+              <Lock className="w-4 h-4" />
+              <span>{esConforme ? '🔒 Certificar Cierre de Obra al 100%' : 'Concluir Auditoría de Cierre'}</span>
             </button>
           </div>
         </div>

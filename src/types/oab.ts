@@ -5,8 +5,12 @@ export interface OABHeader {
   totalUSD: number;
   totalBs: number;
   tasaBCV: number;
-  estadoGeneral: 'Borrador' | 'Solicitado' | 'Aprobado por Gerencia' | 'En Compra' | 'Recepción Parcial' | 'Completada' | 'Cancelada';
+  estadoGeneral: string;
   notas?: string;
+  notasCompras?: string;
+  proveedor?: string;
+  cotizacion?: string;
+  fechaEstimadaEntrega?: string;
   comprobanteUrl?: string;
 }
 
@@ -35,6 +39,9 @@ export interface OABLineItem {
   pedidoId?: string;
   proyectoId?: string;
   proyectoNombre?: string;
+  originalPedidoId?: string;
+  originalProyectoNombre?: string;
+  isSplitChild?: boolean;
   notasDiscrepancia?: string;
   toleranciaExcedente?: boolean;
   empaqueComercial?: string;

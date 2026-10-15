@@ -31,8 +31,8 @@
       "grupoProcesoColor": "default",
       "seReconto3D": false,
       "seRecontoHoy": false,
-      "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
+      "ultimaFechaReconteo": "2026-10-10",
+      "diasDesdeReconteo": 5,
       "necesitaReconteo": false
     },
     {
@@ -67,8 +67,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "2bc86805-4e27-80a8-91c7-dd5c2afdf4f1",
@@ -77,13 +77,13 @@
       "marca": "Weldtech",
       "insumoId": "29686805-4e27-80b1-b906-cf64fc07ad97",
       "costoUnitarioUSD": 3.2,
-      "stockBase": 1,
+      "stockBase": 0,
       "stockMinimo": 2,
-      "deficit": 1,
-      "coberturaPct": 50,
-      "semaforo": "naranja",
-      "estadoStock": "Bajo Mínimo",
-      "estadoStockColor": "orange",
+      "deficit": 2,
+      "coberturaPct": 0,
+      "semaforo": "rojo",
+      "estadoStock": "Sin Stock",
+      "estadoStockColor": "red",
       "prioridad": "Baja",
       "prioridadColor": "green",
       "origenConsumo": "Proyecto (No Presupuestado)",
@@ -99,10 +99,10 @@
       "proceso": "Soldadura",
       "grupoProceso": "Soldadura",
       "grupoProcesoColor": "default",
-      "seReconto3D": false,
-      "seRecontoHoy": false,
-      "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
+      "seReconto3D": true,
+      "seRecontoHoy": true,
+      "ultimaFechaReconteo": "2026-10-15",
+      "diasDesdeReconteo": 0,
       "necesitaReconteo": false
     },
     {
@@ -137,8 +137,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "3c186805-4e27-8099-9f78-d2f7eeed2855",
@@ -172,8 +172,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "3c186805-4e27-808a-a3f1-e27eddaf626c",
@@ -239,10 +239,10 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": false,
-      "seRecontoHoy": false,
-      "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
+      "seReconto3D": true,
+      "seRecontoHoy": true,
+      "ultimaFechaReconteo": "2026-10-15",
+      "diasDesdeReconteo": 0,
       "necesitaReconteo": false
     },
     {
@@ -277,8 +277,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "38f86805-4e27-8100-8007-e5721942a54f",
@@ -312,8 +312,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "31186805-4e27-8024-992b-ee5282e1e51b",
@@ -344,11 +344,11 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": false,
-      "seRecontoHoy": false,
-      "ultimaFechaReconteo": null,
-      "diasDesdeReconteo": null,
-      "necesitaReconteo": null
+      "seReconto3D": true,
+      "seRecontoHoy": true,
+      "ultimaFechaReconteo": "2026-10-15",
+      "diasDesdeReconteo": 0,
+      "necesitaReconteo": false
     },
     {
       "id": "2b886805-4e27-802a-b741-e55a3977158a",
@@ -357,13 +357,13 @@
       "marca": "Diesel Tools",
       "insumoId": "29686805-4e27-80a5-812d-cd6249b87642",
       "costoUnitarioUSD": 28,
-      "stockBase": 3,
+      "stockBase": 19,
       "stockMinimo": 11,
-      "deficit": 8,
-      "coberturaPct": 27,
-      "semaforo": "naranja",
-      "estadoStock": "Bajo Mínimo",
-      "estadoStockColor": "orange",
+      "deficit": 0,
+      "coberturaPct": 173,
+      "semaforo": "verde",
+      "estadoStock": "En Stock",
+      "estadoStockColor": "green",
       "prioridad": "Alta",
       "prioridadColor": "orange",
       "origenConsumo": "Proyecto (No Presupuestado)",
@@ -379,10 +379,10 @@
       "proceso": "Embalado",
       "grupoProceso": "Embalaje",
       "grupoProcesoColor": "default",
-      "seReconto3D": false,
-      "seRecontoHoy": false,
-      "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
+      "seReconto3D": true,
+      "seRecontoHoy": true,
+      "ultimaFechaReconteo": "2026-10-15",
+      "diasDesdeReconteo": 0,
       "necesitaReconteo": false
     },
     {
@@ -414,11 +414,11 @@
       "proceso": "Carpinteria Esamble",
       "grupoProceso": "Carpintería",
       "grupoProcesoColor": "default",
-      "seReconto3D": false,
-      "seRecontoHoy": false,
-      "ultimaFechaReconteo": null,
-      "diasDesdeReconteo": null,
-      "necesitaReconteo": null
+      "seReconto3D": true,
+      "seRecontoHoy": true,
+      "ultimaFechaReconteo": "2026-10-15",
+      "diasDesdeReconteo": 0,
+      "necesitaReconteo": false
     },
     {
       "id": "38f86805-4e27-8126-ab2c-d1e7de35efdb",
@@ -531,12 +531,12 @@
       "codigo": "HER-011",
       "marca": "",
       "insumoId": "26286805-4e27-80f3-b4b0-cd56ed8a3fba",
-      "costoUnitarioUSD": 2.8,
-      "stockBase": 0,
+      "costoUnitarioUSD": 9,
+      "stockBase": 10,
       "stockMinimo": 0,
       "deficit": 0,
-      "coberturaPct": 0,
-      "semaforo": "rojo",
+      "coberturaPct": 999,
+      "semaforo": "verde",
       "estadoStock": "Sin Stock",
       "estadoStockColor": "red",
       "prioridad": "Baja",
@@ -556,9 +556,9 @@
       "grupoProcesoColor": "default",
       "seReconto3D": false,
       "seRecontoHoy": false,
-      "ultimaFechaReconteo": null,
-      "diasDesdeReconteo": null,
-      "necesitaReconteo": null
+      "ultimaFechaReconteo": "2026-10-08",
+      "diasDesdeReconteo": 7,
+      "necesitaReconteo": false
     },
     {
       "id": "2be86805-4e27-808c-976e-fe81af31040c",
@@ -592,8 +592,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "2c586805-4e27-8031-ade9-db347180e24b",
@@ -624,10 +624,10 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": false,
-      "seRecontoHoy": false,
-      "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
+      "seReconto3D": true,
+      "seRecontoHoy": true,
+      "ultimaFechaReconteo": "2026-10-15",
+      "diasDesdeReconteo": 0,
       "necesitaReconteo": false
     },
     {
@@ -637,10 +637,10 @@
       "marca": "",
       "insumoId": "29a86805-4e27-804e-a150-c73f0c5fb371",
       "costoUnitarioUSD": 1.2,
-      "stockBase": 21,
+      "stockBase": 49,
       "stockMinimo": 11,
       "deficit": 0,
-      "coberturaPct": 191,
+      "coberturaPct": 445,
       "semaforo": "verde",
       "estadoStock": "En Stock",
       "estadoStockColor": "green",
@@ -661,7 +661,7 @@
       "grupoProcesoColor": "default",
       "seReconto3D": true,
       "seRecontoHoy": false,
-      "ultimaFechaReconteo": "2026-10-06",
+      "ultimaFechaReconteo": "2026-10-14",
       "diasDesdeReconteo": 1,
       "necesitaReconteo": false
     },
@@ -730,9 +730,9 @@
       "grupoProceso": "Desbaste y Preparación",
       "grupoProcesoColor": "default",
       "seReconto3D": true,
-      "seRecontoHoy": false,
-      "ultimaFechaReconteo": "2026-10-06",
-      "diasDesdeReconteo": 1,
+      "seRecontoHoy": true,
+      "ultimaFechaReconteo": "2026-10-15",
+      "diasDesdeReconteo": 0,
       "necesitaReconteo": false
     },
     {
@@ -847,10 +847,10 @@
       "marca": "",
       "insumoId": "29a86805-4e27-809d-80ae-cd3c8a8d2fda",
       "costoUnitarioUSD": 1.8,
-      "stockBase": 2,
+      "stockBase": 4,
       "stockMinimo": 1,
       "deficit": 0,
-      "coberturaPct": 200,
+      "coberturaPct": 400,
       "semaforo": "verde",
       "estadoStock": "En Stock",
       "estadoStockColor": "green",
@@ -869,10 +869,10 @@
       "proceso": "Esmerilado",
       "grupoProceso": "Desbaste y Preparación",
       "grupoProcesoColor": "default",
-      "seReconto3D": false,
+      "seReconto3D": true,
       "seRecontoHoy": false,
-      "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
+      "ultimaFechaReconteo": "2026-10-14",
+      "diasDesdeReconteo": 1,
       "necesitaReconteo": false
     },
     {
@@ -907,8 +907,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "34586805-4e27-809b-8128-ee77bee90c73",
@@ -942,8 +942,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "38f86805-4e27-8173-95c5-f195e72683c3",
@@ -1009,11 +1009,11 @@
       "proceso": "Carpinteria Esamble",
       "grupoProceso": "Carpintería",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-06",
-      "diasDesdeReconteo": 1,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 9,
+      "necesitaReconteo": true
     },
     {
       "id": "38f86805-4e27-81b3-b737-c49b6ec37b33",
@@ -1045,9 +1045,9 @@
       "grupoProceso": "Carpintería",
       "grupoProcesoColor": "default",
       "seReconto3D": true,
-      "seRecontoHoy": false,
-      "ultimaFechaReconteo": "2026-10-06",
-      "diasDesdeReconteo": 1,
+      "seRecontoHoy": true,
+      "ultimaFechaReconteo": "2026-10-15",
+      "diasDesdeReconteo": 0,
       "necesitaReconteo": false
     },
     {
@@ -1117,8 +1117,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "2bc86805-4e27-8073-8344-cc531c20277e",
@@ -1127,13 +1127,13 @@
       "marca": "",
       "insumoId": "29a86805-4e27-8003-9483-d80eb4a81846",
       "costoUnitarioUSD": 8.5,
-      "stockBase": 11,
+      "stockBase": 4,
       "stockMinimo": 5,
-      "deficit": 0,
-      "coberturaPct": 220,
-      "semaforo": "verde",
-      "estadoStock": "En Stock",
-      "estadoStockColor": "green",
+      "deficit": 1,
+      "coberturaPct": 80,
+      "semaforo": "naranja",
+      "estadoStock": "Bajo Mínimo",
+      "estadoStockColor": "orange",
       "prioridad": "Por Pedido",
       "prioridadColor": "blue",
       "origenConsumo": "Proyecto (No Presupuestado)",
@@ -1149,10 +1149,10 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": false,
+      "seReconto3D": true,
       "seRecontoHoy": false,
-      "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
+      "ultimaFechaReconteo": "2026-10-14",
+      "diasDesdeReconteo": 1,
       "necesitaReconteo": false
     },
     {
@@ -1197,13 +1197,13 @@
       "marca": "",
       "insumoId": "29a86805-4e27-8033-9de4-e2562165aac3",
       "costoUnitarioUSD": 2.2,
-      "stockBase": 17,
+      "stockBase": 0,
       "stockMinimo": 10,
-      "deficit": 0,
-      "coberturaPct": 170,
-      "semaforo": "verde",
-      "estadoStock": "En Stock",
-      "estadoStockColor": "green",
+      "deficit": 10,
+      "coberturaPct": 0,
+      "semaforo": "rojo",
+      "estadoStock": "Sin Stock",
+      "estadoStockColor": "red",
       "prioridad": "Alta",
       "prioridadColor": "orange",
       "origenConsumo": "Proyecto (No Presupuestado)",
@@ -1219,10 +1219,10 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": false,
+      "seReconto3D": true,
       "seRecontoHoy": false,
-      "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
+      "ultimaFechaReconteo": "2026-10-14",
+      "diasDesdeReconteo": 1,
       "necesitaReconteo": false
     },
     {
@@ -1257,8 +1257,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "3c886805-4e27-8026-be8e-ddcd7a606adb",
@@ -1267,13 +1267,13 @@
       "marca": "",
       "insumoId": "3c886805-4e27-8171-9999-c5b8b70c650e",
       "costoUnitarioUSD": 0.6,
-      "stockBase": 3,
+      "stockBase": 0,
       "stockMinimo": 6,
-      "deficit": 3,
-      "coberturaPct": 50,
-      "semaforo": "naranja",
-      "estadoStock": "Bajo Mínimo",
-      "estadoStockColor": "orange",
+      "deficit": 6,
+      "coberturaPct": 0,
+      "semaforo": "rojo",
+      "estadoStock": "Sin Stock",
+      "estadoStockColor": "red",
       "prioridad": "Por Pedido",
       "prioridadColor": "blue",
       "origenConsumo": "Proyecto (No Presupuestado)",
@@ -1289,10 +1289,10 @@
       "proceso": "Esmerilado",
       "grupoProceso": "Desbaste y Preparación",
       "grupoProcesoColor": "default",
-      "seReconto3D": false,
-      "seRecontoHoy": false,
-      "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
+      "seReconto3D": true,
+      "seRecontoHoy": true,
+      "ultimaFechaReconteo": "2026-10-15",
+      "diasDesdeReconteo": 0,
       "necesitaReconteo": false
     },
     {
@@ -1337,13 +1337,13 @@
       "marca": "",
       "insumoId": "29c86805-4e27-80ae-8ee3-f1441fff88c4",
       "costoUnitarioUSD": 0.6,
-      "stockBase": 3,
+      "stockBase": 0,
       "stockMinimo": 5,
-      "deficit": 2,
-      "coberturaPct": 60,
-      "semaforo": "naranja",
-      "estadoStock": "Bajo Mínimo",
-      "estadoStockColor": "orange",
+      "deficit": 5,
+      "coberturaPct": 0,
+      "semaforo": "rojo",
+      "estadoStock": "Sin Stock",
+      "estadoStockColor": "red",
       "prioridad": "Por Pedido",
       "prioridadColor": "blue",
       "origenConsumo": "Proyecto (No Presupuestado)",
@@ -1359,10 +1359,10 @@
       "proceso": "Esmerilado",
       "grupoProceso": "Desbaste y Preparación",
       "grupoProcesoColor": "default",
-      "seReconto3D": false,
-      "seRecontoHoy": false,
-      "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
+      "seReconto3D": true,
+      "seRecontoHoy": true,
+      "ultimaFechaReconteo": "2026-10-15",
+      "diasDesdeReconteo": 0,
       "necesitaReconteo": false
     },
     {
@@ -1467,8 +1467,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "3a586805-4e27-8008-b1b3-f267f2816e3c",
@@ -1502,8 +1502,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "38f86805-4e27-81a9-b4bc-c00db6426b45",
@@ -1534,11 +1534,11 @@
       "proceso": "Carpinteria Esamble",
       "grupoProceso": "Carpintería",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-06",
-      "diasDesdeReconteo": 1,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 9,
+      "necesitaReconteo": true
     },
     {
       "id": "38f86805-4e27-816f-8a78-f7f325c49f0b",
@@ -1712,8 +1712,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "38f86805-4e27-8164-90ba-ce97edb29f30",
@@ -1782,8 +1782,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "38f86805-4e27-81b3-ac5e-e664e9ba9d37",
@@ -1852,8 +1852,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "3b186805-4e27-8023-bb8c-cf7edd9714fd",
@@ -1887,8 +1887,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "3ad86805-4e27-807e-b321-e4687420d271",
@@ -1922,8 +1922,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "31186805-4e27-80cf-8224-e477dec14b1e",
@@ -1992,8 +1992,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "38f86805-4e27-8122-80c9-c65da460ec42",
@@ -2062,8 +2062,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "38f86805-4e27-8183-9681-e8cfdd2f18e7",
@@ -2202,8 +2202,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "3e786805-4e27-8085-89f7-fb6995f147b4",
@@ -2237,8 +2237,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "3e786805-4e27-8031-b653-ca417b7976ee",
@@ -2272,8 +2272,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "3e786805-4e27-8040-b852-f998f75c7237",
@@ -2307,8 +2307,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "38f86805-4e27-81e2-9b96-f6e3ef15c385",
@@ -2412,8 +2412,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "38f86805-4e27-816e-9a3e-f63314f9eb73",
@@ -2447,8 +2447,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "38f86805-4e27-81a6-90c1-fe372576ed5b",
@@ -2517,8 +2517,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "2b886805-4e27-8019-9a08-e1e1fb9a21e5",
@@ -2527,10 +2527,10 @@
       "marca": "",
       "insumoId": "29a86805-4e27-80eb-86a6-c5bef97cbd7f",
       "costoUnitarioUSD": 4.5,
-      "stockBase": 7,
+      "stockBase": 6,
       "stockMinimo": 3,
       "deficit": 0,
-      "coberturaPct": 233,
+      "coberturaPct": 200,
       "semaforo": "verde",
       "estadoStock": "En Stock",
       "estadoStockColor": "green",
@@ -2549,10 +2549,10 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": false,
+      "seReconto3D": true,
       "seRecontoHoy": false,
-      "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
+      "ultimaFechaReconteo": "2026-10-14",
+      "diasDesdeReconteo": 1,
       "necesitaReconteo": false
     },
     {
@@ -2794,11 +2794,11 @@
       "proceso": "Carpinteria Esamble",
       "grupoProceso": "Carpintería",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-06",
-      "diasDesdeReconteo": 1,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 9,
+      "necesitaReconteo": true
     },
     {
       "id": "38f86805-4e27-8194-b37f-e214cfc5014a",
@@ -2829,11 +2829,11 @@
       "proceso": "Carpinteria Esamble",
       "grupoProceso": "Carpintería",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-06",
-      "diasDesdeReconteo": 1,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 9,
+      "necesitaReconteo": true
     },
     {
       "id": "3a686805-4e27-806c-9548-c08f1a307920",
@@ -2969,11 +2969,11 @@
       "proceso": "Carpinteria Esamble",
       "grupoProceso": "Carpintería",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-06",
-      "diasDesdeReconteo": 1,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 9,
+      "necesitaReconteo": true
     },
     {
       "id": "35786805-4e27-8088-92e4-f214407624ef",
@@ -3109,11 +3109,11 @@
       "proceso": "Carpinteria Esamble",
       "grupoProceso": "Carpintería",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-06",
-      "diasDesdeReconteo": 1,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 9,
+      "necesitaReconteo": true
     },
     {
       "id": "38f86805-4e27-81b7-a0ce-ecfe444ae929",
@@ -3180,9 +3180,9 @@
       "grupoProceso": "Carpintería",
       "grupoProcesoColor": "default",
       "seReconto3D": true,
-      "seRecontoHoy": false,
-      "ultimaFechaReconteo": "2026-10-06",
-      "diasDesdeReconteo": 1,
+      "seRecontoHoy": true,
+      "ultimaFechaReconteo": "2026-10-15",
+      "diasDesdeReconteo": 0,
       "necesitaReconteo": false
     },
     {
@@ -3249,11 +3249,11 @@
       "proceso": "Carpinteria Esamble",
       "grupoProceso": "Carpintería",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-06",
-      "diasDesdeReconteo": 1,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 9,
+      "necesitaReconteo": true
     },
     {
       "id": "38f86805-4e27-8127-95d4-c1856637b274",
@@ -3367,10 +3367,10 @@
       "marca": "",
       "insumoId": "2b286805-4e27-8084-b2a6-e84e66b667e8",
       "costoUnitarioUSD": 2.8,
-      "stockBase": 102,
+      "stockBase": 284,
       "stockMinimo": 41,
       "deficit": 0,
-      "coberturaPct": 249,
+      "coberturaPct": 693,
       "semaforo": "verde",
       "estadoStock": "Bajo Mínimo",
       "estadoStockColor": "orange",
@@ -3389,10 +3389,10 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": false,
+      "seReconto3D": true,
       "seRecontoHoy": false,
-      "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
+      "ultimaFechaReconteo": "2026-10-13",
+      "diasDesdeReconteo": 2,
       "necesitaReconteo": false
     },
     {
@@ -3424,10 +3424,10 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": false,
-      "seRecontoHoy": false,
-      "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
+      "seReconto3D": true,
+      "seRecontoHoy": true,
+      "ultimaFechaReconteo": "2026-10-15",
+      "diasDesdeReconteo": 0,
       "necesitaReconteo": false
     },
     {
@@ -3471,14 +3471,14 @@
       "codigo": "ADH-004",
       "marca": "Forza",
       "insumoId": "26286805-4e27-8018-98d7-d9ca21a16e51",
-      "costoUnitarioUSD": 28,
-      "stockBase": 3,
+      "costoUnitarioUSD": 40,
+      "stockBase": 0,
       "stockMinimo": 5,
-      "deficit": 2,
-      "coberturaPct": 60,
-      "semaforo": "naranja",
-      "estadoStock": "En Stock",
-      "estadoStockColor": "green",
+      "deficit": 5,
+      "coberturaPct": 0,
+      "semaforo": "rojo",
+      "estadoStock": "Sin Stock",
+      "estadoStockColor": "red",
       "prioridad": "Alta",
       "prioridadColor": "orange",
       "origenConsumo": "Proyecto (Presupuestado)",
@@ -3494,10 +3494,10 @@
       "proceso": "Carpinteria Esamble",
       "grupoProceso": "Carpintería",
       "grupoProcesoColor": "default",
-      "seReconto3D": false,
-      "seRecontoHoy": false,
-      "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
+      "seReconto3D": true,
+      "seRecontoHoy": true,
+      "ultimaFechaReconteo": "2026-10-15",
+      "diasDesdeReconteo": 0,
       "necesitaReconteo": false
     },
     {
@@ -3602,8 +3602,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "2c586805-4e27-804f-b5ca-de1348984d12",
@@ -3707,8 +3707,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "31086805-4e27-800c-b0a3-cd442b33ac13",
@@ -3742,8 +3742,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "2c586805-4e27-8029-94ab-ddce4fc1edc6",
@@ -3752,13 +3752,13 @@
       "marca": "",
       "insumoId": "2c586805-4e27-802f-a96a-eeeee4aeb77f",
       "costoUnitarioUSD": 1.5,
-      "stockBase": 2,
+      "stockBase": 0,
       "stockMinimo": 1,
-      "deficit": 0,
-      "coberturaPct": 200,
-      "semaforo": "verde",
-      "estadoStock": "Bajo Mínimo",
-      "estadoStockColor": "orange",
+      "deficit": 1,
+      "coberturaPct": 0,
+      "semaforo": "rojo",
+      "estadoStock": "Sin Stock",
+      "estadoStockColor": "red",
       "prioridad": "Por Pedido",
       "prioridadColor": "blue",
       "origenConsumo": "Proyecto (Presupuestado)",
@@ -3774,10 +3774,10 @@
       "proceso": "Instalación",
       "grupoProceso": "Instalación",
       "grupoProcesoColor": "default",
-      "seReconto3D": false,
-      "seRecontoHoy": false,
-      "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
+      "seReconto3D": true,
+      "seRecontoHoy": true,
+      "ultimaFechaReconteo": "2026-10-15",
+      "diasDesdeReconteo": 0,
       "necesitaReconteo": false
     },
     {
@@ -3892,13 +3892,13 @@
       "marca": "",
       "insumoId": "27d86805-4e27-80ac-9881-d51f7c61e5e5",
       "costoUnitarioUSD": 0.12,
-      "stockBase": 500,
+      "stockBase": 0,
       "stockMinimo": 195,
-      "deficit": 0,
-      "coberturaPct": 256,
-      "semaforo": "verde",
-      "estadoStock": "En Stock",
-      "estadoStockColor": "green",
+      "deficit": 195,
+      "coberturaPct": 0,
+      "semaforo": "rojo",
+      "estadoStock": "Sin Stock",
+      "estadoStockColor": "red",
       "prioridad": "Alta",
       "prioridadColor": "orange",
       "origenConsumo": "Proyecto (No Presupuestado)",
@@ -3914,10 +3914,10 @@
       "proceso": "Instalación",
       "grupoProceso": "Instalación",
       "grupoProcesoColor": "default",
-      "seReconto3D": false,
+      "seReconto3D": true,
       "seRecontoHoy": false,
-      "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
+      "ultimaFechaReconteo": "2026-10-14",
+      "diasDesdeReconteo": 1,
       "necesitaReconteo": false
     },
     {
@@ -3952,8 +3952,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "35786805-4e27-803a-b3ca-c7ffc9f67146",
@@ -3987,8 +3987,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "3ad86805-4e27-80a2-bbe9-f003b2fa22e8",
@@ -4022,8 +4022,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "3ec86805-4e27-805d-baed-da2c6257e4b3",
@@ -4057,8 +4057,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "35786805-4e27-80d9-a507-d953fb7b1826",
@@ -4092,8 +4092,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "38f86805-4e27-81a7-b746-c28db65f5dbf",
@@ -4102,10 +4102,10 @@
       "marca": "",
       "insumoId": "29a86805-4e27-8075-8229-e0775ebabc22",
       "costoUnitarioUSD": 16,
-      "stockBase": 3,
+      "stockBase": 1,
       "stockMinimo": 1,
       "deficit": 0,
-      "coberturaPct": 300,
+      "coberturaPct": 100,
       "semaforo": "verde",
       "estadoStock": "En Stock",
       "estadoStockColor": "green",
@@ -4124,10 +4124,10 @@
       "proceso": "Embalado",
       "grupoProceso": "Embalaje",
       "grupoProcesoColor": "default",
-      "seReconto3D": false,
+      "seReconto3D": true,
       "seRecontoHoy": false,
-      "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
+      "ultimaFechaReconteo": "2026-10-14",
+      "diasDesdeReconteo": 1,
       "necesitaReconteo": false
     },
     {
@@ -4232,8 +4232,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "31186805-4e27-808b-b841-f7833f2f9b23",
@@ -4277,10 +4277,10 @@
       "marca": "",
       "insumoId": "2b286805-4e27-808b-a8ba-f2fc3f18ce6e",
       "costoUnitarioUSD": 8.5,
-      "stockBase": 7,
+      "stockBase": 5,
       "stockMinimo": 3,
       "deficit": 0,
-      "coberturaPct": 233,
+      "coberturaPct": 167,
       "semaforo": "verde",
       "estadoStock": "En Stock",
       "estadoStockColor": "green",
@@ -4299,10 +4299,10 @@
       "proceso": "Pintura",
       "grupoProceso": "Pintura",
       "grupoProcesoColor": "default",
-      "seReconto3D": false,
+      "seReconto3D": true,
       "seRecontoHoy": false,
-      "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
+      "ultimaFechaReconteo": "2026-10-14",
+      "diasDesdeReconteo": 1,
       "necesitaReconteo": false
     },
     {
@@ -4337,8 +4337,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "2c586805-4e27-8044-8dec-cacd5837767a",
@@ -4382,13 +4382,13 @@
       "marca": "",
       "insumoId": "2b286805-4e27-8078-bf19-d13586e5030f",
       "costoUnitarioUSD": 16,
-      "stockBase": 1,
+      "stockBase": 0,
       "stockMinimo": 2,
-      "deficit": 1,
-      "coberturaPct": 50,
-      "semaforo": "naranja",
-      "estadoStock": "Bajo Mínimo",
-      "estadoStockColor": "orange",
+      "deficit": 2,
+      "coberturaPct": 0,
+      "semaforo": "rojo",
+      "estadoStock": "Sin Stock",
+      "estadoStockColor": "red",
       "prioridad": "Por Pedido",
       "prioridadColor": "blue",
       "origenConsumo": "Proyecto (No Presupuestado)",
@@ -4404,10 +4404,10 @@
       "proceso": "Pintura",
       "grupoProceso": "Pintura",
       "grupoProcesoColor": "default",
-      "seReconto3D": false,
-      "seRecontoHoy": false,
-      "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
+      "seReconto3D": true,
+      "seRecontoHoy": true,
+      "ultimaFechaReconteo": "2026-10-15",
+      "diasDesdeReconteo": 0,
       "necesitaReconteo": false
     },
     {
@@ -4417,13 +4417,13 @@
       "marca": "",
       "insumoId": "29a86805-4e27-807d-91b2-d36c675c6d79",
       "costoUnitarioUSD": 4.5,
-      "stockBase": 27,
+      "stockBase": 13,
       "stockMinimo": 16,
-      "deficit": 0,
-      "coberturaPct": 169,
-      "semaforo": "verde",
-      "estadoStock": "En Stock",
-      "estadoStockColor": "green",
+      "deficit": 3,
+      "coberturaPct": 81,
+      "semaforo": "naranja",
+      "estadoStock": "Bajo Mínimo",
+      "estadoStockColor": "orange",
       "prioridad": "Alta",
       "prioridadColor": "orange",
       "origenConsumo": "Proyecto (No Presupuestado)",
@@ -4439,10 +4439,10 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": false,
-      "seRecontoHoy": false,
-      "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
+      "seReconto3D": true,
+      "seRecontoHoy": true,
+      "ultimaFechaReconteo": "2026-10-15",
+      "diasDesdeReconteo": 0,
       "necesitaReconteo": false
     },
     {
@@ -4719,11 +4719,11 @@
       "proceso": "Carpinteria Esamble",
       "grupoProceso": "Carpintería",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-06",
-      "diasDesdeReconteo": 1,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 9,
+      "necesitaReconteo": true
     },
     {
       "id": "38f86805-4e27-81aa-93e4-ef02a336aca2",
@@ -4767,13 +4767,13 @@
       "marca": "",
       "insumoId": "26286805-4e27-8071-a49e-e3ca608c1948",
       "costoUnitarioUSD": 15,
-      "stockBase": 9,
+      "stockBase": 2,
       "stockMinimo": 5,
-      "deficit": 0,
-      "coberturaPct": 180,
-      "semaforo": "verde",
-      "estadoStock": "En Stock",
-      "estadoStockColor": "green",
+      "deficit": 3,
+      "coberturaPct": 40,
+      "semaforo": "naranja",
+      "estadoStock": "Bajo Mínimo",
+      "estadoStockColor": "orange",
       "prioridad": "Alta",
       "prioridadColor": "orange",
       "origenConsumo": "Proyecto (Presupuestado)",
@@ -4789,10 +4789,10 @@
       "proceso": "Pintura",
       "grupoProceso": "Pintura",
       "grupoProcesoColor": "default",
-      "seReconto3D": false,
+      "seReconto3D": true,
       "seRecontoHoy": false,
-      "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
+      "ultimaFechaReconteo": "2026-10-14",
+      "diasDesdeReconteo": 1,
       "necesitaReconteo": false
     },
     {
@@ -4827,7 +4827,42 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
+    },
+    {
+      "id": "2c586805-4e27-807d-957c-dfd9602161f5",
+      "nombre": "Tirador para Embutir de Acero Inoxidable 115mm",
+      "codigo": "HER-006",
+      "marca": "",
+      "insumoId": "26286805-4e27-8035-a246-f393dc594702",
+      "costoUnitarioUSD": 2.8,
+      "stockBase": 187,
+      "stockMinimo": 5,
+      "deficit": 0,
+      "coberturaPct": 3740,
+      "semaforo": "verde",
+      "estadoStock": "En Stock",
+      "estadoStockColor": "green",
+      "prioridad": null,
+      "prioridadColor": null,
+      "origenConsumo": "Proyecto (Presupuestado)",
+      "origenConsumoColor": "blue",
+      "categoriaMaterial": "Herrajes y Accesorios",
+      "categoriaMaterialColor": "red",
+      "rolMaterial": "Componente",
+      "rolMaterialColor": "green",
+      "unidad": "Unidad",
+      "color": "",
+      "dimensiones": "115 mm",
+      "departamento": "Carpintería",
+      "proceso": "Almacenaje",
+      "grupoProceso": "Logística",
+      "grupoProcesoColor": "default",
+      "seReconto3D": false,
+      "seRecontoHoy": false,
+      "ultimaFechaReconteo": "2026-10-08",
+      "diasDesdeReconteo": 7,
       "necesitaReconteo": false
     },
     {
@@ -4836,11 +4871,11 @@
       "codigo": "HMA-009",
       "marca": "",
       "insumoId": "29a86805-4e27-8080-aeac-c790ca755556",
-      "costoUnitarioUSD": 1.5,
-      "stockBase": 1,
+      "costoUnitarioUSD": 1,
+      "stockBase": 9,
       "stockMinimo": 1,
       "deficit": 0,
-      "coberturaPct": 100,
+      "coberturaPct": 900,
       "semaforo": "verde",
       "estadoStock": "Bajo Mínimo",
       "estadoStockColor": "orange",
@@ -4861,8 +4896,8 @@
       "grupoProcesoColor": "default",
       "seReconto3D": false,
       "seRecontoHoy": false,
-      "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
+      "ultimaFechaReconteo": "2026-10-08",
+      "diasDesdeReconteo": 7,
       "necesitaReconteo": false
     },
     {
@@ -4932,8 +4967,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "2c586805-4e27-80e7-b4a6-c628f750127b",
@@ -4967,8 +5002,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "3cb86805-4e27-809f-a05a-dab0b385b769",
@@ -5002,8 +5037,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "2be86805-4e27-80a3-a7f9-fb99a5c3fbb9",
@@ -5037,8 +5072,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "2be86805-4e27-80de-90ad-cb45a52be292",
@@ -5082,10 +5117,10 @@
       "marca": "",
       "insumoId": "26286805-4e27-808b-b74d-e9851cff32ac",
       "costoUnitarioUSD": 0.03,
-      "stockBase": 1800,
+      "stockBase": 800,
       "stockMinimo": 251,
       "deficit": 0,
-      "coberturaPct": 717,
+      "coberturaPct": 319,
       "semaforo": "verde",
       "estadoStock": "En Stock",
       "estadoStockColor": "green",
@@ -5104,10 +5139,10 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": false,
-      "seRecontoHoy": false,
-      "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
+      "seReconto3D": true,
+      "seRecontoHoy": true,
+      "ultimaFechaReconteo": "2026-10-15",
+      "diasDesdeReconteo": 0,
       "necesitaReconteo": false
     },
     {
@@ -5142,8 +5177,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "2bc86805-4e27-8086-b904-e853f2d59a20",
@@ -5174,10 +5209,10 @@
       "proceso": "Almacenaje",
       "grupoProceso": "Logística",
       "grupoProcesoColor": "default",
-      "seReconto3D": false,
-      "seRecontoHoy": false,
-      "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
+      "seReconto3D": true,
+      "seRecontoHoy": true,
+      "ultimaFechaReconteo": "2026-10-15",
+      "diasDesdeReconteo": 0,
       "necesitaReconteo": false
     },
     {
@@ -5212,8 +5247,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "31186805-4e27-8047-95a3-c2821e2b97af",
@@ -5256,14 +5291,14 @@
       "codigo": "TOR-014",
       "marca": "",
       "insumoId": "27d86805-4e27-8042-9824-ce8e2d8a2543",
-      "costoUnitarioUSD": 0.035,
-      "stockBase": 900,
+      "costoUnitarioUSD": 0.04,
+      "stockBase": 0,
       "stockMinimo": 206,
-      "deficit": 0,
-      "coberturaPct": 437,
-      "semaforo": "verde",
-      "estadoStock": "En Stock",
-      "estadoStockColor": "green",
+      "deficit": 206,
+      "coberturaPct": 0,
+      "semaforo": "rojo",
+      "estadoStock": "Sin Stock",
+      "estadoStockColor": "red",
       "prioridad": "Alta",
       "prioridadColor": "orange",
       "origenConsumo": "Proyecto (Presupuestado)",
@@ -5279,10 +5314,10 @@
       "proceso": "Instalación",
       "grupoProceso": "Instalación",
       "grupoProcesoColor": "default",
-      "seReconto3D": false,
-      "seRecontoHoy": false,
-      "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
+      "seReconto3D": true,
+      "seRecontoHoy": true,
+      "ultimaFechaReconteo": "2026-10-15",
+      "diasDesdeReconteo": 0,
       "necesitaReconteo": false
     },
     {
@@ -5317,8 +5352,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "36586805-4e27-8063-aa75-cdae591c05c3",
@@ -5327,13 +5362,13 @@
       "marca": "",
       "insumoId": "36586805-4e27-803a-a11b-c87127ccd355",
       "costoUnitarioUSD": 0.035,
-      "stockBase": 4,
+      "stockBase": 0,
       "stockMinimo": 188,
-      "deficit": 184,
-      "coberturaPct": 2,
-      "semaforo": "naranja",
-      "estadoStock": "Bajo Mínimo",
-      "estadoStockColor": "orange",
+      "deficit": 188,
+      "coberturaPct": 0,
+      "semaforo": "rojo",
+      "estadoStock": "Sin Stock",
+      "estadoStockColor": "red",
       "prioridad": "Alta",
       "prioridadColor": "orange",
       "origenConsumo": "Proyecto (Presupuestado)",
@@ -5351,7 +5386,7 @@
       "grupoProcesoColor": "default",
       "seReconto3D": true,
       "seRecontoHoy": false,
-      "ultimaFechaReconteo": "2026-10-06",
+      "ultimaFechaReconteo": "2026-10-14",
       "diasDesdeReconteo": 1,
       "necesitaReconteo": false
     },
@@ -5431,12 +5466,12 @@
       "codigo": "TOR-004",
       "marca": "",
       "insumoId": "2b286805-4e27-807c-bb91-c763879abfec",
-      "costoUnitarioUSD": 0.035,
-      "stockBase": 30,
+      "costoUnitarioUSD": 0.04,
+      "stockBase": 240,
       "stockMinimo": 41,
-      "deficit": 11,
-      "coberturaPct": 73,
-      "semaforo": "naranja",
+      "deficit": 0,
+      "coberturaPct": 585,
+      "semaforo": "verde",
       "estadoStock": "Bajo Mínimo",
       "estadoStockColor": "orange",
       "prioridad": "Alta",
@@ -5456,7 +5491,7 @@
       "grupoProcesoColor": "default",
       "seReconto3D": false,
       "seRecontoHoy": false,
-      "ultimaFechaReconteo": "2026-10-01",
+      "ultimaFechaReconteo": "2026-10-09",
       "diasDesdeReconteo": 6,
       "necesitaReconteo": false
     },
@@ -5527,8 +5562,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "3dc86805-4e27-80eb-baa5-f3233b4966dd",
@@ -5597,8 +5632,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "3c186805-4e27-8042-a8ac-f0b66c2e2d67",
@@ -5632,8 +5667,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "3c186805-4e27-8010-a5e9-fd8afd917661",
@@ -5667,8 +5702,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "3c186805-4e27-80ec-b0f6-f32d2c688075",
@@ -5702,8 +5737,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "3d686805-4e27-8031-be31-c3796af7e660",
@@ -5737,8 +5772,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "2b586805-4e27-8065-ba40-e44f5deff371",
@@ -5747,10 +5782,10 @@
       "marca": "",
       "insumoId": "2b386805-4e27-8029-bb2c-c2b928c4248f",
       "costoUnitarioUSD": 0.12,
-      "stockBase": 750,
+      "stockBase": 450,
       "stockMinimo": 45,
       "deficit": 0,
-      "coberturaPct": 1667,
+      "coberturaPct": 1000,
       "semaforo": "verde",
       "estadoStock": "En Stock",
       "estadoStockColor": "green",
@@ -5771,9 +5806,9 @@
       "grupoProcesoColor": "default",
       "seReconto3D": false,
       "seRecontoHoy": false,
-      "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "ultimaFechaReconteo": "2026-10-07",
+      "diasDesdeReconteo": 8,
+      "necesitaReconteo": true
     },
     {
       "id": "3cb86805-4e27-80d9-9066-dd4277cbfb76",
@@ -5807,8 +5842,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "3c186805-4e27-80d9-8cde-fb64c205e151",
@@ -5842,8 +5877,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "2bc86805-4e27-80c4-9217-f1d1e63923e1",
@@ -5912,8 +5947,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "2bc86805-4e27-80cb-b908-e7bcbaaa7e40",
@@ -5921,12 +5956,12 @@
       "codigo": "TOR-019",
       "marca": "",
       "insumoId": "27d86805-4e27-8074-8996-c09e7d91d00d",
-      "costoUnitarioUSD": 0.035,
-      "stockBase": 0,
+      "costoUnitarioUSD": 0.04,
+      "stockBase": 400,
       "stockMinimo": 140,
-      "deficit": 140,
-      "coberturaPct": 0,
-      "semaforo": "rojo",
+      "deficit": 0,
+      "coberturaPct": 286,
+      "semaforo": "verde",
       "estadoStock": "Sin Stock",
       "estadoStockColor": "red",
       "prioridad": "Alta",
@@ -5946,9 +5981,9 @@
       "grupoProcesoColor": "default",
       "seReconto3D": false,
       "seRecontoHoy": false,
-      "ultimaFechaReconteo": null,
-      "diasDesdeReconteo": null,
-      "necesitaReconteo": null
+      "ultimaFechaReconteo": "2026-10-09",
+      "diasDesdeReconteo": 6,
+      "necesitaReconteo": false
     },
     {
       "id": "3b186805-4e27-80b1-931a-cb3e4a1f8295",
@@ -5957,13 +5992,13 @@
       "marca": "",
       "insumoId": "3c886805-4e27-812a-af55-e33741511fab",
       "costoUnitarioUSD": 0.035,
-      "stockBase": 300,
+      "stockBase": 0,
       "stockMinimo": 15,
-      "deficit": 0,
-      "coberturaPct": 2000,
-      "semaforo": "verde",
-      "estadoStock": "En Stock",
-      "estadoStockColor": "green",
+      "deficit": 15,
+      "coberturaPct": 0,
+      "semaforo": "rojo",
+      "estadoStock": "Sin Stock",
+      "estadoStockColor": "red",
       "prioridad": "Alta",
       "prioridadColor": "orange",
       "origenConsumo": "Stock General",
@@ -5981,9 +6016,9 @@
       "grupoProcesoColor": "default",
       "seReconto3D": false,
       "seRecontoHoy": false,
-      "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "ultimaFechaReconteo": "2026-10-07",
+      "diasDesdeReconteo": 8,
+      "necesitaReconteo": true
     },
     {
       "id": "34586805-4e27-806a-83ee-c3e041c1d9b2",
@@ -5991,14 +6026,14 @@
       "codigo": "LIM-009",
       "marca": "",
       "insumoId": "34586805-4e27-80af-a685-c77808f1e1a9",
-      "costoUnitarioUSD": 2,
-      "stockBase": 100,
+      "costoUnitarioUSD": 15,
+      "stockBase": 2,
       "stockMinimo": 7,
-      "deficit": 0,
-      "coberturaPct": 1429,
-      "semaforo": "verde",
-      "estadoStock": "En Stock",
-      "estadoStockColor": "green",
+      "deficit": 5,
+      "coberturaPct": 29,
+      "semaforo": "naranja",
+      "estadoStock": "Sin Stock",
+      "estadoStockColor": "red",
       "prioridad": "Media",
       "prioridadColor": "yellow",
       "origenConsumo": "Proyecto (No Presupuestado)",
@@ -6016,8 +6051,8 @@
       "grupoProcesoColor": "default",
       "seReconto3D": false,
       "seRecontoHoy": false,
-      "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
+      "ultimaFechaReconteo": "2026-10-08",
+      "diasDesdeReconteo": 7,
       "necesitaReconteo": false
     },
     {
@@ -6087,8 +6122,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "3a586805-4e27-8062-8eba-df3bbc1406a5",
@@ -6122,8 +6157,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "38f86805-4e27-810e-85ba-ecc38498fd1f",
@@ -6157,8 +6192,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "38f86805-4e27-81c6-a4f2-c2bc8d77517c",
@@ -6192,8 +6227,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "3c186805-4e27-80ae-adba-d55ea1c5f11f",
@@ -6262,8 +6297,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "3a586805-4e27-80aa-bae0-e3c67fb9e5bf",
@@ -6297,8 +6332,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "38f86805-4e27-81ec-b4e9-e992a0f10131",
@@ -6329,11 +6364,11 @@
       "proceso": "Cortar Tubos",
       "grupoProceso": "Corte y Mecanizado",
       "grupoProcesoColor": "default",
-      "seReconto3D": true,
+      "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-06",
-      "diasDesdeReconteo": 1,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 9,
+      "necesitaReconteo": true
     },
     {
       "id": "38f86805-4e27-8113-8fb8-ff80631d96fa",
@@ -6367,8 +6402,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "3a586805-4e27-80d2-aafb-ff62a69e5ea5",
@@ -6402,8 +6437,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "38f86805-4e27-81a5-99bb-f89f29a21019",
@@ -6437,8 +6472,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "38f86805-4e27-815e-aba1-c90bf72628a1",
@@ -6472,8 +6507,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "2bc86805-4e27-80ea-8e42-ef3fec211cad",
@@ -6507,8 +6542,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "3c186805-4e27-805b-9226-e7ef38aa2e99",
@@ -6542,8 +6577,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "3d686805-4e27-8022-bb78-fedacd487eea",
@@ -6577,8 +6612,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "3c186805-4e27-8066-952e-d93dab59402d",
@@ -6612,8 +6647,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "2b586805-4e27-8045-b0e5-c0fe19e68663",
@@ -6621,14 +6656,14 @@
       "codigo": "TUE-002",
       "marca": "",
       "insumoId": "29a86805-4e27-80dd-8a66-de07bed1c901",
-      "costoUnitarioUSD": 0.12,
-      "stockBase": 204,
+      "costoUnitarioUSD": 0.09,
+      "stockBase": 369,
       "stockMinimo": 33,
       "deficit": 0,
-      "coberturaPct": 618,
+      "coberturaPct": 1118,
       "semaforo": "verde",
-      "estadoStock": "Bajo Mínimo",
-      "estadoStockColor": "orange",
+      "estadoStock": "En Stock",
+      "estadoStockColor": "green",
       "prioridad": "Por Pedido",
       "prioridadColor": "blue",
       "origenConsumo": "Proyecto (Presupuestado)",
@@ -6646,8 +6681,8 @@
       "grupoProcesoColor": "default",
       "seReconto3D": false,
       "seRecontoHoy": false,
-      "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
+      "ultimaFechaReconteo": "2026-10-08",
+      "diasDesdeReconteo": 7,
       "necesitaReconteo": false
     },
     {
@@ -6682,8 +6717,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "3d686805-4e27-80f6-a9c4-dab14cb8e63f",
@@ -6717,8 +6752,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "38f86805-4e27-8124-b8f7-ed19e37abced",
@@ -6752,8 +6787,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "3d686805-4e27-80ed-9931-ce452b3a6a36",
@@ -6787,8 +6822,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "38f86805-4e27-813c-896b-fcbf6780e844",
@@ -6857,8 +6892,8 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     },
     {
       "id": "2bc86805-4e27-8085-a882-ce28282e916b",
@@ -6892,16 +6927,16 @@
       "seReconto3D": false,
       "seRecontoHoy": false,
       "ultimaFechaReconteo": "2026-10-01",
-      "diasDesdeReconteo": 6,
-      "necesitaReconteo": false
+      "diasDesdeReconteo": 14,
+      "necesitaReconteo": true
     }
   ],
   "kpis": {
-    "total": 197,
+    "total": 198,
     "estado": {
-      "sinStock": 84,
-      "bajoMinimo": 18,
-      "enStock": 86,
+      "sinStock": 96,
+      "bajoMinimo": 13,
+      "enStock": 80,
       "enReconteo": 0,
       "descontinuado": 9
     },
@@ -6912,8 +6947,8 @@
       "baja": 100,
       "porPedido": 44
     },
-    "auditados3D": 14,
-    "auditados3DPct": 7
+    "auditados3D": 30,
+    "auditados3DPct": 15
   },
   "selectOrders": {
     "estadoStock": [

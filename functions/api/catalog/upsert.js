@@ -177,8 +177,11 @@ export async function onRequest(context) {
     if (color) catalogProps['Color'] = { rich_text: [{ text: { content: color.trim() } }] };
     if (typeof largo === 'number' && largo > 0) catalogProps['Largo'] = { number: largo };
     if (typeof ancho === 'number' && ancho > 0) catalogProps['Ancho'] = { number: ancho };
-    if (typeof espesor === 'number' && espesor > 0) catalogProps['Espesor'] = { number: espesor };
-    if (conceptoId) catalogProps['Diccionario de Conceptos'] = { relation: [{ id: conceptoId }] };
+    catalogProps['Stock (base)'] = { number: 0 };
+    catalogProps['Stock mínimo'] = { number: Number(stockMinimo) || 0 };
+    catalogProps['Contando'] = { checkbox: true };
+    catalogProps['Estado de Stock'] = { select: { name: 'Sin Stock' } };
+    if (ubicacion) catalogProps['Ubicación'] = { rich_text: [{ text: { content: ubicacion.trim() } }] };
 
     let createdInsumoPage = null;
     try {
@@ -197,7 +200,7 @@ export async function onRequest(context) {
       }
       createdInsumoPage = await resCat.json();
     } catch (errCat) {
-      console.error('[upsert.js] Error en Mutación 1 (Catálogo):', errCat);
+      console.error('[upsert.js] Error en Creación Unificada (Catálogo):', errCat);
       return new Response(JSON.stringify({ error: errCat.message }), {
         status: 500,
         headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
@@ -205,59 +208,7 @@ export async function onRequest(context) {
     }
 
     const insumoId = createdInsumoPage.id;
-
-    // 1.3 Mutación 2: Crear Ficha de Existencias Físicas en BD_Control_Stock_Existencias
-    let createdStockPage = null;
-    try {
-      const stockProps = {
-        'Nombre': { title: [{ text: { content: nombre.trim() } }] },
-        'Stock (base)': { number: 0 },
-        'Stock mínimo': { number: Number(stockMinimo) || 0 },
-        'Contando': { checkbox: true },
-        'Producto': { relation: [{ id: insumoId }] }
-      };
-
-      if (ubicacion) {
-        stockProps['Ubicación'] = { rich_text: [{ text: { content: ubicacion.trim() } }] };
-      }
-
-      const resStock = await fetch('https://api.notion.com/v1/pages', {
-        method: 'POST',
-        headers: notionHeaders,
-        body: JSON.stringify({
-          parent: { database_id: CONTROL_STOCK_DB_ID },
-          properties: stockProps
-        })
-      });
-
-      if (!resStock.ok) {
-        const errStockText = await resStock.text();
-        throw new Error(`Fallo creando existencias físicas: ${errStockText}`);
-      }
-      createdStockPage = await resStock.json();
-    } catch (errStock) {
-      // ROLLBACK COMPENSATORIO AUTOMÁTICO
-      console.error('[upsert.js] Mutación 2 falló. Ejecutando Rollback compensatorio sobre Catálogo:', errStock);
-      try {
-        await fetch(`https://api.notion.com/v1/pages/${insumoId}`, {
-          method: 'PATCH',
-          headers: notionHeaders,
-          body: JSON.stringify({ archived: true })
-        });
-        console.log(`[upsert.js] Rollback exitoso: Ficha ${insumoId} archivada.`);
-      } catch (rollbackErr) {
-        console.error('[upsert.js] Error crítico durante rollback:', rollbackErr);
-      }
-
-      return new Response(JSON.stringify({
-        error: `Fallo atómico al crear ficha de existencias físicas. La operación fue revertida para evitar registros huérfanos. Detalle: ${errStock.message}`
-      }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
-      });
-    }
-
-    const dashboardId = createdStockPage.id;
+    const dashboardId = insumoId; // Unificado en PLAN-016
 
     // 1.4 Almacenar en Buffer Caliente de Cloudflare Edge KV
     const newItemNormalized = {
@@ -482,7 +433,13 @@ export async function onRequest(context) {
     if (typeof largo === 'number') updateCatProps['Largo'] = { number: largo };
     if (typeof ancho === 'number') updateCatProps['Ancho'] = { number: ancho };
     if (typeof espesor === 'number' && espesor > 0) updateCatProps['Espesor'] = { number: espesor };
-    if (isDescontinuado !== undefined) updateCatProps['Activo'] = { checkbox: !isDescontinuado };
+    if (typeof stockMinimo === 'number') updateCatProps['Stock mínimo'] = { number: stockMinimo };
+    if (ubicacion !== undefined) updateCatProps['Ubicación'] = { rich_text: [{ text: { content: (ubicacion || '').trim() } }] };
+    if (isDescontinuado !== undefined) {
+      updateCatProps['Activo'] = { checkbox: !isDescontinuado };
+      updateCatProps['Contando'] = { checkbox: !isDescontinuado };
+      if (isDescontinuado) updateCatProps['Estado de Stock'] = { select: { name: 'Descontinuado' } };
+    }
 
     const patchRes = await fetch(`https://api.notion.com/v1/pages/${insumoId}`, {
       method: 'PATCH',

@@ -142,6 +142,36 @@ El sistema erradica la compra reactiva a ciegas y la manipulación estática del
   2. Cuerpo asimétrico 60/40 con regla tipográfica híbrida adaptativa (16.5px $\le 45$ chars / 14px $>45$ chars, caja de cantidad en 21px bold monospace).
   3. Código QR colosal de 45mm × 45mm (resolución 200px nativa) legible a ~2.8m con pistolas ópticas o smartphones, con URL de producción inmutable (`CANONICAL_ORIGIN`).
 
+### 16. Núcleo de Despacho & Matching Canónico Bimodal O(1) (Fase 13 / PLAN-008)
+- Normalización léxica y matching heurístico $O(1)$ insensible a diacríticos, mayúsculas y espacios (`normalizeMatchKey`), erradicando bloqueos en despacho de insumos MTO con nombres compuestos (ej. Caso *Cola Blanca Pega Sold* / *SHOE BOX*).
+- Despacho directo contextual desde Popover (`AllocationsPopover.tsx`) y Tablero Panorámico de Asignaciones (`StoreAllocationModal.tsx`) con pre-carga instantánea de insumo, obra y destino.
+- Purga automática de reservas residuales en cero en Cloudflare Edge KV (`INVENTORY_KV`), manteniendo el almacén digital limpio sin saldos fantasma.
+
+### 17. Directorio Central de Bultos y Cédula Pericial QR en Pantalla (Fase 14 / PLAN-009)
+- Pestaña unificada "Directorio de Bultos" en el Tablero Panorámico con vista bimodal: Tarjetas Logísticas (Grid) vs Tabla ERP densa.
+- Búsqueda en tiempo real por PKG-ID, código de obra, insumo, número de bulto o tipo de recepción.
+- Modal de Cédula Pericial QR en pantalla completa para PC (`BultoVerificationModal.tsx` ampliado) con renderizado de código QR de 240px, barras Code128, especificaciones técnicas y enlace a Cédula Digital Móvil (390px).
+
+### 18. Bitácora Forense Integral y Taxonomía Tríada de Eventos sin Impacto Físico (Fase 15 / PLAN-010)
+- Registro y auditoría unificada de eventos operacionales que no alteran el Kardex físico de inmediato pero son críticos para el control de planta:
+  - `OPERACIONES`: `RECLASIFICACION_MTO_RAMPA`, `IMPRESION_ETIQUETAS_MTO`, `APERTURA_BULTO_TALLER`, `DESPACHO_ORDEN`.
+  - `AJUSTES`: `CONTEO_VERIFICADO_CONFORME`, `AJUSTE_DIFERENCIA_FISICA`, `REINTEGRO_RETAZO_UTIL`.
+  - `SEGURIDAD`: `SOLICITUD_2FA_PIN`, `LOGIN_PC_EXITOSO`, `LOGIN_PC_FALLIDO`, `BLOQUEO_ANTI_BRUTEFORCE`.
+- 4 KPI Cards analíticas con severidades normalizadas (`INFO`, `WARN`, `CRITICAL`), filtrado por rango de fechas, búsqueda difusa y exportación pericial a CSV con UTF-8 BOM.
+- Buffer caliente LIFO en Upstash Redis sincronizado con persistencia permanente en `BD_Auditoria_Accesos_Logs` (`3ec86805`) vía `ctx.waitUntil`.
+
+### 19. Ergonomía Bimodal de Popovers Anti-Clipping y Despacho Defensivo ante Stock Cero (Fase 16 / PLAN-011 / INC-007)
+- Arquitectura bimodal de popovers flotantes: React Portal (`createPortal`) con cálculo dinámico de coordenadas en Desktop (erradicando cualquier corte vertical por `overflow-hidden` de tablas) y Bottom Sheet táctil nativo en terminales móviles (390px).
+- Blindaje contra `max=0` HTML5 nativo: cuando el stock físico es 0 pero existe reserva MTO o necesidad en taller, el input no se bloquea; se despliegan puentes defensivos directos hacia Requisición de Compras (OAB) y Rampa de Recepción.
+- Paginación y scrolling fluido con preservación de contexto en tablas filtradas.
+
+### 20. Abastecimiento Stock Común (MTS), Rectificación Dinámica en Rampa, Fraccionamiento (`Split`), PIN de Supervisor y Rotulado Universal (Fase 17 / PLAN-012)
+- Emisión de OAB bimodal: soporte formal para compras Make-to-Stock (MTS / General Planta / Stock Común) mediante tarjeta interactiva destacada en el buscador modal de pedidos (`OrderSearchModal.tsx`), sin forzar la vinculación a una obra de cliente.
+- Rectificación dinámica en muelle de Rampa (`ReceptionTerminalModal.tsx`): reclasificación in situ del destino del material (MTS ➔ MTO o MTO Obra A ➔ Obra B / MTS) ante cambios de prioridad en planta, estampando el badge pericial `[RECTIFICADO EN RAMPA]` y emitiendo logs forenses.
+- Fraccionamiento cuantitativo (`Split`): división de una línea de compra en múltiples bultos con destinos distintos (ej. 70 unidades a Obra X y 30 unidades a Stock Común MTS) sin alterar la orden de compra original.
+- Autorización por PIN de Supervisor (`1234` / Superadmin): candado de seguridad obligatorio para validar rectificaciones o split en rampa antes del cierre de recepción.
+- Rotulado QR Universal: generación de etiquetas industriales con QR colosal de 45mm y seriales PKG-ID para el 100% de los bultos descargados, cubriendo tanto pedidos MTO como insumos MTS para bodega general.
+
 ## Stack Tecnológico
 
 - **Frontend:** React 18, TypeScript, Vite, Tailwind CSS, Lucide React.
@@ -149,7 +179,7 @@ El sistema erradica la compra reactiva a ciegas y la manipulación estática del
 - **Índice Precompilado de Ingeniería:** `bom_index_optimized.json` (214 KB, despiece maestro 100% resuelto de Valery).
 - **Almacenamiento de Evidencias (Object Storage):** Cloudflare R2 (`sanesca-evidencias`).
 - **Canal de Notificaciones Operativas:** Telegram Bot API (`@sanesca_produccion_bot`).
-- **Backend Serverless:** Cloudflare Pages Functions (`/api/notion/*`, `/api/inventory/*`, `/api/oab/*`, `/api/kardex/*`, `/api/orders/*`, `/api/bom/*`, `/api/storage/*`, `/api/telegram/*`, `/api/bcv/*`, `/api/auth/*`).
+- **Backend Serverless:** Cloudflare Pages Functions (`/api/notion/*`, `/api/inventory/*`, `/api/oab/*`, `/api/kardex/*`, `/api/orders/*`, `/api/bom/*`, `/api/storage/*`, `/api/telegram/*`, `/api/bcv/*`, `/api/auth/*`, `/api/catalog/*`).
 - **Bases de Datos Core (Estándar Odoo 18 en Notion):**
   - `BD_Catalogo_Insumos` (`product.template` / `product.product`, ID: `26286805-4e27-8067-8847-d39de1bf0bde`)
   - `BD_Control_Stock_Existencias` (`stock.quant`, ID: `2b586805-4e27-80fe-b6e8-e4c6dc325696`)
@@ -174,4 +204,6 @@ El sistema erradica la compra reactiva a ciegas y la manipulación estática del
 7. **Cero Freno a Fabricación (Auditoría Ex-Post vs Bloqueo Ex-Ante):** El taller despacha libremente a demanda del operario; las desviaciones, mermas y desperdicios se calculan analíticamente al cierre formal de la orden sin estrangular el ritmo productivo de planta.
 8. **Cierre Transaccional Hermético y Gobernanza Forense:** Una orden concluida y auditada no admite entregas rutinarias; las excepciones por garantía requieren PIN de supervisor y toda desviación queda sellada con snapshot inmutable en ERP.
 9. **Identificación Física y Legibilidad en Planta (QR Colosal de 45mm y Densidad Adaptativa):** La etiqueta en el bulto es la interfaz física del sistema en el taller. Un QR colosal de 45mm legible a distancia (ratio 1:10 hasta 2.8m con pistolas Honeywell/Zebra o teléfonos) y tipografía adaptativa de alto contraste erradican el error humano de identificación y aceleran el despacho sin confusiones de material.
+10. **Ergonomía Bimodal y Resiliencia en Punto de Uso:** Las interfaces operativas deben adaptarse sin fricción al soporte físico del operador (Bottom Sheet y botones táctiles en smartphone 390px en rampa/taller; portales anti-clipping y vistas densas multi-columna en PC de almacén). Un stock cero jamás debe ser un callejón sin salida: el sistema siempre ofrece puentes hacia compras o recepción.
+11. **Gobernanza de Rectificación y Trazabilidad Universal de Bultos:** El 100% de los materiales que ingresan a planta —sean para una obra específica (MTO) o para stock común (MTS)— reciben cédula física con QR colosal. Ninguna reasignación o fraccionamiento en rampa ocurre a ciegas: cada desvío requiere PIN de supervisor y queda sellado en la bitácora forense.
 

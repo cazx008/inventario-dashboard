@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   ClipboardCheck,
   X,
@@ -14,7 +14,8 @@ import {
   Image as ImageIcon,
   Trash2,
   Ban,
-  FolderKanban
+  FolderKanban,
+  Printer
 } from 'lucide-react';
 import {
   OABReviewDetails,
@@ -26,8 +27,11 @@ import {
   uploadEvidenceToR2
 } from '../services/oabService';
 import { OrderSearchModal } from './OrderSearchModal';
-import { OrderReference } from '../types/oab';
+import { PrintSheetOAB } from './PrintSheetOAB';
+import { OrderReference, OABHeader, OABLineItem } from '../types/oab';
 
+
+type OABStatusFilter = 'ALL' | 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELED';
 
 interface OABReviewModalProps {
   isOpen: boolean;
@@ -77,6 +81,109 @@ export const OABReviewModal: React.FC<OABReviewModalProps> = ({
 
   // Token de control para mitigar carreras asíncronas
   const activeRequestRef = useRef<string>('');
+
+  // Estados para Filtros Históricos (PLAN-015 - Fase 2)
+  const [statusFilter, setStatusFilter] = useState<OABStatusFilter>('ALL');
+
+  // Estados para Reimpresión Carta Bimodal (PLAN-015 - Fase 3)
+  const [showPrintSheet, setShowPrintSheet] = useState(false);
+  const [printIsApprovedVersion, setPrintIsApprovedVersion] = useState(false);
+  const [showVersionModal, setShowVersionModal] = useState(false);
+
+  // Conteo de órdenes por estado
+  const orderCounts = useMemo(() => {
+    const counts = {
+      ALL: pendingOrders.length,
+      PENDING: 0,
+      IN_PROGRESS: 0,
+      COMPLETED: 0,
+      CANCELED: 0
+    };
+    pendingOrders.forEach(o => {
+      const st = (o.estadoGeneral || '').toLowerCase();
+      if (st.includes('solicitad')) {
+        counts.PENDING++;
+      } else if (st.includes('recibido') || st.includes('complet')) {
+        counts.COMPLETED++;
+      } else if (st.includes('anula') || st.includes('cancel')) {
+        counts.CANCELED++;
+      } else {
+        counts.IN_PROGRESS++;
+      }
+    });
+    return counts;
+  }, [pendingOrders]);
+
+  // Lista de órdenes filtradas
+  const filteredOrders = useMemo(() => {
+    if (statusFilter === 'ALL') return pendingOrders;
+    return pendingOrders.filter(o => {
+      const st = (o.estadoGeneral || '').toLowerCase();
+      if (statusFilter === 'PENDING') return st.includes('solicitad');
+      if (statusFilter === 'IN_PROGRESS') {
+        return !st.includes('solicitad') && !st.includes('recibido') && !st.includes('complet') && !st.includes('anula') && !st.includes('cancel');
+      }
+      if (statusFilter === 'COMPLETED') return st.includes('recibido') || st.includes('complet');
+      if (statusFilter === 'CANCELED') return st.includes('anula') || st.includes('cancel');
+      return true;
+    });
+  }, [pendingOrders, statusFilter]);
+
+  // Manejador de Reimpresión Carta
+  const handleRequestPrint = () => {
+    if (!details) return;
+    const isApproved = details.oab.estadoGeneral !== 'Solicitado';
+    if (isApproved) {
+      setShowVersionModal(true);
+    } else {
+      setPrintIsApprovedVersion(false);
+      setShowPrintSheet(true);
+    }
+  };
+
+  const handleSelectPrintVersion = (approved: boolean) => {
+    setShowVersionModal(false);
+    setPrintIsApprovedVersion(approved);
+    setShowPrintSheet(true);
+  };
+
+  const printHeader: OABHeader | null = useMemo(() => {
+    if (!details) return null;
+    return {
+      folio: details.oab.folio,
+      fechaEmision: details.oab.fechaEmision,
+      tasaBCV: details.oab.tasaBCV || bcvRate || 36.5,
+      totalUSD: details.oab.totalUSD,
+      totalBs: details.oab.totalBs,
+      estadoGeneral: details.oab.estadoGeneral,
+      proveedor: proveedorNombre || details.oab.proveedor,
+      cotizacion: numeroCotizacion || details.oab.cotizacion,
+      fechaEstimadaEntrega: fechaEstimadaEntrega || details.oab.fechaEstimadaEntrega,
+      notas: details.oab.notas,
+      notasCompras: notasCompras || details.oab.notasCompras
+    };
+  }, [details, proveedorNombre, numeroCotizacion, fechaEstimadaEntrega, notasCompras, bcvRate]);
+
+  const printLines: OABLineItem[] = useMemo(() => {
+    if (!lines || lines.length === 0) return [];
+    return lines.map(l => ({
+      nombre: l.nombre,
+      insumoId: l.insumoId || l.solicitudId,
+      dashboardId: l.dashboardId || l.solicitudId,
+      cantidadStock: 0,
+      stockMinimo: 0,
+      deficit: 0,
+      cantidadSugerida: l.cantidadSolicitada,
+      cantidadSolicitada: l.cantidadSolicitada,
+      cantidadAprobada: l.cantidadAprobada,
+      costoUnitarioUSD: l.costoUnitarioUSD,
+      subtotalUSD: l.subtotalUSD,
+      prioridad: (l.prioridad as any) || 'Media',
+      pedidoId: l.pedidoId,
+      proyectoId: l.proyectoId,
+      proyectoNombre: l.proyectoNombre
+    }));
+  }, [lines]);
 
   // Cargar lista de órdenes pendientes al abrir
   useEffect(() => {
@@ -344,48 +451,139 @@ export const OABReviewModal: React.FC<OABReviewModalProps> = ({
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {/* Barra de Selección de OAB */}
-            <div className="p-3 bg-page rounded-lg border border-borderSubtle flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2 flex-1 min-w-[280px]">
-                <label className="text-xs text-slate-400 font-semibold whitespace-nowrap">
-                  Seleccionar OAB Pendiente:
-                </label>
-                <select
-                  value={selectedFolio}
-                  onChange={(e) => handleSelectFolio(e.target.value)}
-                  className="flex-1 bg-surface border border-borderSubtle text-brand-400 font-mono text-xs px-2.5 py-1.5 rounded"
-                  disabled={loadingOrders || loadingDetails}
+            {/* Barra Superior con Chips de Filtro y Selección de OAB */}
+            <div className="p-3 bg-page rounded-lg border border-borderSubtle space-y-2.5">
+              {/* Chips de Filtro Histórico (PLAN-015 - Fase 2) */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1 shrink-0">Filtrar:</span>
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('ALL')}
+                  className={`px-2.5 py-1 rounded-full text-xs font-semibold transition flex items-center gap-1.5 shrink-0 ${
+                    statusFilter === 'ALL'
+                      ? 'bg-brand-500 text-slate-950 shadow-sm'
+                      : 'bg-surfaceHigh text-slate-300 hover:bg-surfaceHighest'
+                  }`}
                 >
-                  {pendingOrders.length === 0 ? (
-                    <option value="">No hay órdenes pendientes en Notion</option>
-                  ) : (
-                    pendingOrders.map(o => (
-                      <option key={o.id} value={o.folio}>
-                        {o.folio} — {o.estadoGeneral} ({o.fechaEmision}) · ${Number(o.totalUSD || 0).toFixed(2)} USD
-                      </option>
-                    ))
-                  )}
-                </select>
+                  <span>Todas</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${statusFilter === 'ALL' ? 'bg-black/20 text-slate-900 font-bold' : 'bg-surface text-slate-400'}`}>
+                    {orderCounts.ALL}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('PENDING')}
+                  className={`px-2.5 py-1 rounded-full text-xs font-semibold transition flex items-center gap-1.5 shrink-0 ${
+                    statusFilter === 'PENDING'
+                      ? 'bg-amber-500 text-slate-950 shadow-sm'
+                      : 'bg-surfaceHigh text-slate-300 hover:bg-surfaceHighest'
+                  }`}
+                >
+                  <span>Solicitadas</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${statusFilter === 'PENDING' ? 'bg-black/20 text-slate-900 font-bold' : 'bg-surface text-slate-400'}`}>
+                    {orderCounts.PENDING}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('IN_PROGRESS')}
+                  className={`px-2.5 py-1 rounded-full text-xs font-semibold transition flex items-center gap-1.5 shrink-0 ${
+                    statusFilter === 'IN_PROGRESS'
+                      ? 'bg-sky-500 text-slate-950 shadow-sm'
+                      : 'bg-surfaceHigh text-slate-300 hover:bg-surfaceHighest'
+                  }`}
+                >
+                  <span>En Compra / Aprobadas</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${statusFilter === 'IN_PROGRESS' ? 'bg-black/20 text-slate-900 font-bold' : 'bg-surface text-slate-400'}`}>
+                    {orderCounts.IN_PROGRESS}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('COMPLETED')}
+                  className={`px-2.5 py-1 rounded-full text-xs font-semibold transition flex items-center gap-1.5 shrink-0 ${
+                    statusFilter === 'COMPLETED'
+                      ? 'bg-emerald-500 text-slate-950 shadow-sm'
+                      : 'bg-surfaceHigh text-slate-300 hover:bg-surfaceHighest'
+                  }`}
+                >
+                  <span>Recibidas</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${statusFilter === 'COMPLETED' ? 'bg-black/20 text-slate-900 font-bold' : 'bg-surface text-slate-400'}`}>
+                    {orderCounts.COMPLETED}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('CANCELED')}
+                  className={`px-2.5 py-1 rounded-full text-xs font-semibold transition flex items-center gap-1.5 shrink-0 ${
+                    statusFilter === 'CANCELED'
+                      ? 'bg-rose-500 text-slate-950 shadow-sm'
+                      : 'bg-surfaceHigh text-slate-300 hover:bg-surfaceHighest'
+                  }`}
+                >
+                  <span>Anuladas</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${statusFilter === 'CANCELED' ? 'bg-black/20 text-slate-900 font-bold' : 'bg-surface text-slate-400'}`}>
+                    {orderCounts.CANCELED}
+                  </span>
+                </button>
               </div>
 
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  placeholder="Digitar folio o escanear QR..."
-                  value={manualFolioInput}
-                  onChange={(e) => setManualFolioInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && !loadingDetails && handleSelectFolio(manualFolioInput)}
-                  disabled={loadingOrders || loadingDetails}
-                  className="bg-surface border border-borderSubtle text-xs px-2.5 py-1.5 rounded font-mono text-slate-200 w-48 disabled:opacity-50"
-                />
-                <button
-                  onClick={() => handleSelectFolio(manualFolioInput)}
-                  disabled={loadingOrders || loadingDetails}
-                  className="px-3 py-1.5 bg-surfaceHigh hover:bg-surfaceHighest disabled:opacity-50 text-slate-300 text-xs rounded border border-borderSubtle flex items-center gap-1"
-                >
-                  <Search className="w-3.5 h-3.5" />
-                  Buscar
-                </button>
+              {/* Fila de Selección y Búsqueda */}
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-borderSubtle/60">
+                <div className="flex items-center gap-2 flex-1 min-w-[280px]">
+                  <label className="text-xs text-slate-400 font-semibold whitespace-nowrap">
+                    Seleccionar OAB:
+                  </label>
+                  <select
+                    value={selectedFolio}
+                    onChange={(e) => handleSelectFolio(e.target.value)}
+                    className="flex-1 bg-surface border border-borderSubtle text-brand-400 font-mono text-xs px-2.5 py-1.5 rounded focus:outline-none focus:border-brand-400"
+                    disabled={loadingOrders || loadingDetails}
+                  >
+                    {filteredOrders.length === 0 ? (
+                      <option value="">No hay órdenes en este filtro ({statusFilter})</option>
+                    ) : (
+                      filteredOrders.map(o => (
+                        <option key={o.id} value={o.folio}>
+                          {o.folio} — {o.estadoGeneral} ({o.fechaEmision}) · ${Number(o.totalUSD || 0).toFixed(2)} USD
+                        </option>
+                      ))
+                    )}
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="Digitar folio o escanear QR..."
+                    value={manualFolioInput}
+                    onChange={(e) => setManualFolioInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && !loadingDetails && handleSelectFolio(manualFolioInput)}
+                    disabled={loadingOrders || loadingDetails}
+                    className="bg-surface border border-borderSubtle text-xs px-2.5 py-1.5 rounded font-mono text-slate-200 w-44 disabled:opacity-50 focus:outline-none focus:border-brand-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleSelectFolio(manualFolioInput)}
+                    disabled={loadingOrders || loadingDetails}
+                    className="px-3 py-1.5 bg-surfaceHigh hover:bg-surfaceHighest disabled:opacity-50 text-slate-300 text-xs rounded border border-borderSubtle flex items-center gap-1 transition"
+                  >
+                    <Search className="w-3.5 h-3.5" />
+                    <span>Buscar</span>
+                  </button>
+
+                  {/* Botón Directo de Reimpresión Carta (PLAN-015) */}
+                  <button
+                    type="button"
+                    onClick={handleRequestPrint}
+                    disabled={!details || loadingDetails}
+                    className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 disabled:opacity-40 text-white text-xs font-bold rounded flex items-center gap-1.5 transition shadow-sm"
+                    title="Reimprimir Hoja Viajera Carta"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Reimprimir</span> Carta
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -601,6 +799,16 @@ export const OABReviewModal: React.FC<OABReviewModalProps> = ({
                                     title="Cambiar obra o pedido"
                                   >
                                     <FolderKanban className="w-3.5 h-3.5 text-brand-400" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setLines(prev => prev.map(l => l.solicitudId === line.solicitudId ? { ...l, pedidoId: undefined, proyectoId: undefined, proyectoNombre: undefined } : l));
+                                    }}
+                                    className="p-0.5 text-slate-500 hover:text-rose-400 rounded hover:bg-rose-500/10 transition text-xs font-bold"
+                                    title="Desvincular obra (pasar a Stock Fábrica / General)"
+                                  >
+                                    ✕
                                   </button>
                                 </div>
                               ) : (
@@ -820,6 +1028,15 @@ export const OABReviewModal: React.FC<OABReviewModalProps> = ({
               if (activeLineForOrder) {
                 setLines(prev => prev.map(l => {
                   if (l.solicitudId === activeLineForOrder) {
+                    const isStk = !order.id || order.codigo === 'STK' || (order.proyecto && order.proyecto.toLowerCase().includes('stock general'));
+                    if (isStk) {
+                      return {
+                        ...l,
+                        pedidoId: undefined,
+                        proyectoId: undefined,
+                        proyectoNombre: undefined
+                      };
+                    }
                     return {
                       ...l,
                       pedidoId: order.id,
@@ -833,6 +1050,90 @@ export const OABReviewModal: React.FC<OABReviewModalProps> = ({
               setIsOrderSearchOpen(false);
               setActiveLineForOrder(null);
             }}
+          />
+        )}
+
+        {/* Modal Selector de Versión de Reimpresión (PLAN-015 - Fase 3) */}
+        {showVersionModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 no-print">
+            <div className="bg-surface border border-borderSubtle rounded-xl max-w-md w-full p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-lg bg-sky-500/20 text-sky-400 border border-sky-500/40">
+                  <Printer className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-100">Seleccionar Versión para Imprimir</h3>
+                  <p className="text-xs text-slate-400">
+                    Folio: <span className="font-mono text-brand-400 font-bold">{details?.oab.folio}</span> ({details?.oab.estadoGeneral})
+                  </p>
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Esta orden ya cuenta con gestión gerencial o de compras. Puedes elegir qué formato de la Hoja Viajera Carta deseas imprimir:
+              </p>
+
+              <div className="space-y-2.5 pt-1">
+                <button
+                  type="button"
+                  onClick={() => handleSelectPrintVersion(false)}
+                  className="w-full text-left p-3.5 rounded-lg border border-borderSubtle bg-surfaceHigh hover:bg-surfaceHighest hover:border-slate-500 transition group"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-200 group-hover:text-white flex items-center gap-2">
+                      <span>📄 Versión Original en Blanco</span>
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-400 bg-surface px-1.5 py-0.5 rounded border border-borderSubtle">Original</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Solo cantidades solicitadas con casillas en blanco para firmas a lápiz de Magaly y Almacén.
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSelectPrintVersion(true)}
+                  className="w-full text-left p-3.5 rounded-lg border border-emerald-500/40 bg-emerald-950/20 hover:bg-emerald-900/30 hover:border-emerald-400 transition group"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-emerald-300 group-hover:text-emerald-200 flex items-center gap-2">
+                      <span>📋 Versión Aprobada con Cotización</span>
+                      <span className="text-[9px] uppercase font-bold px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Recomendado</span>
+                    </span>
+                    <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950 px-1.5 py-0.5 rounded border border-emerald-500/30">Aprobada</span>
+                  </div>
+                  <p className="text-[11px] text-slate-300 mt-1">
+                    Incluye proveedor adjudicado, cotización, fecha estimada de entrega y cantidades aprobadas por Gerencia.
+                  </p>
+                </button>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowVersionModal(false)}
+                  className="px-4 py-2 bg-surface hover:bg-surfaceHigh text-slate-400 hover:text-slate-200 text-xs font-medium rounded-lg transition"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Hoja Viajera Carta Imprimible (PLAN-015 - Fase 3) */}
+        {showPrintSheet && printHeader && (
+          <PrintSheetOAB
+            header={printHeader}
+            lineas={printLines}
+            isApprovedVersion={printIsApprovedVersion}
+            approvedDetails={{
+              proveedor: proveedorNombre || details?.oab.proveedor,
+              cotizacion: numeroCotizacion || details?.oab.cotizacion,
+              fechaEstimadaEntrega: fechaEstimadaEntrega || details?.oab.fechaEstimadaEntrega,
+              notasCompras: notasCompras || details?.oab.notasCompras
+            }}
+            onClose={() => setShowPrintSheet(false)}
           />
         )}
 

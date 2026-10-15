@@ -19,7 +19,16 @@ import {
   Calendar,
   Wrench,
   Zap,
-  Check
+  Check,
+  Scissors,
+  Printer,
+  Package,
+  Layers,
+  FileText,
+  Ban,
+  ArrowRightLeft,
+  PlusCircle,
+  MinusCircle
 } from 'lucide-react';
 import { reconcileAllocations } from '../services/inventoryService';
 
@@ -41,14 +50,20 @@ interface AuditLogItem {
   isHorarioInusual?: boolean;
   details?: string;
   alertSecurity?: boolean;
+  category?: 'OPERACIONES' | 'AJUSTES' | 'SEGURIDAD';
+  severity?: 'CRITICAL' | 'WARNING' | 'INFO';
 }
 
 interface AuditMetrics {
   totalEvents: number;
+  operationalEvents?: number;
+  adjustmentEvents?: number;
+  securityEvents?: number;
   successfulLogins: number;
   failedAttempts: number;
   twoFactorRequests: number;
   unusualHours: number;
+  criticalAlerts?: number;
 }
 
 interface AccessAuditModalProps {
@@ -56,6 +71,8 @@ interface AccessAuditModalProps {
   onClose: () => void;
   token?: string | null;
 }
+
+type AuditCategoryFilter = 'ALL' | 'OPERACIONES' | 'AJUSTES' | 'SEGURIDAD' | 'CRITICAL';
 
 export const AccessAuditModal: React.FC<AccessAuditModalProps> = ({
   isOpen,
@@ -65,14 +82,18 @@ export const AccessAuditModal: React.FC<AccessAuditModalProps> = ({
   const [logs, setLogs] = useState<AuditLogItem[]>([]);
   const [metrics, setMetrics] = useState<AuditMetrics>({
     totalEvents: 0,
+    operationalEvents: 0,
+    adjustmentEvents: 0,
+    securityEvents: 0,
     successfulLogins: 0,
     failedAttempts: 0,
     twoFactorRequests: 0,
-    unusualHours: 0
+    unusualHours: 0,
+    criticalAlerts: 0
   });
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedFilter, setSelectedFilter] = useState<'ALL' | 'SUCCESS' | 'FAILED' | '2FA' | 'UNUSUAL'>('ALL');
+  const [selectedFilter, setSelectedFilter] = useState<AuditCategoryFilter>('ALL');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Reconciliación Forense MTO y Auto-Sanación (Micro-Fase 10E / D2-10E)
@@ -132,14 +153,14 @@ export const AccessAuditModal: React.FC<AccessAuditModalProps> = ({
     }
   }, [isOpen]);
 
-  // Filtrado reactivo en cliente
+  // Filtrado reactivo en cliente con soporte de categorías y severidad
   const filteredLogs = useMemo(() => {
     return logs.filter(log => {
-      // 1. Filtro por categoría
-      if (selectedFilter === 'SUCCESS' && !log.isSuccess) return false;
-      if (selectedFilter === 'FAILED' && log.isSuccess) return false;
-      if (selectedFilter === '2FA' && !(log.eventType.includes('2FA') || log.eventType.includes('PIN_REQUEST') || log.eventType.includes('PIN_CHANGE'))) return false;
-      if (selectedFilter === 'UNUSUAL' && !log.isHorarioInusual) return false;
+      // 1. Filtro por categoría o criticidad
+      if (selectedFilter === 'OPERACIONES' && log.category !== 'OPERACIONES') return false;
+      if (selectedFilter === 'AJUSTES' && log.category !== 'AJUSTES') return false;
+      if (selectedFilter === 'SEGURIDAD' && log.category !== 'SEGURIDAD') return false;
+      if (selectedFilter === 'CRITICAL' && log.severity !== 'CRITICAL') return false;
 
       // 2. Filtro por buscador de texto
       if (!searchTerm.trim()) return true;
@@ -150,20 +171,36 @@ export const AccessAuditModal: React.FC<AccessAuditModalProps> = ({
       const matchCanal = (log.canal || '').toLowerCase().includes(term);
       const matchDetails = (log.details || '').toLowerCase().includes(term);
       const matchPuesto = (log.puesto || '').toLowerCase().includes(term);
+      const matchCat = (log.category || '').toLowerCase().includes(term);
+      const matchSev = (log.severity || '').toLowerCase().includes(term);
 
-      return matchName || matchEvent || matchIp || matchCanal || matchDetails || matchPuesto;
+      return matchName || matchEvent || matchIp || matchCanal || matchDetails || matchPuesto || matchCat || matchSev;
     });
   }, [logs, selectedFilter, searchTerm]);
 
-  // Exportar registros a formato CSV
+  // Exportar registros a formato CSV enriquecido
   const handleExportCSV = () => {
     if (filteredLogs.length === 0) return;
 
-    const headers = ['Fecha/Hora VET', 'Colaborador', 'Puesto', 'Evento', 'Resultado', 'IP', 'Canal', 'Horario Inusual', 'Detalles'];
+    const headers = [
+      'Fecha/Hora VET',
+      'Colaborador',
+      'Puesto',
+      'Categoría',
+      'Severidad',
+      'Evento',
+      'Resultado',
+      'IP',
+      'Canal',
+      'Horario Inusual',
+      'Detalles'
+    ];
     const rows = filteredLogs.map(l => [
       `"${l.timestampReadable || l.timestamp}"`,
       `"${l.employeeName || 'Desconocido'}"`,
       `"${l.puesto || 'N/A'}"`,
+      `"${l.category || 'N/A'}"`,
+      `"${l.severity || 'INFO'}"`,
       `"${l.eventType}"`,
       `"${l.isSuccess ? 'EXITOSO' : 'FALLIDO'}"`,
       `"${l.ip || 'N/A'}"`,
@@ -177,13 +214,98 @@ export const AccessAuditModal: React.FC<AccessAuditModalProps> = ({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `auditoria_accesos_sanesca_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('download', `auditoria_forense_sanesca_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
   const getEventBadge = (eventType: string, isSuccess: boolean) => {
+    // 1. Operaciones Almacén & MTO
+    if (eventType === 'BULTO_OPENED_FRACCIONADO') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+          <Scissors className="w-3 h-3 text-amber-400" />
+          Fraccionamiento Bulto
+        </span>
+      );
+    }
+    if (eventType === 'LABEL_REPRINTED') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-sky-500/15 text-sky-300 border border-sky-500/30">
+          <Printer className="w-3 h-3 text-sky-400" />
+          Reimpresión Etiqueta
+        </span>
+      );
+    }
+    if (eventType === 'ALLOCATION_RESERVED') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
+          <Package className="w-3 h-3 text-indigo-400" />
+          Reserva MTO
+        </span>
+      );
+    }
+    if (eventType === 'ALLOCATION_REASSIGNED') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+          <ArrowRightLeft className="w-3 h-3 text-cyan-400" />
+          Reasignación Obra
+        </span>
+      );
+    }
+    if (eventType === 'ALLOCATION_RELEASED') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-amber-500/15 text-amber-300 border border-amber-500/30">
+          <ArrowRightLeft className="w-3 h-3 text-amber-400" />
+          Desreserva MTO
+        </span>
+      );
+    }
+    if (eventType === 'STORE_ALLOCATION_LIQUIDATED') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+          <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+          Liquidación MTO
+        </span>
+      );
+    }
+    if (eventType === 'OAB_CANCELED') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/40 font-mono">
+          <Ban className="w-3 h-3 text-rose-400" />
+          Anulación OAB
+        </span>
+      );
+    }
+
+    // 2. Ajustes de Inventario Físico
+    if (eventType === 'INVENTORY_ADJUSTED_POSITIVE' || eventType === 'INVENTORY_ADJUSTED_MANUAL_POSITIVE') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+          <PlusCircle className="w-3 h-3 text-emerald-400" />
+          Ajuste Físico (+)
+        </span>
+      );
+    }
+    if (eventType === 'INVENTORY_ADJUSTED_NEGATIVE' || eventType === 'INVENTORY_ADJUSTED_MANUAL_NEGATIVE') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-rose-500/15 text-rose-300 border border-rose-500/30">
+          <MinusCircle className="w-3 h-3 text-rose-400" />
+          Ajuste Físico (-)
+        </span>
+      );
+    }
+    if (eventType.includes('INVENTORY_ADJUST')) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-teal-500/15 text-teal-300 border border-teal-500/30">
+          <Wrench className="w-3 h-3 text-teal-400" />
+          Ajuste Inventario
+        </span>
+      );
+    }
+
+    // 3. Accesos y Seguridad
     if (eventType === 'LOGIN_SUCCESS_PIN' || eventType === 'LOGIN_SUCCESS_TELEGRAM') {
       return (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
@@ -252,14 +374,14 @@ export const AccessAuditModal: React.FC<AccessAuditModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">
-                  Bitácora Forense de Auditoría & Accesos
+                  Bitácora Forense Integral & Auditoría de Operaciones
                 </h2>
                 <span className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[10px] font-mono uppercase tracking-wider font-semibold">
-                  ★ Superadmin
+                  ★ Auditoría Integral (Redis & Notion)
                 </span>
               </div>
               <p className="text-xs text-slate-400">
-                Monitoreo Zero Trust, telemetría de red, prevención de fuerza bruta y bitácora en tiempo real.
+                Trazabilidad pericial de operaciones MTO, fraccionamientos en planta, ajustes físicos y telemetría de seguridad Zero Trust.
               </p>
             </div>
           </div>
@@ -283,42 +405,46 @@ export const AccessAuditModal: React.FC<AccessAuditModalProps> = ({
           </div>
         </div>
 
-        {/* 4 KPI Cards de Seguridad */}
+        {/* 4 KPI Cards: Tríada Completa & Criticidad */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-6 pb-4 flex-shrink-0 bg-slate-950/40 border-b border-slate-800/80">
           <div className="p-3 rounded-xl bg-slate-900 border border-slate-800">
-            <span className="text-[11px] text-slate-400 uppercase tracking-wider font-medium">
-              Total Eventos Hoy
+            <span className="text-[11px] text-slate-400 uppercase tracking-wider font-medium flex items-center gap-1.5">
+              <FileText className="w-3.5 h-3.5 text-slate-400" /> Total Eventos
             </span>
             <div className="text-xl font-bold font-mono text-white mt-1">
               {metrics.totalEvents}
             </div>
+            <span className="text-[10px] text-slate-500 font-mono block mt-0.5">Buffer en tiempo real</span>
           </div>
 
-          <div className="p-3 rounded-xl bg-slate-900 border border-emerald-500/20">
-            <span className="text-[11px] text-emerald-400 uppercase tracking-wider font-medium flex items-center gap-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Logins Exitosos
+          <div className="p-3 rounded-xl bg-slate-900 border border-indigo-500/20">
+            <span className="text-[11px] text-indigo-400 uppercase tracking-wider font-medium flex items-center gap-1.5">
+              <Package className="w-3.5 h-3.5 text-indigo-400" /> Almacén & MTO
             </span>
-            <div className="text-xl font-bold font-mono text-emerald-400 mt-1">
-              {metrics.successfulLogins}
+            <div className="text-xl font-bold font-mono text-indigo-300 mt-1">
+              {metrics.operationalEvents ?? 0}
             </div>
+            <span className="text-[10px] text-indigo-400/70 font-mono block mt-0.5">Fraccionamientos y reservas</span>
+          </div>
+
+          <div className="p-3 rounded-xl bg-slate-900 border border-teal-500/20">
+            <span className="text-[11px] text-teal-400 uppercase tracking-wider font-medium flex items-center gap-1.5">
+              <Wrench className="w-3.5 h-3.5 text-teal-400" /> Ajustes Físicos
+            </span>
+            <div className="text-xl font-bold font-mono text-teal-300 mt-1">
+              {metrics.adjustmentEvents ?? 0}
+            </div>
+            <span className="text-[10px] text-teal-400/70 font-mono block mt-0.5">Sobrantes y faltantes</span>
           </div>
 
           <div className="p-3 rounded-xl bg-slate-900 border border-rose-500/20">
             <span className="text-[11px] text-rose-400 uppercase tracking-wider font-medium flex items-center gap-1.5">
-              <XCircle className="w-3.5 h-3.5" /> Fallos / Bloqueos
+              <ShieldAlert className="w-3.5 h-3.5 text-rose-400" /> Alertas Críticas
             </span>
             <div className="text-xl font-bold font-mono text-rose-400 mt-1">
-              {metrics.failedAttempts}
+              {metrics.criticalAlerts ?? (metrics.failedAttempts || 0)}
             </div>
-          </div>
-
-          <div className="p-3 rounded-xl bg-slate-900 border border-amber-500/20">
-            <span className="text-[11px] text-amber-400 uppercase tracking-wider font-medium flex items-center gap-1.5">
-              <AlertTriangle className="w-3.5 h-3.5" /> Horario Inusual
-            </span>
-            <div className="text-xl font-bold font-mono text-amber-400 mt-1">
-              {metrics.unusualHours}
-            </div>
+            <span className="text-[10px] text-rose-400/70 font-mono block mt-0.5">Bloqueos, fallos y anomalías</span>
           </div>
         </div>
 
@@ -425,59 +551,76 @@ export const AccessAuditModal: React.FC<AccessAuditModalProps> = ({
           </div>
         )}
 
-        {/* Barra de Filtros, Búsqueda y Exportación */}
+        {/* Barra de Filtros por Categoría, Búsqueda y Exportación */}
         <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-3 border-b border-slate-800 bg-slate-900/60 flex-shrink-0">
-          {/* Píldoras de Filtro */}
-          <div className="flex items-center gap-1.5 overflow-x-auto text-xs">
+          {/* Pestañas de Filtro Ergonómicas */}
+          <div className="flex items-center gap-1.5 overflow-x-auto text-xs pb-1 sm:pb-0">
             <button
               onClick={() => setSelectedFilter('ALL')}
-              className={`px-3 py-1.5 rounded-lg font-medium transition ${
+              className={`px-3 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 ${
                 selectedFilter === 'ALL'
                   ? 'bg-slate-700 text-white shadow-sm'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
               }`}
             >
-              Todos ({logs.length})
+              <span>📋 Todos</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-800 font-mono">{logs.length}</span>
             </button>
             <button
-              onClick={() => setSelectedFilter('SUCCESS')}
-              className={`px-3 py-1.5 rounded-lg font-medium transition ${
-                selectedFilter === 'SUCCESS'
-                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+              onClick={() => setSelectedFilter('OPERACIONES')}
+              className={`px-3 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 ${
+                selectedFilter === 'OPERACIONES'
+                  ? 'bg-indigo-500/25 text-indigo-200 border border-indigo-500/40 shadow-sm'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
               }`}
             >
-              Exitosos
+              <Package className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Almacén & MTO</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-indigo-950/60 text-indigo-300 font-mono">
+                {metrics.operationalEvents ?? 0}
+              </span>
             </button>
             <button
-              onClick={() => setSelectedFilter('FAILED')}
-              className={`px-3 py-1.5 rounded-lg font-medium transition ${
-                selectedFilter === 'FAILED'
-                  ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+              onClick={() => setSelectedFilter('AJUSTES')}
+              className={`px-3 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 ${
+                selectedFilter === 'AJUSTES'
+                  ? 'bg-teal-500/25 text-teal-200 border border-teal-500/40 shadow-sm'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
               }`}
             >
-              Fallos & Bloqueos
+              <Wrench className="w-3.5 h-3.5 text-teal-400" />
+              <span>Ajustes Físicos</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-teal-950/60 text-teal-300 font-mono">
+                {metrics.adjustmentEvents ?? 0}
+              </span>
             </button>
             <button
-              onClick={() => setSelectedFilter('2FA')}
-              className={`px-3 py-1.5 rounded-lg font-medium transition ${
-                selectedFilter === '2FA'
-                  ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
+              onClick={() => setSelectedFilter('SEGURIDAD')}
+              className={`px-3 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 ${
+                selectedFilter === 'SEGURIDAD'
+                  ? 'bg-purple-500/25 text-purple-200 border border-purple-500/40 shadow-sm'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
               }`}
             >
-              Eventos 2FA
+              <KeyRound className="w-3.5 h-3.5 text-purple-400" />
+              <span>Accesos & PIN</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-purple-950/60 text-purple-300 font-mono">
+                {metrics.securityEvents ?? 0}
+              </span>
             </button>
             <button
-              onClick={() => setSelectedFilter('UNUSUAL')}
-              className={`px-3 py-1.5 rounded-lg font-medium transition ${
-                selectedFilter === 'UNUSUAL'
-                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+              onClick={() => setSelectedFilter('CRITICAL')}
+              className={`px-3 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 ${
+                selectedFilter === 'CRITICAL'
+                  ? 'bg-rose-500/25 text-rose-200 border border-rose-500/40 shadow-sm'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
               }`}
             >
-              Horario Inusual
+              <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+              <span>Críticos</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-rose-950/60 text-rose-300 font-mono">
+                {metrics.criticalAlerts ?? 0}
+              </span>
             </button>
           </div>
 
@@ -489,7 +632,7 @@ export const AccessAuditModal: React.FC<AccessAuditModalProps> = ({
                 type="text"
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
-                placeholder="Buscar por operador, IP, detalle..."
+                placeholder="Buscar por colaborador, material, IP..."
                 className="w-full bg-slate-950 border border-slate-800 focus:border-slate-600 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-200 outline-none transition"
               />
             </div>
@@ -498,7 +641,7 @@ export const AccessAuditModal: React.FC<AccessAuditModalProps> = ({
               onClick={handleExportCSV}
               disabled={filteredLogs.length === 0}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition disabled:opacity-40"
-              title="Descargar bitácora en formato CSV"
+              title="Descargar bitácora pericial en formato CSV"
             >
               <Download className="w-3.5 h-3.5 text-brand-400" />
               <span>CSV</span>
@@ -532,7 +675,8 @@ export const AccessAuditModal: React.FC<AccessAuditModalProps> = ({
                   <tr className="bg-slate-950/80 text-[11px] font-mono text-slate-400 uppercase tracking-wider border-b border-slate-800">
                     <th className="py-2.5 px-3">Fecha / Hora (VET)</th>
                     <th className="py-2.5 px-3">Colaborador / Puesto</th>
-                    <th className="py-2.5 px-3">Evento</th>
+                    <th className="py-2.5 px-3">Categoría & Criticidad</th>
+                    <th className="py-2.5 px-3">Evento Operacional / Acceso</th>
                     <th className="py-2.5 px-3">Terminal / Red</th>
                     <th className="py-2.5 px-3">Detalle Forense</th>
                   </tr>
@@ -542,7 +686,7 @@ export const AccessAuditModal: React.FC<AccessAuditModalProps> = ({
                     <tr 
                       key={item.id} 
                       className={`hover:bg-slate-800/40 transition ${
-                        item.alertSecurity ? 'bg-rose-950/10' : item.isHorarioInusual ? 'bg-amber-950/10' : ''
+                        item.severity === 'CRITICAL' || item.alertSecurity ? 'bg-rose-950/15' : item.isHorarioInusual ? 'bg-amber-950/10' : ''
                       }`}
                     >
                       {/* Fecha / Hora */}
@@ -570,7 +714,31 @@ export const AccessAuditModal: React.FC<AccessAuditModalProps> = ({
                         </div>
                       </td>
 
-                      {/* Evento & Estado */}
+                      {/* Categoría & Severidad */}
+                      <td className="py-2.5 px-3 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5">
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold border ${
+                            item.category === 'OPERACIONES'
+                              ? 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30'
+                              : item.category === 'AJUSTES'
+                              ? 'bg-teal-500/15 text-teal-300 border-teal-500/30'
+                              : 'bg-purple-500/15 text-purple-300 border-purple-500/30'
+                          }`}>
+                            {item.category || 'GENERAL'}
+                          </span>
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold border ${
+                            item.severity === 'CRITICAL'
+                              ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                              : item.severity === 'WARNING'
+                              ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                              : 'bg-slate-800 text-slate-400 border-slate-700'
+                          }`}>
+                            {item.severity === 'CRITICAL' ? 'CRÍTICO' : item.severity === 'WARNING' ? 'ALERTA' : 'INFO'}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* Evento */}
                       <td className="py-2.5 px-3 whitespace-nowrap">
                         {getEventBadge(item.eventType, item.isSuccess)}
                       </td>
@@ -594,7 +762,7 @@ export const AccessAuditModal: React.FC<AccessAuditModalProps> = ({
 
                       {/* Detalle Forense */}
                       <td className="py-2.5 px-3 text-[11px] text-slate-300 max-w-xs">
-                        <span className="leading-tight block">
+                        <span className="leading-tight block font-mono text-[11px] break-words">
                           {item.details || 'Sin detalles adicionales.'}
                         </span>
                       </td>

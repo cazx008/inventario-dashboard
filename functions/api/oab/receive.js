@@ -75,7 +75,8 @@ export async function onRequest(context) {
       comprobanteUrl,
       numeroFacturaFiscal,
       numeroControlFiscal,
-      fotoPendienteSync
+      fotoPendienteSync,
+      supervisorAuth
     } = payload;
 
     if (!folioOAB || !items || !Array.isArray(items) || items.length === 0) {
@@ -192,27 +193,49 @@ export async function onRequest(context) {
         costoAprobadoUSD = 0,
         notasDiscrepancia = '',
         proyectoId = null,
-        proyectoNombre = null
+        proyectoNombre = null,
+        originalProyectoNombre = null,
+        originalPedidoId = null,
+        isSplitChild = false
       } = item;
 
       if (solicitudId) {
         processedSolicitudIds.add(solicitudId);
       }
 
+      // Detectar si la línea fue rectificada o fraccionada en rampa (PLAN-012)
+      const isRectified = Boolean(
+        (originalProyectoNombre !== undefined && originalProyectoNombre !== null) ||
+        (originalPedidoId !== undefined && originalPedidoId !== null) ||
+        isSplitChild
+      );
+
       // Resolver Proyecto MTO desde payload o desde la línea de Notion
       const notionLine = solicitudId ? oabLinesById.get(solicitudId) : null;
-      let resolvedPedidoId = item.pedidoId ||
-        notionLine?.properties?.['Pedido']?.relation?.[0]?.id ||
-        null;
-      let resolvedProyectoId = proyectoId ||
-        notionLine?.properties?.['Proyectos']?.relation?.[0]?.id ||
-        notionLine?.properties?.['Proyecto']?.relation?.[0]?.id ||
-        null;
-      let resolvedProyectoNombre = proyectoNombre ||
-        notionLine?.properties?.['Proyecto / Obra']?.rich_text?.[0]?.plain_text ||
-        notionLine?.properties?.['Proyecto (Texto)']?.rich_text?.[0]?.plain_text ||
-        notionLine?.properties?.['Proyecto']?.title?.[0]?.plain_text ||
-        null;
+      let resolvedPedidoId = null;
+      let resolvedPedidoCodigo = item.pedidoCodigo || null;
+      let resolvedProyectoId = null;
+      let resolvedProyectoNombre = null;
+
+      if (isRectified) {
+        // En líneas rectificadas, respetar estrictamente lo elegido en Rampa (evitar resurrección de destino Notion)
+        resolvedPedidoId = item.pedidoId || null;
+        resolvedProyectoId = proyectoId || null;
+        resolvedProyectoNombre = proyectoNombre || null;
+      } else {
+        resolvedPedidoId = item.pedidoId ||
+          notionLine?.properties?.['Pedido']?.relation?.[0]?.id ||
+          null;
+        resolvedProyectoId = proyectoId ||
+          notionLine?.properties?.['Proyectos']?.relation?.[0]?.id ||
+          notionLine?.properties?.['Proyecto']?.relation?.[0]?.id ||
+          null;
+        resolvedProyectoNombre = proyectoNombre ||
+          notionLine?.properties?.['Proyecto / Obra']?.rich_text?.[0]?.plain_text ||
+          notionLine?.properties?.['Proyecto (Texto)']?.rich_text?.[0]?.plain_text ||
+          notionLine?.properties?.['Proyecto']?.title?.[0]?.plain_text ||
+          null;
+      }
 
       // Hidratar nombre canónico desde BD_Pedidos si se tiene Pedido y falta el nombre
       if (resolvedPedidoId && !resolvedProyectoNombre) {
@@ -225,6 +248,7 @@ export async function onRequest(context) {
               const ordData = await ordRes.json();
               const op = ordData.properties || {};
               const oNum = op['Número de Documento']?.title?.[0]?.plain_text || op['Nombre']?.title?.[0]?.plain_text || '';
+              if (oNum) resolvedPedidoCodigo = oNum;
               const oProj = op['Proyecto']?.rich_text?.[0]?.plain_text || op['Obra']?.rich_text?.[0]?.plain_text || '';
               const oFull = oProj ? `${oNum} - ${oProj}` : oNum;
               if (oFull) {
@@ -466,27 +490,33 @@ export async function onRequest(context) {
         });
       }
 
-      // 3. Incrementar Stock (base) en Dashboard
-      if (dashboardId && receivedNum > 0) {
+      const effectiveStockId = dashboardId || insumoId;
+
+      // 3. Incrementar Stock (base) en Catálogo Unificado (PLAN-016)
+      if (effectiveStockId && receivedNum > 0) {
         try {
-          const dashPageRes = await fetch(`https://api.notion.com/v1/pages/${dashboardId}`, { headers });
+          const dashPageRes = await fetch(`https://api.notion.com/v1/pages/${effectiveStockId}`, { headers });
           if (dashPageRes.ok) {
             const dashPage = await dashPageRes.json();
             const currentStock = dashPage.properties?.['Stock (base)']?.number || 0;
+            const currentMin = dashPage.properties?.['Stock mínimo']?.number || 0;
             const newStock = currentStock + receivedNum;
+            const estadoCalculado = newStock <= 0 ? 'Sin Stock' : (currentMin > 0 && newStock < currentMin ? 'Bajo Mínimo' : 'En Stock');
 
-            const patchDashRes = await fetch(`https://api.notion.com/v1/pages/${dashboardId}`, {
+            const patchDashRes = await fetch(`https://api.notion.com/v1/pages/${effectiveStockId}`, {
               method: 'PATCH',
               headers,
               body: JSON.stringify({
                 properties: {
-                  'Stock (base)': { number: newStock }
+                  'Stock (base)': { number: newStock },
+                  'Estado de Stock': { select: { name: estadoCalculado } },
+                  'Contando': { checkbox: true }
                 }
               })
             });
 
             if (patchDashRes.ok) {
-              const kvPromise = setLiveStockDelta(env, dashboardId, {
+              const kvPromise = setLiveStockDelta(env, effectiveStockId, {
                 stock: newStock,
                 unitCost: unitCost > 0 ? unitCost : undefined,
                 source: 'RECEIVE_RAMP'
@@ -499,17 +529,49 @@ export async function onRequest(context) {
             }
           }
         } catch (stockErr) {
-          console.error('Error incrementando stock en Dashboard:', stockErr);
+          console.error('Error incrementando stock en Catálogo Unificado:', stockErr);
         }
       }
 
-      // 3.05 Transmutación Atómica MTO en Edge KV (Fase 10B & Micro-Parche 10B.1)
-      if (dashboardId && (receivedNum > 0 || rejectedNum > 0) && resolvedProyectoNombre && !resolvedProyectoNombre.toLowerCase().includes('stock general') && !resolvedProyectoNombre.toLowerCase().includes('stock fábrica') && !resolvedProyectoNombre.toLowerCase().includes('stock fabrica')) {
+      // 3.05 Transmutación Atómica MTO en Edge KV (Fase 10B & Micro-Parche 10B.1 & PLAN-012 & PLAN-016)
+      // A. Si la línea fue rectificada desde una obra original MTO: descontar el tránsito de la obra original
+      if (effectiveStockId && isRectified && originalProyectoNombre) {
+        const origNorm = originalProyectoNombre.trim().toLowerCase();
+        const isOrigMTO = origNorm && !origNorm.includes('stock general') && !origNorm.includes('stock fábrica') && !origNorm.includes('stock fabrica');
+        if (isOrigMTO) {
+          try {
+            const liveAllocData = await getLiveAllocations(env);
+            const allocationsList = Array.isArray(liveAllocData.allocations) ? liveAllocData.allocations : [];
+            const origAlloc = allocationsList.find(a =>
+              (a.dashboardId === effectiveStockId || a.insumoId === effectiveStockId) && (
+                (originalPedidoId && a.pedidoId === originalPedidoId) ||
+                (a.proyectoNombre && a.proyectoNombre.trim().toLowerCase() === origNorm)
+              )
+            );
+            if (origAlloc) {
+              origAlloc.cantidadTransito = Math.max(0, (origAlloc.cantidadTransito || 0) - receivedNum - rejectedNum);
+              origAlloc.updatedAt = Date.now();
+              liveAllocData.allocations = allocationsList;
+              await setLiveAllocations(env, liveAllocData);
+            }
+          } catch (origErr) {
+            console.warn('Advertencia actualizando asignación original por rectificación en rampa:', origErr);
+          }
+        }
+      }
+
+      // B. Asignar al nuevo destino MTO (si el nuevo destino es MTO y no Stock General / MTS)
+      const isNewMTO = resolvedProyectoNombre &&
+        !resolvedProyectoNombre.toLowerCase().includes('stock general') &&
+        !resolvedProyectoNombre.toLowerCase().includes('stock fábrica') &&
+        !resolvedProyectoNombre.toLowerCase().includes('stock fabrica');
+
+      if (effectiveStockId && (receivedNum > 0 || rejectedNum > 0) && isNewMTO) {
         try {
           const liveAllocData = await getLiveAllocations(env);
           const allocationsList = Array.isArray(liveAllocData.allocations) ? liveAllocData.allocations : [];
           const existingAlloc = allocationsList.find(a =>
-            a.dashboardId === dashboardId && (
+            (a.dashboardId === effectiveStockId || a.insumoId === effectiveStockId) && (
               (resolvedProyectoId && a.proyectoId === resolvedProyectoId) ||
               (a.proyectoNombre && a.proyectoNombre.trim().toLowerCase() === resolvedProyectoNombre.trim().toLowerCase())
             )
@@ -522,13 +584,19 @@ export async function onRequest(context) {
             }
             existingAlloc.cantidadTransito = Math.max(0, (existingAlloc.cantidadTransito || 0) - receivedNum - rejectedNum);
             if (unitCost > 0) existingAlloc.costoUnitarioUSD = unitCost;
+            if (resolvedPedidoId && !existingAlloc.pedidoId) existingAlloc.pedidoId = resolvedPedidoId;
+            if (resolvedPedidoCodigo && !existingAlloc.pedidoCodigo) existingAlloc.pedidoCodigo = resolvedPedidoCodigo;
+            existingAlloc.estado = 'ACTIVA';
+            existingAlloc.archived = false;
             existingAlloc.updatedAt = Date.now();
           } else {
             allocationsList.push({
-              id: `alloc_${dashboardId}_${resolvedProyectoId || Date.now()}`,
-              dashboardId,
-              insumoId: insumoId || undefined,
+              id: `alloc_${effectiveStockId}_${resolvedProyectoId || Date.now()}`,
+              dashboardId: effectiveStockId,
+              insumoId: effectiveStockId,
               insumoNombre: nombre,
+              pedidoId: resolvedPedidoId || undefined,
+              pedidoCodigo: resolvedPedidoCodigo || undefined,
               proyectoId: resolvedProyectoId || undefined,
               proyectoNombre: resolvedProyectoNombre,
               cantidadApartada: receivedNum,
@@ -536,6 +604,8 @@ export async function onRequest(context) {
               cantidadRechazada: rejectedNum > 0 ? rejectedNum : 0,
               cantidadConsumida: 0,
               costoUnitarioUSD: unitCost,
+              estado: 'ACTIVA',
+              archived: false,
               createdAt: Date.now(),
               updatedAt: Date.now()
             });
@@ -801,6 +871,46 @@ export async function onRequest(context) {
         headers,
         body: JSON.stringify({ properties: oabUpdateProps })
       });
+    }
+
+    // 5.5 Bitácora Forense: Auditoría de Reclasificaciones MTO en Rampa autorizadas por Supervisor (PLAN-012)
+    const rectifiedLines = items.filter(it => {
+      if (it.isSplitChild) return true;
+      const orig = (it.originalProyectoNombre || '').trim().toLowerCase();
+      const curr = (it.proyectoNombre || '').trim().toLowerCase();
+      const isOrigStk = !orig || orig.includes('stock general') || orig.includes('stock fábrica') || orig.includes('stock fabrica');
+      const isCurrStk = !curr || curr.includes('stock general') || curr.includes('stock fábrica') || curr.includes('stock fabrica');
+      if (isOrigStk && isCurrStk) return false;
+      return orig !== curr;
+    });
+
+    if (rectifiedLines.length > 0) {
+      const supervisorName = supervisorAuth?.supervisorName || authCheck?.user?.name || 'Supervisor Rampa';
+      const supervisorId = supervisorAuth?.supervisorId || authCheck?.user?.id || 'RAMPA';
+      const detailsList = rectifiedLines.map(r => {
+        const orig = r.originalProyectoNombre || 'Stock General (MTS)';
+        const curr = r.proyectoNombre || 'Stock General (MTS)';
+        const qty = r.cantidadRecibidaHoy ?? r.cantidadRecibida ?? 0;
+        return `${r.nombre || 'Insumo'} (${qty} und): "${orig}" ➔ "${curr}"${r.isSplitChild ? ' [Fracción]' : ''}`;
+      }).join('; ');
+
+      try {
+        recordAuditLog({
+          env,
+          context,
+          request,
+          eventType: 'RECLASIFICACION_MTO_RAMPA',
+          employeeId: supervisorId,
+          employeeName: supervisorName,
+          puesto: 'Supervisor Planta / Rampa',
+          area: 'Almacén / Rampa',
+          isSuccess: true,
+          details: `Reclasificación de destino autorizada con PIN por ${supervisorName}. Folio: ${folioOAB}. Desvíos: ${detailsList}`,
+          alertSecurity: false
+        });
+      } catch (auditErr) {
+        console.warn('Advertencia registrando auditoría de reclasificación:', auditErr);
+      }
     }
 
     // 6. Notificaciones a Telegram: Clasificación Semántica (Incidencias vs Reporte de Recepción Parcial)

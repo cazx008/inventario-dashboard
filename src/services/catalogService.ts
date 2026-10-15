@@ -160,6 +160,35 @@ export async function getCatalogAudit(refresh = false): Promise<CatalogAuditRepo
 }
 
 /**
+ * Purga de registros corruptos creados accidentalmente ('Insumo Sin Nombre')
+ */
+export async function purgeCorruptedRecords(supervisorPIN?: string): Promise<{
+  ok: boolean;
+  purgedCount: number;
+  message: string;
+  errors?: string[];
+}> {
+  const res = await fetch('/api/catalog/audit', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeader()
+    },
+    body: JSON.stringify({
+      action: 'purge_unnamed',
+      supervisorPIN
+    })
+  });
+
+  if (!res.ok) {
+    const errJson = await res.json().catch(() => ({}));
+    throw new Error(errJson.error || `HTTP ${res.status}`);
+  }
+
+  return await res.json();
+}
+
+/**
  * Ejecuta auto-sanación de insumos huérfanos
  */
 export async function healOrphans(orphanIds: string[], supervisorPIN?: string): Promise<{

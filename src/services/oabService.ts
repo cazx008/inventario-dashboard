@@ -28,6 +28,9 @@ export interface ReceptionItemPayload {
   pedidoId?: string;
   proyectoId?: string;
   proyectoNombre?: string;
+  originalPedidoId?: string;
+  originalProyectoNombre?: string;
+  isSplitChild?: boolean;
   bultos?: number;
   cantEnBulto?: number;
   bultoPico?: number;
@@ -47,6 +50,11 @@ export interface RegisterReceptionPayload {
   numeroFacturaFiscal?: string; // SENIAT Factura Legal (Opcional)
   numeroControlFiscal?: string; // SENIAT Número de Control (Opcional)
   fotoPendienteSync?: boolean; // Bandera de resiliencia R2
+  supervisorAuth?: {
+    supervisorId: string;
+    supervisorName: string;
+    authorizedAt?: string;
+  };
 }
 
 function getAuthHeader(): Record<string, string> {
@@ -210,9 +218,9 @@ export async function cancelOAB(payload: CancelOABPayload) {
   return await res.json();
 }
 
-export async function fetchPendingOABs(): Promise<any[]> {
+export async function fetchPendingOABs(status: string = 'all'): Promise<any[]> {
   try {
-    const res = await fetch('/api/oab/details?list=pending', {
+    const res = await fetch(`/api/oab/details?list=${encodeURIComponent(status)}`, {
       headers: { ...getAuthHeader() }
     });
     if (!res.ok) return [];

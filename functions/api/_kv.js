@@ -105,7 +105,10 @@ export async function getLiveAllocations(env) {
     return { allocations: [], debts: [] };
   }
   try {
-    const data = await env.INVENTORY_KV.get(LIVE_ALLOCATIONS_KEY, 'json');
+    let data = await env.INVENTORY_KV.get(LIVE_ALLOCATIONS_KEY, 'json');
+    if (typeof data === 'string') {
+      try { data = JSON.parse(data); } catch(e) {}
+    }
     if (data && typeof data === 'object') {
       return {
         allocations: Array.isArray(data.allocations) ? data.allocations : [],

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Building2, 
   Search, 
@@ -18,8 +18,18 @@ import {
   Zap,
   Flag,
   Check,
-  Printer
+  Printer,
+  ArrowUpRight,
+  LayoutGrid,
+  List,
+  Maximize2,
+  QrCode,
+  Boxes,
+  ExternalLink,
+  Eye
 } from 'lucide-react';
+import QRCode from 'qrcode';
+import JsBarcode from 'jsbarcode';
 import { 
   StoreAllocation, 
   ProjectSummary, 
@@ -35,6 +45,30 @@ import { OrderSearchModal } from './OrderSearchModal';
 import { OrderReference } from '../types/oab';
 import { ProjectLabelItem } from './PrintSheetProjectLabels';
 
+export interface DirectoryBultoItem {
+  id: string;
+  allocId: string;
+  dashboardId: string;
+  insumoId?: string;
+  insumoNombre: string;
+  codigo?: string;
+  categoria?: string;
+  proyectoId: string;
+  proyectoNombre: string;
+  pedidoId?: string;
+  pedidoCodigo?: string;
+  folioOAB: string;
+  bultoIndex: number;
+  totalBultos: number;
+  cantBulto: number;
+  unidadMedida: string;
+  isPico: boolean;
+  pkgId: string;
+  qrPayload: string;
+  rawAlloc: StoreAllocation;
+  matchingItem?: InventoryItem;
+}
+
 interface StoreAllocationModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -47,6 +81,34 @@ interface StoreAllocationModalProps {
   hasPermission?: (permission: string) => boolean;
   triggerHaptic?: (type: 'success' | 'error' | 'warning' | 'light' | 'medium') => void;
   onReprintLabel?: (item: ProjectLabelItem) => void;
+  onDispatchAlloc?: (alloc: StoreAllocation, item?: InventoryItem) => void;
+  onOpenBultoModal?: (bultoData: any) => void;
+}
+
+// Helper determinista para abreviatura de proyecto / tienda (D15)
+function getProjectAbbrev(proyectoNombre: string): string {
+  if (!proyectoNombre) return 'STK';
+  const clean = proyectoNombre
+    .replace(/proyecto\s*[-—:]\s*/gi, '')
+    .trim();
+  const words = clean.split(/[\s·—\-_]+/);
+  if (words.length > 0 && words[0].length >= 2) {
+    return words[0].toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+  }
+  return clean.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6) || 'MTO';
+}
+
+// Helper determinista para fecha en serial PKG-ID
+function getFormattedDate(dateStr?: string): string {
+  if (dateStr) {
+    const clean = dateStr.replace(/[^0-9]/g, '');
+    if (clean.length === 8) return clean;
+  }
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}${m}${d}`;
 }
 
 export const StoreAllocationModal: React.FC<StoreAllocationModalProps> = ({
@@ -58,15 +120,25 @@ export const StoreAllocationModal: React.FC<StoreAllocationModalProps> = ({
   initialSelectedItem,
   initialSelectedAllocation,
   triggerHaptic,
-  onReprintLabel
+  onReprintLabel,
+  onDispatchAlloc,
+  onOpenBultoModal
 }) => {
-  // Pestaña activa: 'projects' | 'matrix'
-  const [activeTab, setActiveTab] = useState<'projects' | 'matrix'>('projects');
+  // Pestaña activa: 'projects' | 'matrix' | 'bultos' (PLAN-009)
+  const [activeTab, setActiveTab] = useState<'projects' | 'matrix' | 'bultos'>('projects');
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Estados de la Pestaña Bultos & QR (PLAN-009)
+  const [bultosViewMode, setBultosViewMode] = useState<'grid' | 'table'>('grid');
+  const [bultosProjectFilter, setBultosProjectFilter] = useState<string>('all');
+  const [selectedBultoForDetail, setSelectedBultoForDetail] = useState<DirectoryBultoItem | null>(null);
+  const [bultoQrMap, setBultoQrMap] = useState<Record<string, string>>({});
+  const [detailQrDataUrl, setDetailQrDataUrl] = useState<string | null>(null);
+  const [detailBarcodeDataUrl, setDetailBarcodeDataUrl] = useState<string | null>(null);
 
   // Estados de submodales
   const [directAllocModalOpen, setDirectAllocModalOpen] = useState(false);
@@ -177,6 +249,182 @@ export const StoreAllocationModal: React.FC<StoreAllocationModalProps> = ({
       return matchText;
     });
   }, [allItems, summaryByInsumo, searchQuery]);
+
+  // -------------------------------------------------------------
+  // PLAN-009: DERIVACIÓN REACTIVA DE BULTOS FÍSICOS EN GALPÓN
+  // -------------------------------------------------------------
+  const allDirectoryBultos = useMemo<DirectoryBultoItem[]>(() => {
+    const origin = 'https://sanesca-inventario.pages.dev';
+    const list: DirectoryBultoItem[] = [];
+
+    // Solo asignaciones activas con stock físico apartado en galpón (> 0)
+    const activeAllocations = allAllocations.filter(a => 
+      (a.cantidadApartada || 0) > 0 && a.estado !== 'CONCLUIDA'
+    );
+
+    activeAllocations.forEach(alloc => {
+      const matchingItem = allItems.find(it => 
+        it.id === alloc.dashboardId || 
+        it.insumoId === alloc.insumoId || 
+        (it.codigo && alloc.codigo && it.codigo.toLowerCase() === alloc.codigo.toLowerCase())
+      );
+
+      const totalQty = alloc.cantidadApartada || 0;
+      const stdCantBulto = Math.max(1, alloc.cantEnBulto || matchingItem?.cant_en_bulto || 1);
+      const uom = alloc.unidad || matchingItem?.unidadMedida || matchingItem?.unidad || 'und';
+      const folioOAB = alloc.folioOAB || alloc.pedidoCodigo || 'MTO-TALLER';
+
+      let bundlesList: { cant: number; isPico: boolean }[] = [];
+
+      if (alloc.desgloseBultos && alloc.desgloseBultos.length > 0) {
+        bundlesList = alloc.desgloseBultos.map(c => ({ cant: c, isPico: false }));
+      } else if (totalQty > stdCantBulto && stdCantBulto > 0) {
+        const fullBultos = Math.floor(totalQty / stdCantBulto);
+        const rem = totalQty % stdCantBulto;
+        for (let b = 0; b < fullBultos; b++) {
+          bundlesList.push({ cant: stdCantBulto, isPico: false });
+        }
+        if (rem > 0) {
+          bundlesList.push({ cant: rem, isPico: true });
+        }
+      } else {
+        bundlesList = [{ cant: totalQty, isPico: false }];
+      }
+
+      const totalB = bundlesList.length;
+      const abbrev = getProjectAbbrev(alloc.proyectoNombre);
+      const dateCode = getFormattedDate(alloc.updatedAt ? new Date(alloc.updatedAt).toISOString() : undefined);
+
+      bundlesList.forEach((bInfo, idx) => {
+        const bIndex = idx + 1;
+        const pkgId = `PKG-${abbrev}-${dateCode}-${String(bIndex).padStart(2, '0')}`;
+        const qrPayload = `${origin}/?folio=${encodeURIComponent(folioOAB)}&material=${encodeURIComponent(alloc.codigo || alloc.insumoNombre)}&tienda=${encodeURIComponent(alloc.proyectoNombre)}&bulto=${bIndex}_${totalB}&pkg_id=${encodeURIComponent(pkgId)}&cant_bulto=${bInfo.cant}`;
+
+        list.push({
+          id: `${alloc.id}-pkg-${bIndex}`,
+          allocId: alloc.id,
+          dashboardId: alloc.dashboardId,
+          insumoId: alloc.insumoId,
+          insumoNombre: alloc.insumoNombre,
+          codigo: alloc.codigo,
+          categoria: matchingItem?.categoriaMaterial,
+          proyectoId: alloc.proyectoId,
+          proyectoNombre: alloc.proyectoNombre,
+          pedidoId: alloc.pedidoId,
+          pedidoCodigo: alloc.pedidoCodigo,
+          folioOAB,
+          bultoIndex: bIndex,
+          totalBultos: totalB,
+          cantBulto: bInfo.cant,
+          unidadMedida: uom,
+          isPico: bInfo.isPico,
+          pkgId,
+          qrPayload,
+          rawAlloc: alloc,
+          matchingItem
+        });
+      });
+    });
+
+    return list;
+  }, [allAllocations, allItems]);
+
+  // Lista única de proyectos presentes en los bultos (para filtro dropdown)
+  const bultoProjectNames = useMemo(() => {
+    const set = new Set<string>();
+    allDirectoryBultos.forEach(b => {
+      if (b.proyectoNombre) set.add(b.proyectoNombre);
+    });
+    return Array.from(set).sort();
+  }, [allDirectoryBultos]);
+
+  // Filtrado reactivo de bultos por proyecto y texto de búsqueda
+  const filteredBultos = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    return allDirectoryBultos.filter(b => {
+      // Filtro de proyecto
+      if (bultosProjectFilter !== 'all') {
+        const matchProj = b.proyectoNombre.toLowerCase() === bultosProjectFilter.toLowerCase() ||
+                          b.proyectoId === bultosProjectFilter;
+        if (!matchProj) return false;
+      }
+      // Filtro de texto
+      if (!q) return true;
+      return (
+        b.insumoNombre.toLowerCase().includes(q) ||
+        (b.codigo && b.codigo.toLowerCase().includes(q)) ||
+        b.proyectoNombre.toLowerCase().includes(q) ||
+        b.pkgId.toLowerCase().includes(q) ||
+        b.folioOAB.toLowerCase().includes(q)
+      );
+    });
+  }, [allDirectoryBultos, bultosProjectFilter, searchQuery]);
+
+  // Generar mini-QRs para la cuadrícula
+  useEffect(() => {
+    let isMounted = true;
+    const generateQrs = async () => {
+      const targets = filteredBultos.slice(0, 100);
+      const updates: Record<string, string> = {};
+      for (const b of targets) {
+        if (!bultoQrMap[b.id]) {
+          try {
+            const url = await QRCode.toDataURL(b.qrPayload, {
+              width: 100,
+              margin: 1,
+              color: { dark: '#000000', light: '#ffffff' },
+              errorCorrectionLevel: 'M'
+            });
+            updates[b.id] = url;
+          } catch (e) {
+            console.warn('Fallo generando mini QR:', b.pkgId, e);
+          }
+        }
+      }
+      if (isMounted && Object.keys(updates).length > 0) {
+        setBultoQrMap(prev => ({ ...prev, ...updates }));
+      }
+    };
+    generateQrs();
+    return () => { isMounted = false; };
+  }, [filteredBultos, bultoQrMap]);
+
+  // Generar QR de alta resolución (220px) y Barcode Code128 para la Cédula Pericial Ampliada
+  useEffect(() => {
+    if (!selectedBultoForDetail) {
+      setDetailQrDataUrl(null);
+      setDetailBarcodeDataUrl(null);
+      return;
+    }
+
+    let isMounted = true;
+    QRCode.toDataURL(selectedBultoForDetail.qrPayload, {
+      width: 240,
+      margin: 1,
+      color: { dark: '#000000', light: '#ffffff' },
+      errorCorrectionLevel: 'H'
+    }).then(url => {
+      if (isMounted) setDetailQrDataUrl(url);
+    }).catch(err => console.error('Error generando QR pericial 220px:', err));
+
+    try {
+      const canvas = document.createElement('canvas');
+      JsBarcode(canvas, selectedBultoForDetail.pkgId, {
+        format: 'CODE128',
+        displayValue: true,
+        fontSize: 14,
+        margin: 4,
+        height: 44,
+        background: '#ffffff',
+        lineColor: '#000000'
+      });
+      if (isMounted) setDetailBarcodeDataUrl(canvas.toDataURL('image/png'));
+    } catch (err) {
+      console.warn('Error generando Code128:', selectedBultoForDetail.pkgId, err);
+    }
+
+    return () => { isMounted = false; };
+  }, [selectedBultoForDetail]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -581,6 +829,17 @@ export const StoreAllocationModal: React.FC<StoreAllocationModalProps> = ({
               <Layers className="w-3.5 h-3.5" />
               <span>Matriz Consolidada de Insumos</span>
             </button>
+            <button
+              onClick={() => setActiveTab('bultos')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
+                activeTab === 'bultos'
+                  ? 'bg-amber-500 text-slate-950 shadow-md font-bold'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Boxes className="w-3.5 h-3.5" />
+              <span>📦 Bultos y QR en Galpón ({allDirectoryBultos.length})</span>
+            </button>
           </div>
 
           <div className="relative flex-1 max-w-md">
@@ -713,6 +972,22 @@ export const StoreAllocationModal: React.FC<StoreAllocationModalProps> = ({
                                 </div>
 
                                 <div className="flex items-center gap-1 shrink-0">
+                                  {onDispatchAlloc && alloc.cantidadApartada > 0 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        onClose();
+                                        const matchingItem = allItems.find(it => it.id === alloc.dashboardId || (it.insumoId && it.insumoId === alloc.insumoId));
+                                        onDispatchAlloc(alloc, matchingItem);
+                                      }}
+                                      className="p-1.5 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 text-[10px] font-semibold flex items-center gap-1 transition active:scale-95"
+                                      title={`Despachar ${alloc.insumoNombre} a taller para ${project.proyectoNombre}`}
+                                    >
+                                      <ArrowUpRight className="w-3 h-3" />
+                                      <span className="hidden sm:inline">Despachar</span>
+                                    </button>
+                                  )}
+
                                   {onReprintLabel && (
                                     <button
                                       type="button"
@@ -870,6 +1145,339 @@ export const StoreAllocationModal: React.FC<StoreAllocationModalProps> = ({
                   )}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {/* ========================================================= */}
+          {/* PESTAÑA 3: VISTA DE BULTOS Y VISOR QR EN PC (PLAN-009) */}
+          {/* ========================================================= */}
+          {activeTab === 'bultos' && (
+            <div className="space-y-4">
+              {/* Barra Superior de Filtros y Conmutador de Vista */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-slate-950/70 p-3 rounded-2xl border border-slate-800">
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-semibold text-slate-400">Filtrar por Obra:</span>
+                    <select
+                      value={bultosProjectFilter}
+                      onChange={(e) => setBultosProjectFilter(e.target.value)}
+                      className="bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-1 text-xs text-slate-200 outline-none focus:border-amber-500 font-medium"
+                    >
+                      <option value="all">Todas las Obras ({allDirectoryBultos.length} bultos)</option>
+                      {bultoProjectNames.map(pName => {
+                        const cnt = allDirectoryBultos.filter(b => b.proyectoNombre === pName).length;
+                        return (
+                          <option key={pName} value={pName}>{pName} ({cnt})</option>
+                        );
+                      })}
+                    </select>
+                  </div>
+
+                  <span className="text-slate-500 text-xs hidden sm:inline">•</span>
+
+                  <span className="text-slate-400 text-xs font-mono">
+                    Mostrando <strong className="text-amber-400">{filteredBultos.length}</strong> de {allDirectoryBultos.length} bultos físicos
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800 self-end sm:self-auto">
+                  <button
+                    type="button"
+                    onClick={() => setBultosViewMode('grid')}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-medium flex items-center gap-1 transition ${
+                      bultosViewMode === 'grid'
+                        ? 'bg-amber-500 text-slate-950 font-bold shadow'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                    title="Vista Cuadrícula de Tarjetas con Mini-QR"
+                  >
+                    <LayoutGrid className="w-3.5 h-3.5" />
+                    <span>Tarjetas QR</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBultosViewMode('table')}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-medium flex items-center gap-1 transition ${
+                      bultosViewMode === 'table'
+                        ? 'bg-amber-500 text-slate-950 font-bold shadow'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                    title="Vista Tabla ERP de Auditoría Masiva"
+                  >
+                    <List className="w-3.5 h-3.5" />
+                    <span>Tabla ERP</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* MODO 1: CUADRÍCULA DE TARJETAS PERICIALES CON MINI QR */}
+              {bultosViewMode === 'grid' && (
+                <>
+                  {filteredBultos.length === 0 ? (
+                    <div className="text-center py-12 bg-slate-950/40 rounded-2xl border border-dashed border-slate-800">
+                      <Boxes className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+                      <p className="text-slate-400 text-sm font-semibold">No se encontraron bultos registrados para los criterios actuales</p>
+                      <p className="text-slate-500 text-xs mt-1">Los bultos se generan automáticamente al apartar materiales o recibir en rampa</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                      {filteredBultos.map(bulto => {
+                        const qrImg = bultoQrMap[bulto.id];
+                        return (
+                          <div
+                            key={bulto.id}
+                            className="bg-slate-950/70 border border-slate-800/90 hover:border-amber-500/50 rounded-2xl p-4 flex flex-col justify-between transition-all duration-200 shadow-lg hover:shadow-amber-500/5 group"
+                          >
+                            <div>
+                              {/* Header de Tarjeta */}
+                              <div className="flex items-start justify-between gap-2 mb-3">
+                                <span className="font-mono text-[11px] font-bold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-lg">
+                                  {bulto.pkgId}
+                                </span>
+                                <span className="text-[10px] font-semibold text-slate-300 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded-lg truncate max-w-[150px]" title={bulto.proyectoNombre}>
+                                  {bulto.proyectoNombre}
+                                </span>
+                              </div>
+
+                              {/* Cuerpo de Tarjeta: QR + Ficha */}
+                              <div className="flex items-center gap-3.5 mb-3.5">
+                                {/* Mini QR Clickeable */}
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedBultoForDetail(bulto)}
+                                  className="shrink-0 w-20 h-20 bg-white p-1 rounded-xl flex items-center justify-center border border-slate-300 hover:border-amber-500 shadow-sm relative group/qr cursor-zoom-in transition"
+                                  title="Click para ampliar QR en Cédula Pericial"
+                                >
+                                  {qrImg ? (
+                                    <img src={qrImg} alt={`QR ${bulto.pkgId}`} className="w-full h-full object-contain" />
+                                  ) : (
+                                    <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
+                                      <QrCode className="w-6 h-6 animate-pulse text-slate-500" />
+                                      <span className="text-[8px] text-slate-500 font-mono mt-0.5">QR...</span>
+                                    </div>
+                                  )}
+                                  <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover/qr:opacity-100 flex items-center justify-center rounded-xl transition text-white">
+                                    <Maximize2 className="w-5 h-5 text-amber-300" />
+                                  </div>
+                                </button>
+
+                                {/* Info del Insumo */}
+                                <div className="min-w-0 flex-1">
+                                  <h4 className="text-xs font-bold text-slate-100 line-clamp-2 leading-snug group-hover:text-amber-300 transition" title={bulto.insumoNombre}>
+                                    {bulto.insumoNombre}
+                                  </h4>
+                                  <div className="flex items-center gap-2 mt-1 text-[10px] text-slate-400 font-mono">
+                                    <span>{bulto.codigo || 'S/C'}</span>
+                                    <span>•</span>
+                                    <span className="text-slate-500 truncate">{bulto.folioOAB}</span>
+                                  </div>
+
+                                  <div className="flex items-center gap-2 mt-2">
+                                    <span className="font-mono text-xs font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded-lg">
+                                      {bulto.cantBulto} {bulto.unidadMedida}
+                                    </span>
+                                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-lg border ${
+                                      bulto.isPico 
+                                        ? 'bg-amber-950/60 text-amber-300 border-amber-500/30' 
+                                        : 'bg-slate-900 text-slate-400 border-slate-800'
+                                    }`}>
+                                      Bulto {bulto.bultoIndex}/{bulto.totalBultos} {bulto.isPico && '(Pico)'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Botones de Acción de Tarjeta */}
+                            <div className="flex items-center gap-1.5 pt-3 border-t border-slate-900">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedBultoForDetail(bulto)}
+                                className="flex-1 py-1.5 px-2 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white rounded-xl text-[11px] font-semibold flex items-center justify-center gap-1 transition border border-slate-800"
+                              >
+                                <Eye className="w-3.5 h-3.5 text-amber-400" />
+                                <span>Ver Cédula QR</span>
+                              </button>
+
+                              {onDispatchAlloc && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    onClose();
+                                    onDispatchAlloc(bulto.rawAlloc, bulto.matchingItem);
+                                  }}
+                                  className="py-1.5 px-2.5 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 rounded-xl text-[11px] font-semibold flex items-center justify-center gap-1 transition active:scale-95"
+                                  title="Despachar a taller inmediatamente"
+                                >
+                                  <Truck className="w-3.5 h-3.5" />
+                                  <span className="hidden sm:inline">Despachar</span>
+                                </button>
+                              )}
+
+                              {onReprintLabel && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    onReprintLabel({
+                                      id: bulto.id,
+                                      folioOAB: bulto.folioOAB,
+                                      nombre: bulto.insumoNombre,
+                                      codigo: bulto.codigo,
+                                      categoria: bulto.categoria || 'Insumos',
+                                      proyectoNombre: bulto.proyectoNombre,
+                                      cantidadRecibidaHoy: bulto.cantBulto,
+                                      bultos: 1,
+                                      cantEnBulto: bulto.cantBulto,
+                                      desgloseBultos: [bulto.cantBulto],
+                                      unidadMedida: bulto.unidadMedida,
+                                      customPkgId: bulto.pkgId,
+                                      fechaRecepcion: new Date().toISOString().split('T')[0]
+                                    });
+                                  }}
+                                  className="p-1.5 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 rounded-xl transition border border-slate-800"
+                                  title="Reimprimir Rótulo Físico"
+                                >
+                                  <Printer className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* MODO 2: TABLA ERP DE AUDITORÍA MASIVA */}
+              {bultosViewMode === 'table' && (
+                <>
+                  {filteredBultos.length === 0 ? (
+                    <div className="text-center py-12 bg-slate-950/40 rounded-2xl border border-dashed border-slate-800">
+                      <Boxes className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+                      <p className="text-slate-400 text-sm font-semibold">No se encontraron bultos para los filtros seleccionados</p>
+                    </div>
+                  ) : (
+                    <div className="bg-slate-950/70 border border-slate-800/90 rounded-2xl overflow-hidden shadow-xl">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs border-collapse">
+                          <thead>
+                            <tr className="bg-slate-900/80 border-b border-slate-800 text-slate-400 text-[10px] font-bold uppercase tracking-wider">
+                              <th className="p-3 w-14 text-center">QR</th>
+                              <th className="p-3">Serial PKG-ID</th>
+                              <th className="p-3">Insumo / Material</th>
+                              <th className="p-3">Obra / Destino</th>
+                              <th className="p-3 text-center">Bulto</th>
+                              <th className="p-3 text-right">Cant. en Piso</th>
+                              <th className="p-3">Folio OAB</th>
+                              <th className="p-3 text-center">Acciones</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-800/60">
+                            {filteredBultos.map(bulto => {
+                              const qrImg = bultoQrMap[bulto.id];
+                              return (
+                                <tr key={bulto.id} className="hover:bg-slate-900/50 transition">
+                                  <td className="p-2 text-center">
+                                    <button
+                                      type="button"
+                                      onClick={() => setSelectedBultoForDetail(bulto)}
+                                      className="w-9 h-9 bg-white p-0.5 rounded-lg inline-flex items-center justify-center border border-slate-300 hover:border-amber-500 shadow-sm cursor-zoom-in"
+                                      title="Ampliar QR en pantalla"
+                                    >
+                                      {qrImg ? (
+                                        <img src={qrImg} alt="QR" className="w-full h-full object-contain" />
+                                      ) : (
+                                        <QrCode className="w-4 h-4 text-slate-600" />
+                                      )}
+                                    </button>
+                                  </td>
+                                  <td className="p-3 font-mono font-bold text-amber-400 text-[11px] whitespace-nowrap">
+                                    {bulto.pkgId}
+                                  </td>
+                                  <td className="p-3">
+                                    <span className="font-semibold text-slate-100 block text-[11px]">{bulto.insumoNombre}</span>
+                                    <span className="font-mono text-slate-500 text-[9px]">{bulto.codigo || '—'}</span>
+                                  </td>
+                                  <td className="p-3 font-medium text-slate-300 whitespace-nowrap">
+                                    {bulto.proyectoNombre}
+                                  </td>
+                                  <td className="p-3 text-center">
+                                    <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold ${
+                                      bulto.isPico 
+                                        ? 'bg-amber-950/80 text-amber-300 border border-amber-500/30' 
+                                        : 'bg-slate-900 text-slate-300 border border-slate-800'
+                                    }`}>
+                                      {bulto.bultoIndex}/{bulto.totalBultos} {bulto.isPico ? 'Pico' : ''}
+                                    </span>
+                                  </td>
+                                  <td className="p-3 text-right font-mono font-bold text-emerald-400">
+                                    {bulto.cantBulto} {bulto.unidadMedida}
+                                  </td>
+                                  <td className="p-3 font-mono text-[10px] text-slate-400 whitespace-nowrap">
+                                    {bulto.folioOAB}
+                                  </td>
+                                  <td className="p-3 text-center whitespace-nowrap">
+                                    <div className="inline-flex items-center gap-1">
+                                      <button
+                                        type="button"
+                                        onClick={() => setSelectedBultoForDetail(bulto)}
+                                        className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition"
+                                        title="Ver Cédula Pericial"
+                                      >
+                                        <Eye className="w-3.5 h-3.5 text-amber-400" />
+                                      </button>
+                                      {onDispatchAlloc && (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            onClose();
+                                            onDispatchAlloc(bulto.rawAlloc, bulto.matchingItem);
+                                          }}
+                                          className="p-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 rounded-lg transition"
+                                          title="Despachar a Taller"
+                                        >
+                                          <Truck className="w-3.5 h-3.5" />
+                                        </button>
+                                      )}
+                                      {onReprintLabel && (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            onReprintLabel({
+                                              id: bulto.id,
+                                              folioOAB: bulto.folioOAB,
+                                              nombre: bulto.insumoNombre,
+                                              codigo: bulto.codigo,
+                                              categoria: bulto.categoria || 'Insumos',
+                                              proyectoNombre: bulto.proyectoNombre,
+                                              cantidadRecibidaHoy: bulto.cantBulto,
+                                              bultos: 1,
+                                              cantEnBulto: bulto.cantBulto,
+                                              desgloseBultos: [bulto.cantBulto],
+                                              unidadMedida: bulto.unidadMedida,
+                                              customPkgId: bulto.pkgId,
+                                              fechaRecepcion: new Date().toISOString().split('T')[0]
+                                            });
+                                          }}
+                                          className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-lg transition"
+                                          title="Reimprimir Rótulo"
+                                        >
+                                          <Printer className="w-3.5 h-3.5" />
+                                        </button>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           )}
         </div>
@@ -1494,6 +2102,208 @@ export const StoreAllocationModal: React.FC<StoreAllocationModalProps> = ({
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* SUBMODAL 5: CÉDULA PERICIAL AMPLIADA (ZOOM-IN QR PC) */}
+        {/* ========================================================= */}
+        {selectedBultoForDetail && (
+          <div className="fixed inset-0 z-60 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md">
+            <div className="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-xl p-5 sm:p-6 shadow-2xl animate-in zoom-in-95 overflow-hidden">
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-400">
+                    <QrCode className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-sm text-slate-100 flex items-center gap-2">
+                      <span>Cédula Digital del Bulto</span>
+                      <span className="font-mono text-xs text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-lg border border-amber-400/20">
+                        {selectedBultoForDetail.pkgId}
+                      </span>
+                    </h3>
+                    <p className="text-[10px] text-slate-400 mt-0.5">
+                      Inspección pericial en pantalla y escaneo directo con cámara móvil
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedBultoForDetail(null)}
+                  className="p-1.5 rounded-xl bg-slate-800 text-slate-400 hover:text-white transition"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Grid de Contenido */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
+                {/* Columna Izquierda: QR de Alto Contraste y Barcode 1D */}
+                <div className="flex flex-col items-center justify-center bg-slate-950 p-4 rounded-2xl border border-slate-800">
+                  <div className="bg-white p-2 rounded-2xl shadow-lg border border-slate-200 mb-3 flex items-center justify-center w-52 h-52">
+                    {detailQrDataUrl ? (
+                      <img
+                        src={detailQrDataUrl}
+                        alt={`QR ${selectedBultoForDetail.pkgId}`}
+                        className="w-full h-full object-contain"
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center text-slate-500">
+                        <QrCode className="w-8 h-8 animate-pulse mb-1 text-slate-400" />
+                        <span className="text-[10px] font-mono">Generando QR...</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <span className="text-[10px] text-slate-400 font-mono text-center block mb-3">
+                    🔍 Escaneable directamente desde la pantalla
+                  </span>
+
+                  {detailBarcodeDataUrl && (
+                    <div className="bg-white p-1.5 rounded-xl border border-slate-200 w-full flex items-center justify-center shadow-sm">
+                      <img
+                        src={detailBarcodeDataUrl}
+                        alt={`Code128 ${selectedBultoForDetail.pkgId}`}
+                        className="max-h-12 w-auto object-contain"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Columna Derecha: Ficha Técnica Pericial */}
+                <div className="flex flex-col justify-between space-y-3">
+                  <div className="bg-slate-950/80 p-3.5 rounded-2xl border border-slate-800 space-y-2 text-xs">
+                    <div>
+                      <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">
+                        Material / Insumo
+                      </span>
+                      <span className="font-bold text-slate-100 text-sm block mt-0.5">
+                        {selectedBultoForDetail.insumoNombre}
+                      </span>
+                      <div className="flex items-center gap-2 mt-1 text-[11px] font-mono text-slate-400">
+                        <span>SKU: {selectedBultoForDetail.codigo || 'S/C'}</span>
+                        {selectedBultoForDetail.categoria && (
+                          <>
+                            <span>•</span>
+                            <span className="text-slate-500">{selectedBultoForDetail.categoria}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-800/80">
+                      <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">
+                        Obra / Destino ERP
+                      </span>
+                      <span className="font-bold text-amber-400 text-xs block mt-0.5">
+                        {selectedBultoForDetail.proyectoNombre}
+                      </span>
+                      <span className="text-[10px] font-mono text-slate-400 block">
+                        Folio: {selectedBultoForDetail.folioOAB}
+                      </span>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">
+                          Contenido Bulto
+                        </span>
+                        <span className="font-mono font-bold text-emerald-400 text-sm">
+                          {selectedBultoForDetail.cantBulto} {selectedBultoForDetail.unidadMedida}
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">
+                          Secuencia
+                        </span>
+                        <span className="font-mono text-xs text-slate-300 font-semibold">
+                          Bulto {selectedBultoForDetail.bultoIndex} de {selectedBultoForDetail.totalBultos}
+                        </span>
+                      </div>
+                    </div>
+
+                    {selectedBultoForDetail.isPico && (
+                      <div className="p-2 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-300 text-[10px]">
+                        ⚠️ <strong>Bulto Pico / Saldo Abierto:</strong> Paquete asimétrico fraccionado para cubrir exactamente la cuota del pedido.
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Acciones Rápidas */}
+                  <div className="space-y-2 pt-1">
+                    {onDispatchAlloc && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const alloc = selectedBultoForDetail.rawAlloc;
+                          const it = selectedBultoForDetail.matchingItem;
+                          setSelectedBultoForDetail(null);
+                          onClose();
+                          onDispatchAlloc(alloc, it);
+                        }}
+                        className="w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg active:scale-95 transition"
+                      >
+                        <Truck className="w-4 h-4" />
+                        <span>Despachar a Taller / Producción</span>
+                      </button>
+                    )}
+
+                    {onOpenBultoModal && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const bData = {
+                            folio: selectedBultoForDetail.folioOAB,
+                            material: selectedBultoForDetail.codigo || selectedBultoForDetail.insumoNombre,
+                            tienda: selectedBultoForDetail.proyectoNombre,
+                            bulto: `${selectedBultoForDetail.bultoIndex}_${selectedBultoForDetail.totalBultos}`,
+                            cantBulto: selectedBultoForDetail.cantBulto,
+                            pkgId: selectedBultoForDetail.pkgId,
+                            unidadMedida: selectedBultoForDetail.unidadMedida
+                          };
+                          setSelectedBultoForDetail(null);
+                          onClose();
+                          onOpenBultoModal(bData);
+                        }}
+                        className="w-full py-2 px-3 rounded-xl bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/40 font-semibold text-xs flex items-center justify-center gap-2 transition"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        <span>Cédula Móvil (Simular Escaneo)</span>
+                      </button>
+                    )}
+
+                    {onReprintLabel && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onReprintLabel({
+                            id: selectedBultoForDetail.id,
+                            folioOAB: selectedBultoForDetail.folioOAB,
+                            nombre: selectedBultoForDetail.insumoNombre,
+                            codigo: selectedBultoForDetail.codigo,
+                            categoria: selectedBultoForDetail.categoria || 'Insumos',
+                            proyectoNombre: selectedBultoForDetail.proyectoNombre,
+                            cantidadRecibidaHoy: selectedBultoForDetail.cantBulto,
+                            bultos: 1,
+                            cantEnBulto: selectedBultoForDetail.cantBulto,
+                            desgloseBultos: [selectedBultoForDetail.cantBulto],
+                            unidadMedida: selectedBultoForDetail.unidadMedida,
+                            customPkgId: selectedBultoForDetail.pkgId,
+                            fechaRecepcion: new Date().toISOString().split('T')[0]
+                          });
+                        }}
+                        className="w-full py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-300 font-semibold text-xs flex items-center justify-center gap-2 border border-slate-700 transition"
+                      >
+                        <Printer className="w-3.5 h-3.5 text-slate-400" />
+                        <span>Reimprimir Rótulo Físico</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )}

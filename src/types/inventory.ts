@@ -31,6 +31,8 @@ export interface InventoryItem {
   dashboardId?: string;
   cant_en_bulto?: number;
   unidadMedida?: string;
+  contando?: boolean;
+  ubicacion?: string;
   isOptimisticSync?: boolean;
   syncNote?: string;
 }

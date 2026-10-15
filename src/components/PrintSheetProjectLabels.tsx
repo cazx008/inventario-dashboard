@@ -260,6 +260,25 @@ export const PrintSheetProjectLabels: React.FC<PrintSheetProjectLabelsProps> = (
   const handlePrint = () => {
     if (printableLabels.length === 0) return;
 
+    // Registro forense de reimpresión de etiquetas (PLAN-010)
+    try {
+      const summaryItems = items.map(it => `${it.nombre} (${it.proyectoNombre})`).slice(0, 3).join(', ');
+      fetch('/api/audit/record', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${sessionStorage.getItem('sanesca_auth_jwt') || localStorage.getItem('sanesca_auth_jwt') || ''}`
+        },
+        body: JSON.stringify({
+          eventType: 'LABEL_REPRINTED',
+          area: 'Almacén / Impresión',
+          details: `Reimpresión de ${printableLabels.length} rótulo(s) [Formato: ${format}]. Ítems: ${summaryItems}${items.length > 3 ? '...' : ''}.`,
+          isSuccess: true,
+          alertSecurity: false
+        })
+      }).catch(e => console.warn('Aviso registrando auditoría de etiquetas:', e));
+    } catch (e) {}
+
     const printWindow = window.open('', '_blank', 'width=950,height=900');
     if (!printWindow) {
       window.print();

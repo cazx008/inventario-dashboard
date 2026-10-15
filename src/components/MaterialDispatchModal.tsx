@@ -20,7 +20,9 @@ import {
   Check, 
   Lock, 
   ShieldCheck,
-  Zap
+  Zap,
+  Truck,
+  ShoppingCart
 } from 'lucide-react';
 import { InventoryItem } from '../types/inventory';
 import { OrderReference } from '../types/oab';
@@ -30,11 +32,20 @@ import { OrderSearchModal } from './OrderSearchModal';
 
 const DEFAULT_PLANT_WORKERS: ActiveEmployee[] = [
   { id: 'emp-1', name: 'Mikel Itriago', hasPin: true, areas: ['Dirección General', 'Sistemas'] },
-  { id: 'emp-2', name: 'Pedro Herrero', hasPin: false, areas: ['Herrería', 'Estructuras'] },
-  { id: 'emp-3', name: 'Carlos Carpintero', hasPin: false, areas: ['Carpintería', 'Corte & Canteado'] },
-  { id: 'emp-4', name: 'Jose Pintor', hasPin: false, areas: ['Pintura Electrostática'] },
-  { id: 'emp-5', name: 'Luis Ensamblador', hasPin: false, areas: ['Ensamble Final', 'Embalaje'] },
-  { id: 'emp-6', name: 'Magaly González', hasPin: true, areas: ['Administración', 'Compras'] }
+  { id: 'emp-2', name: 'Samuel Plasencia', hasPin: false, areas: ['Herrería', 'Líder de Planta'] },
+  { id: 'emp-3', name: 'Pedro Herrero', hasPin: false, areas: ['Herrería', 'Estructuras'] },
+  { id: 'emp-4', name: 'Carlos Carpintero', hasPin: false, areas: ['Carpintería', 'Corte & Canteado'] },
+  { id: 'emp-5', name: 'Jose Pintor', hasPin: false, areas: ['Pintura Electrostática'] },
+  { id: 'emp-6', name: 'Luis Ensamblador', hasPin: false, areas: ['Ensamble Final', 'Embalaje'] },
+  { id: 'emp-7', name: 'Magaly González', hasPin: true, areas: ['Administración', 'Compras'] }
+];
+
+const QUICK_OPERARIOS = [
+  'Samuel Plasencia',
+  'Pedro Herrero',
+  'Carlos Carpintero',
+  'Jose Pintor',
+  'Luis Ensamblador'
 ];
 
 interface MaterialDispatchModalProps {
@@ -42,6 +53,9 @@ interface MaterialDispatchModalProps {
   onClose: () => void;
   inventoryItems: InventoryItem[];
   preselectedItem?: InventoryItem | null;
+  preselectedOrder?: OrderReference | null;
+  preselectedQty?: number | null;
+  preselectedNivelImputacion?: 'GENERAL' | 'TIENDA' | 'MOBILIARIO';
   onDispatchSuccess: (result: {
     materialNombre: string;
     cantidad: number;
@@ -51,6 +65,8 @@ interface MaterialDispatchModalProps {
   token?: string | null;
   allocationsData?: AllocationsResponse | null;
   onRefreshAllocations?: () => Promise<void>;
+  onOpenRampa?: (searchQuery?: string) => void;
+  onOpenPurchaseRequisition?: (item: InventoryItem, order?: OrderReference | null, deficitQty?: number) => void;
 }
 
 export const MaterialDispatchModal: React.FC<MaterialDispatchModalProps> = ({
@@ -58,10 +74,15 @@ export const MaterialDispatchModal: React.FC<MaterialDispatchModalProps> = ({
   onClose,
   inventoryItems,
   preselectedItem = null,
+  preselectedOrder = null,
+  preselectedQty = null,
+  preselectedNivelImputacion = 'GENERAL',
   onDispatchSuccess,
   token,
   allocationsData,
-  onRefreshAllocations
+  onRefreshAllocations,
+  onOpenRampa,
+  onOpenPurchaseRequisition
 }) => {
   // 1. Estado de Selección de Material
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(preselectedItem);
@@ -179,6 +200,36 @@ export const MaterialDispatchModal: React.FC<MaterialDispatchModalProps> = ({
     }
   }, [isOpen]);
 
+  // Cargar operario guardado en sessionStorage al abrir
+  useEffect(() => {
+    if (isOpen) {
+      const savedOperario = sessionStorage.getItem('sanesca_last_operario');
+      if (savedOperario && !operarioReceptor) {
+        setOperarioReceptor(savedOperario);
+        const matchEmp = employees.find(e => e.name.toLowerCase() === savedOperario.toLowerCase());
+        if (matchEmp) setSelectedEmployee(matchEmp);
+      }
+    }
+  }, [isOpen, employees]);
+
+  const handleSelectOperario = (empName: string, empObj?: ActiveEmployee | null) => {
+    setOperarioReceptor(empName);
+    setOperarioSearch('');
+    if (empObj) {
+      setSelectedEmployee(empObj);
+    } else {
+      const matchEmp = employees.find(e => e.name.toLowerCase() === empName.toLowerCase());
+      setSelectedEmployee(matchEmp || {
+        id: `quick-${Date.now()}`,
+        name: empName,
+        hasPin: false,
+        areas: ['Líder de Planta']
+      });
+    }
+    sessionStorage.setItem('sanesca_last_operario', empName);
+    setIsOperarioDropdownOpen(false);
+  };
+
   // Filtrado reactivo de operarios para autocompletado
   const filteredEmployees = useMemo(() => {
     if (!operarioSearch.trim()) return employees;
@@ -189,12 +240,36 @@ export const MaterialDispatchModal: React.FC<MaterialDispatchModalProps> = ({
     );
   }, [employees, operarioSearch]);
 
-  // Actualizar preselección si cambia desde prop
+  // Actualizar preselección si cambia desde prop o al abrirse
   useEffect(() => {
-    if (preselectedItem) {
-      setSelectedItem(preselectedItem);
+    if (isOpen) {
+      if (preselectedItem) {
+        setSelectedItem(preselectedItem);
+      }
+      if (preselectedOrder) {
+        setSelectedOrder(preselectedOrder);
+      }
+      if (preselectedNivelImputacion) {
+        setNivelImputacion(preselectedNivelImputacion);
+      }
+      if (preselectedQty && preselectedQty > 0) {
+        if (preselectedItem && (preselectedItem.stockBase || 0) <= 0) {
+          setCantidad(0);
+        } else {
+          setCantidad(preselectedQty);
+        }
+      } else if (preselectedItem && (preselectedItem.stockBase || 0) <= 0) {
+        setCantidad(0);
+      }
     }
-  }, [preselectedItem]);
+  }, [isOpen, preselectedItem, preselectedOrder, preselectedNivelImputacion, preselectedQty]);
+
+  // Si cambia el ítem seleccionado y no hay stock físico, asegurar cantidad en 0
+  useEffect(() => {
+    if (selectedItem && (selectedItem.stockBase || 0) <= 0) {
+      setCantidad(0);
+    }
+  }, [selectedItem]);
 
   // Si cambia el pedido seleccionado y estamos en nivel Mobiliario, cargar líneas de pedido
   useEffect(() => {
@@ -300,42 +375,151 @@ export const MaterialDispatchModal: React.FC<MaterialDispatchModalProps> = ({
     };
   }, [selectedOrder, selectedItem, orderBalanceItems, cantidad]);
 
-  // CÁLCULO DE RESERVAS MTO Y SEMÁFORO TRIPARTITO (Micro-Fase 10D / D1-10D & D5-10D)
+  // CÁLCULO DE RESERVAS MTO Y SEMÁFORO TRIPARTITO (Micro-Fase 10D / D1-10D & D5-10D & PLAN-008)
   const allAllocations = allocationsData?.allocations || [];
   const itemAllocations = useMemo(() => {
     if (!selectedItem) return [];
-    return allAllocations.filter(a => a.dashboardId === selectedItem.id);
+    return allAllocations.filter(a => 
+      a.dashboardId === selectedItem.id && 
+      a.estado !== 'CONCLUIDA' && 
+      !a.archived
+    );
   }, [allAllocations, selectedItem]);
 
+  // Insumos asignados a la orden activa (Bandeja MTO)
+  const orderAssignedItems = useMemo(() => {
+    if (!selectedOrder) return [];
+    const targetPId = selectedOrder.id;
+    const targetProjId = (selectedOrder as any).proyectoId;
+    const targetCode = (selectedOrder.codigo || '').toLowerCase().trim();
+    const targetPName = (selectedOrder.proyecto || '').toLowerCase().trim();
+    const targetClient = (selectedOrder.cliente || '').toLowerCase().trim();
+
+    const matchedAllocations = allAllocations.filter(a => {
+      if (a.estado === 'CONCLUIDA' || a.archived) return false;
+      if (Number(a.cantidadApartada || 0) <= 0 && Number(a.cantidadTransito || 0) <= 0) return false;
+      
+      if (a.pedidoId && targetPId && a.pedidoId === targetPId) return true;
+      if (a.proyectoId && ((targetProjId && a.proyectoId === targetProjId) || (targetPId && a.proyectoId === targetPId))) return true;
+      if (targetCode && (
+        (a.pedidoCodigo && a.pedidoCodigo.toLowerCase().trim() === targetCode) ||
+        (a.proyectoCodigo && a.proyectoCodigo.toLowerCase().trim() === targetCode) ||
+        (a.codigo && a.codigo.toLowerCase().trim() === targetCode)
+      )) return true;
+      if (a.proyectoNombre) {
+        const aName = a.proyectoNombre.toLowerCase().trim();
+        if (targetPName && (targetPName.includes(aName) || aName.includes(targetPName))) return true;
+        if (targetClient && (targetClient.includes(aName) || aName.includes(targetClient))) return true;
+      }
+      return false;
+    });
+
+    return matchedAllocations.map(alloc => {
+      const allocName = alloc.insumoNombre || alloc.materialNombre || '';
+      const matchedItem = inventoryItems.find(i => 
+        (alloc.dashboardId && i.id === alloc.dashboardId) ||
+        (allocName && i.nombre.toLowerCase().trim() === allocName.toLowerCase().trim())
+      );
+      return {
+        alloc,
+        item: matchedItem || null,
+        stockBase: matchedItem ? (matchedItem.stockBase || 0) : 0,
+        codigo: matchedItem?.codigo || alloc.codigo || 'S/C',
+        nombre: matchedItem?.nombre || allocName || 'Insumo Asignado',
+        unidad: matchedItem?.unidad || alloc.unidad || 'Und'
+      };
+    });
+  }, [allAllocations, selectedOrder, inventoryItems]);
+
+  const handleSelectAssignedMto = (entry: {
+    alloc: StoreAllocation;
+    item: InventoryItem | null;
+    stockBase: number;
+    codigo: string;
+    nombre: string;
+    unidad: string;
+  }) => {
+    if (entry.item) {
+      setSelectedItem(entry.item);
+    } else {
+      const syntheticItem: InventoryItem = {
+        id: entry.alloc.dashboardId || `alloc-${entry.alloc.id}`,
+        nombre: entry.alloc.insumoNombre || entry.alloc.materialNombre || 'Insumo Asignado',
+        codigo: entry.codigo,
+        stockBase: entry.stockBase || 0,
+        unidad: entry.unidad,
+        categoriaMaterial: 'Insumo Asignado',
+        costoUnitarioUSD: entry.alloc.costoUnitarioUSD || 0,
+        origenConsumo: 'Proyecto (Presupuestado)'
+      } as any;
+      setSelectedItem(syntheticItem);
+    }
+    setNivelImputacion('TIENDA');
+    setEsNoPresupuestado(false);
+    const qtyApartada = entry.alloc.cantidadApartada || 0;
+    const currentStk = entry.item?.stockBase || entry.stockBase || 0;
+    if (currentStk <= 0) {
+      setCantidad(0);
+    } else {
+      setCantidad(Math.min(currentStk, qtyApartada) || qtyApartada || 1);
+    }
+  };
+
   const {
+    myAlloc,
     myApartado,
+    myTransito,
     otherApartado,
     stockLibre,
     otherAllocs,
     maxDisponibleDirecto
   } = useMemo(() => {
     if (!selectedItem) {
-      return { myApartado: 0, otherApartado: 0, stockLibre: 0, otherAllocs: [], maxDisponibleDirecto: 0 };
+      return { myAlloc: undefined, myApartado: 0, myTransito: 0, otherApartado: 0, stockLibre: 0, otherAllocs: [], maxDisponibleDirecto: 0 };
     }
     const isStoreOrFurniture = (nivelImputacion === 'TIENDA' || nivelImputacion === 'MOBILIARIO') && selectedOrder;
     const targetPId = selectedOrder?.id;
-    const targetPName = (selectedOrder?.proyecto || selectedOrder?.codigo || '').toLowerCase().trim();
+    const targetProjId = selectedOrder?.proyectoId;
+    const targetCode = (selectedOrder?.codigo || '').toLowerCase().trim();
+    const targetPName = (selectedOrder?.proyecto || '').toLowerCase().trim();
+    const targetClient = (selectedOrder?.cliente || '').toLowerCase().trim();
 
     let myAlloc: StoreAllocation | undefined = undefined;
     if (isStoreOrFurniture) {
-      myAlloc = itemAllocations.find(a => 
-        (targetPId && a.proyectoId === targetPId) ||
-        (targetPName && a.proyectoNombre && a.proyectoNombre.toLowerCase().includes(targetPName))
-      );
+      myAlloc = itemAllocations.find(a => {
+        // 1. Coincidencia exacta por ID de Pedido (Notion BD_Pedidos)
+        if (a.pedidoId && targetPId && a.pedidoId === targetPId) return true;
+        // 2. Coincidencia exacta por ID de Proyecto (Notion BD_Proyectos)
+        if (a.proyectoId && (
+          (targetProjId && a.proyectoId === targetProjId) ||
+          (targetPId && a.proyectoId === targetPId)
+        )) return true;
+        // 3. Coincidencia por Código Canónico normalizado (PED / PRY)
+        if (targetCode && (
+          (a.pedidoCodigo && a.pedidoCodigo.toLowerCase().trim() === targetCode) ||
+          (a.proyectoCodigo && a.proyectoCodigo.toLowerCase().trim() === targetCode) ||
+          (a.codigo && a.codigo.toLowerCase().trim() === targetCode)
+        )) return true;
+        // 4. Coincidencia determinista bidireccional de Nombre de Proyecto o Cliente
+        if (a.proyectoNombre) {
+          const aName = a.proyectoNombre.toLowerCase().trim();
+          if (targetPName && (targetPName.includes(aName) || aName.includes(targetPName))) return true;
+          if (targetClient && (targetClient.includes(aName) || aName.includes(targetClient))) return true;
+        }
+        return false;
+      });
     }
     const myAp = myAlloc ? (myAlloc.cantidadApartada || 0) : 0;
+    const myTr = myAlloc ? (myAlloc.cantidadTransito || 0) : 0;
     const others = itemAllocations.filter(a => !myAlloc || a.id !== myAlloc.id).filter(a => (a.cantidadApartada || 0) > 0);
     const otherAp = others.reduce((sum, a) => sum + (a.cantidadApartada || 0), 0);
     const free = Math.max(0, (selectedItem.stockBase || 0) - (myAp + otherAp));
     const maxDirect = myAp + free;
 
     return {
+      myAlloc,
       myApartado: myAp,
+      myTransito: myTr,
       otherApartado: otherAp,
       stockLibre: free,
       otherAllocs: others,
@@ -370,7 +554,7 @@ export const MaterialDispatchModal: React.FC<MaterialDispatchModalProps> = ({
 
   const currentStock = selectedItem ? selectedItem.stockBase : 0;
   const remainingStock = Math.max(0, currentStock - (cantidad || 0));
-  const isStockInsufficient = (cantidad || 0) > currentStock;
+  const isStockInsufficient = (cantidad || 0) > currentStock || currentStock <= 0;
 
   const handleQuickAdd = (delta: number) => {
     setCantidad(prev => Math.max(1, Math.min(currentStock, (prev || 0) + delta)));
@@ -465,9 +649,12 @@ export const MaterialDispatchModal: React.FC<MaterialDispatchModalProps> = ({
         isEmergencyLoanActive ? `[PRÉSTAMO AUTORIZADO CON PIN: ${emergencySupervisorName || 'Supervisor'}]` : null
       ].filter(Boolean).join(' | ');
 
+      sessionStorage.setItem('sanesca_last_operario', operarioReceptor.trim());
+
       const payload: any = {
         dashboardId: selectedItem.id,
         insumoId: selectedItem.insumoId,
+        codigo: selectedItem.codigo,
         materialNombre: selectedItem.nombre,
         cantidadDespachada: cantidad,
         unidad: selectedItem.unidad || 'Und',
@@ -477,7 +664,7 @@ export const MaterialDispatchModal: React.FC<MaterialDispatchModalProps> = ({
         nivelImputacion,
         pedidoId: selectedOrder?.id,
         pedidoCodigo: selectedOrder?.codigo,
-        proyectoId: selectedOrder?.id,
+        proyectoId: (selectedOrder as any)?.proyectoId || selectedOrder?.id,
         proyectoNombre: selectedOrder?.proyecto,
         esNoPresupuestado,
         sobreconsumoFlag: Boolean(bomTheoreticalData?.isOverconsumption),
@@ -574,11 +761,172 @@ export const MaterialDispatchModal: React.FC<MaterialDispatchModalProps> = ({
             </div>
           )}
 
+          {/* A. Selector / Ancla de Obra para Flujo Bimodal Invertible */}
+          <div className="p-3.5 bg-gradient-to-r from-surfaceHigh to-surface border border-brand-500/30 rounded-xl space-y-2.5 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-brand-400" />
+                <span className="text-xs font-bold text-slate-200">
+                  Obra / Pedido Comercial de Destino:
+                </span>
+              </div>
+              {selectedOrder ? (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsOrderModalOpen(true)}
+                    className="text-[11px] text-brand-400 hover:text-brand-300 font-medium hover:underline flex items-center gap-1"
+                  >
+                    <span>Cambiar Obra</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedOrder(null);
+                      setNivelImputacion('GENERAL');
+                    }}
+                    className="p-1 rounded text-slate-400 hover:text-white hover:bg-surfaceHighest transition"
+                    title="Desvincular obra (Despacho General MTS)"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsOrderModalOpen(true)}
+                  className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-brand-500/20 text-brand-300 border border-brand-500/40 hover:bg-brand-500/30 transition flex items-center gap-1"
+                >
+                  <Search className="w-3.5 h-3.5" />
+                  <span>Vincular Obra (Buscar Pedido)</span>
+                </button>
+              )}
+            </div>
+
+            {selectedOrder ? (
+              <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-lg bg-surface border border-borderSubtle">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono font-bold text-xs text-brand-400 px-2 py-0.5 rounded bg-brand-500/10 border border-brand-500/20">
+                    {selectedOrder.codigo}
+                  </span>
+                  <span className="text-xs font-semibold text-white">
+                    {selectedOrder.proyecto}
+                  </span>
+                  <span className="text-[11px] text-slate-400">
+                    • Cliente: {selectedOrder.cliente}
+                  </span>
+                </div>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+                  Modo MTO Activo
+                </span>
+              </div>
+            ) : (
+              <p className="text-[11px] text-slate-400 leading-snug">
+                Selecciona una obra para ver los insumos reservados específicamente para ella a 1 clic, o continúa abajo con despacho de Stock General de Taller (MTS).
+              </p>
+            )}
+          </div>
+
+          {/* B. BANDEJA MTO: Insumos Asignados a Esta Obra (Visible si selectedOrder está activo) */}
+          {selectedOrder && (
+            <div className="space-y-2.5 p-3.5 bg-brand-950/20 border border-brand-500/40 rounded-xl animate-fade-in shadow-inner">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-brand-400" />
+                  <span className="text-xs font-bold text-white uppercase tracking-wider">
+                    Insumos Asignados a Esta Obra (MTO) — Saldo en Galpón
+                  </span>
+                </div>
+                <span className="text-[10px] font-mono text-slate-400">
+                  {orderAssignedItems.length} ítem(s) con reserva
+                </span>
+              </div>
+
+              {orderAssignedItems.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                  {orderAssignedItems.map((entry, idx) => {
+                    const isSelected = selectedItem?.id === entry.item?.id || selectedItem?.nombre === entry.nombre;
+                    const hasPhysicalStock = entry.stockBase > 0;
+                    return (
+                      <div
+                        key={entry.alloc.id || idx}
+                        onClick={() => handleSelectAssignedMto(entry)}
+                        className={`p-3 rounded-xl border text-left cursor-pointer transition flex flex-col justify-between ${
+                          isSelected
+                            ? 'bg-brand-500/20 border-brand-500 ring-2 ring-brand-500/40 shadow-md'
+                            : 'bg-surfaceHigh border-borderSubtle hover:border-brand-500/40 hover:bg-surfaceHighest'
+                        }`}
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-start justify-between gap-1">
+                            <span className="text-xs font-bold text-white leading-tight">
+                              {entry.nombre}
+                            </span>
+                            {entry.codigo && (
+                              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-surface border border-borderSubtle text-slate-300 shrink-0">
+                                {entry.codigo}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 text-[11px] pt-0.5">
+                            <span className="text-emerald-400 font-semibold font-mono">
+                              Apartado: {entry.alloc.cantidadApartada} {entry.unidad}
+                            </span>
+                            <span>•</span>
+                            <span className={`font-mono ${hasPhysicalStock ? 'text-slate-300' : 'text-amber-400'}`}>
+                              Galpón: {entry.stockBase} {entry.unidad}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="mt-2 pt-2 border-t border-borderSubtle/60 flex items-center justify-between">
+                          <span className={`text-[10px] font-medium flex items-center gap-1 ${
+                            hasPhysicalStock ? 'text-emerald-400' : 'text-amber-400'
+                          }`}>
+                            {hasPhysicalStock ? (
+                              <>
+                                <Check className="w-3 h-3" />
+                                <span>Disponible para Taller</span>
+                              </>
+                            ) : (
+                              <>
+                                <AlertTriangle className="w-3 h-3" />
+                                <span>Sin existencias en piso</span>
+                              </>
+                            )}
+                          </span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded transition ${
+                            isSelected
+                              ? 'bg-brand-500 text-white'
+                              : 'bg-surface border border-borderSubtle text-slate-300 hover:bg-surfaceHighest'
+                          }`}>
+                            {isSelected ? '✓ Seleccionado' : 'Despachar Cuota'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="p-3 text-center text-xs text-slate-400 bg-surface/50 rounded-lg border border-borderSubtle">
+                  No hay insumos con cuota apartada para esta orden. Si necesitas entregar materiales comunes o no presupuestados, búscalo en el catálogo general debajo.
+                </div>
+              )}
+            </div>
+          )}
+
           {/* 1. Selección del Material */}
           <div className="space-y-2">
-            <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider block">
-              1. Insumo / Material a Despachar
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider block">
+                1. Insumo / Material a Despachar
+              </label>
+              {selectedOrder && (
+                <span className="text-[11px] text-slate-400">
+                  {selectedItem ? 'Insumo seleccionado' : 'O busca insumos de stock común (MTS)'}
+                </span>
+              )}
+            </div>
 
             {selectedItem ? (
               <div className="p-3.5 bg-surfaceHigh border border-brand-500/40 rounded-xl flex items-center justify-between gap-3 shadow-sm">
@@ -688,16 +1036,18 @@ export const MaterialDispatchModal: React.FC<MaterialDispatchModalProps> = ({
                     <button
                       key={n}
                       type="button"
+                      disabled={currentStock <= 0}
                       onClick={() => handleQuickAdd(n)}
-                      className="px-2 py-0.5 text-xs rounded bg-surface hover:bg-surfaceHighest text-slate-300 border border-borderSubtle transition"
+                      className="px-2 py-0.5 text-xs rounded bg-surface hover:bg-surfaceHighest text-slate-300 border border-borderSubtle transition disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       +{n}
                     </button>
                   ))}
                   <button
                     type="button"
+                    disabled={currentStock <= 0}
                     onClick={handleSetMax}
-                    className="px-2.5 py-0.5 text-xs font-semibold rounded bg-brand-500/20 text-brand-300 border border-brand-500/40 hover:bg-brand-500/30 transition"
+                    className="px-2.5 py-0.5 text-xs font-semibold rounded bg-brand-500/20 text-brand-300 border border-brand-500/40 hover:bg-brand-500/30 transition disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     Máx ({currentStock})
                   </button>
@@ -711,26 +1061,28 @@ export const MaterialDispatchModal: React.FC<MaterialDispatchModalProps> = ({
                     <input
                       type="number"
                       min={1}
+                      disabled={currentStock <= 0}
                       value={cantidadEmpaques}
                       onChange={(e) => {
                         const val = Math.max(1, Number(e.target.value));
                         setCantidadEmpaques(val);
                         setCantidad(Math.min(currentStock, val * unidadesPorEmpaque));
                       }}
-                      className="w-14 px-2 py-1 bg-surface border border-amber-500/40 rounded text-center text-white font-mono font-bold"
+                      className="w-14 px-2 py-1 bg-surface border border-amber-500/40 rounded text-center text-white font-mono font-bold disabled:opacity-40"
                     />
                     <span className="text-slate-300">empaque(s) ×</span>
                     <input
                       type="number"
                       min={0.1}
                       step="any"
+                      disabled={currentStock <= 0}
                       value={unidadesPorEmpaque}
                       onChange={(e) => {
                         const factor = Math.max(0.1, Number(e.target.value));
                         setUnidadesPorEmpaque(factor);
                         setCantidad(Math.min(currentStock, cantidadEmpaques * factor));
                       }}
-                      className="w-16 px-2 py-1 bg-surface border border-amber-500/40 rounded text-center text-white font-mono font-bold"
+                      className="w-16 px-2 py-1 bg-surface border border-amber-500/40 rounded text-center text-white font-mono font-bold disabled:opacity-40"
                     />
                     <span className="text-slate-300">{selectedItem.unidad || 'Und'} c/u</span>
                   </div>
@@ -745,38 +1097,105 @@ export const MaterialDispatchModal: React.FC<MaterialDispatchModalProps> = ({
                   <input
                     type="number"
                     min={1}
-                    max={currentStock}
-                    value={cantidad || ''}
+                    max={currentStock > 0 ? currentStock : undefined}
+                    disabled={currentStock <= 0}
+                    value={currentStock <= 0 ? 0 : (cantidad || '')}
                     onChange={(e) => setCantidad(Number(e.target.value))}
-                    className={`w-full px-3.5 py-2 text-base font-mono font-bold bg-surface border rounded-xl text-white focus:outline-none ${
-                      isStockInsufficient 
-                        ? 'border-rose-500 text-rose-300 focus:border-rose-400' 
-                        : 'border-borderSubtle focus:border-brand-400'
+                    className={`w-full px-3.5 py-2 text-base font-mono font-bold bg-surface border rounded-xl text-white focus:outline-none transition ${
+                      currentStock <= 0
+                        ? 'border-borderSubtle bg-surface/50 text-slate-500 cursor-not-allowed'
+                        : isStockInsufficient 
+                          ? 'border-rose-500 text-rose-300 focus:border-rose-400' 
+                          : 'border-borderSubtle focus:border-brand-400'
                     }`}
                   />
                   <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-mono text-slate-400">
                     {selectedItem.unidad || 'Und'}
                   </span>
+                  {currentStock <= 0 && (
+                    <span className="block text-[10px] text-amber-400/90 font-medium mt-1">
+                      ⚠️ 0 unidades en galpón. Entrada física pendiente.
+                    </span>
+                  )}
                 </div>
 
                 <div className="sm:col-span-6 flex items-center gap-3 text-xs bg-surface p-2.5 rounded-xl border border-borderSubtle">
                   <div className="flex-1 text-center">
-                    <span className="text-[10px] text-slate-500 uppercase block">Stock Actual</span>
+                    <span className="text-[10px] text-slate-500 uppercase block">Stock Físico</span>
                     <span className="font-mono font-bold text-slate-200">{currentStock}</span>
                   </div>
                   <span className="text-slate-600 font-bold">➔</span>
                   <div className="flex-1 text-center">
                     <span className="text-[10px] text-slate-500 uppercase block">Despacho</span>
-                    <span className="font-mono font-bold text-rose-400">-{cantidad || 0}</span>
+                    <span className={`font-mono font-bold ${currentStock <= 0 ? 'text-slate-500' : 'text-rose-400'}`}>
+                      -{currentStock <= 0 ? 0 : (cantidad || 0)}
+                    </span>
                   </div>
                   <span className="text-slate-600 font-bold">=</span>
                   <div className="flex-1 text-center">
                     <span className="text-[10px] text-slate-500 uppercase block">Saldo Almacén</span>
-                    <span className={`font-mono font-bold ${isStockInsufficient ? 'text-rose-400' : 'text-emerald-400'}`}>
+                    <span className={`font-mono font-bold ${
+                      currentStock <= 0 
+                        ? 'text-amber-400' 
+                        : isStockInsufficient 
+                          ? 'text-rose-400' 
+                          : 'text-emerald-400'
+                    }`}>
                       {remainingStock}
                     </span>
                   </div>
                 </div>
+
+                {/* Desglose Tripartito Inmediato en Sección Cantidad */}
+                <div className="sm:col-span-12 flex flex-wrap items-center justify-between gap-2 p-2 rounded-xl bg-surface border border-borderSubtle">
+                  <span className="text-[11px] text-slate-400 font-semibold">Balance de Piso en Galpón:</span>
+                  <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-mono">
+                    <span className="px-2 py-0.5 rounded bg-emerald-950/50 border border-emerald-500/40 text-emerald-300 font-bold">
+                      🟢 Esta Obra: {myApartado} {selectedItem.unidad || 'Und'}
+                    </span>
+                    <span className="px-2 py-0.5 rounded bg-blue-950/50 border border-blue-500/40 text-blue-300 font-bold">
+                      🔵 Stock Libre: {stockLibre} {selectedItem.unidad || 'Und'}
+                    </span>
+                    <span className="px-2 py-0.5 rounded bg-amber-950/50 border border-amber-500/40 text-amber-300 font-bold">
+                      🟠 Otras Obras: {otherApartado} {selectedItem.unidad || 'Und'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Aviso Informativo de Absorción de Stock Común o Bloqueo */}
+                {cantidad > 0 && (
+                  <div className={`sm:col-span-12 p-2.5 rounded-xl border flex items-center gap-2 text-xs transition ${
+                    cantidad <= myApartado && myApartado > 0
+                      ? 'bg-emerald-950/30 border-emerald-500/30 text-emerald-300'
+                      : cantidad <= myApartado + stockLibre
+                        ? 'bg-blue-950/30 border-blue-500/30 text-blue-300'
+                        : 'bg-rose-950/30 border-rose-500/30 text-rose-300'
+                  }`}>
+                    {cantidad <= myApartado && myApartado > 0 ? (
+                      <>
+                        <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                        <span>Despacho cubierto al 100% con la reserva MTO de esta obra ({cantidad} de {myApartado} {selectedItem.unidad || 'Und'}).</span>
+                      </>
+                    ) : cantidad <= myApartado + stockLibre ? (
+                      <>
+                        <Layers className="w-4 h-4 text-blue-400 shrink-0" />
+                        <span>
+                          {myApartado > 0
+                            ? `Despacho mixto: se consumen ${myApartado} ${selectedItem.unidad || 'Und'} de reserva propia + ${cantidad - myApartado} ${selectedItem.unidad || 'Und'} del Stock Libre común.`
+                            : `Despacho directo desde Stock Libre común (${cantidad} ${selectedItem.unidad || 'Und'}).`
+                          }
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                        <span>
+                          Stock libre insuficiente ({stockLibre} {selectedItem.unidad || 'Und'}). Las {cantidad - (myApartado + stockLibre)} unidades excedentes pertenecen a otras obras. Requiere Válvula de Emergencia con PIN.
+                        </span>
+                      </>
+                    )}
+                  </div>
+                )}
 
                 {/* Alerta Preventiva de Sobreconsumo (> 115% de Receta BOM) - T4.3 */}
                 {bomTheoreticalData && (
@@ -1141,8 +1560,59 @@ export const MaterialDispatchModal: React.FC<MaterialDispatchModalProps> = ({
                 </div>
               </div>
 
-              {/* Diagnóstico Reactivo de Cobertura */}
-              {!isBlockedByOtherStores ? (
+              {/* Diagnóstico Reactivo de Cobertura y Puentes a Rampa / Compras */}
+              {currentStock <= 0 ? (
+                myTransito > 0 ? (
+                  <div className="p-3.5 rounded-xl bg-cyan-950/40 border border-cyan-500/40 space-y-2.5 animate-in fade-in duration-150">
+                    <div className="flex items-start gap-2.5 text-xs text-cyan-200">
+                      <Truck className="w-5 h-5 text-cyan-400 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-bold block text-sm text-cyan-100">
+                          🚚 Material en Tránsito hacia Rampa ({myTransito} {selectedItem.unidad || 'Und'})
+                        </span>
+                        <p className="text-[11px] text-cyan-300/90 mt-0.5 leading-snug">
+                          El almacén físico tiene 0 existencias en galpón, pero se registran {myTransito} {selectedItem.unidad || 'Und'} en camino
+                          {myAlloc?.folioOAB ? ` bajo la orden ${myAlloc.folioOAB}` : ''}. Deben recibirse formalmente en Rampa antes de poder despacharse a taller.
+                        </p>
+                      </div>
+                    </div>
+                    {onOpenRampa && (
+                      <button
+                        type="button"
+                        onClick={() => onOpenRampa(myAlloc?.folioOAB || myAlloc?.pedidoCodigo || selectedItem.codigo || selectedItem.nombre)}
+                        className="w-full py-2 px-3 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-95 shadow-md cursor-pointer"
+                      >
+                        <Truck className="w-4 h-4" />
+                        <span>Ir a Recepción en Rampa (Dar Entrada Física)</span>
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="p-3.5 rounded-xl bg-amber-950/40 border border-amber-500/40 space-y-2.5 animate-in fade-in duration-150">
+                    <div className="flex items-start gap-2.5 text-xs text-amber-200">
+                      <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-bold block text-sm text-amber-100">
+                          ⚠️ Reserva MTO en Déficit Físico (0 en almacén, 0 en camino)
+                        </span>
+                        <p className="text-[11px] text-amber-300/90 mt-0.5 leading-snug">
+                          Existe un compromiso registrado de {myApartado} {selectedItem.unidad || 'Und'} para {selectedOrder?.proyecto || 'esta obra'}, pero el galpón no dispone de existencias físicas ni compras en tránsito. Se requiere emitir una requisición urgente a compras.
+                        </p>
+                      </div>
+                    </div>
+                    {onOpenPurchaseRequisition && (
+                      <button
+                        type="button"
+                        onClick={() => onOpenPurchaseRequisition(selectedItem, selectedOrder, myApartado || 1)}
+                        className="w-full py-2 px-3 rounded-lg bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-95 shadow-md cursor-pointer"
+                      >
+                        <ShoppingCart className="w-4 h-4" />
+                        <span>Emitir Requisición a Compras (Solicitud OAB)</span>
+                      </button>
+                    )}
+                  </div>
+                )
+              ) : !isBlockedByOtherStores ? (
                 <div className={`p-2.5 rounded-xl border flex items-center gap-2 text-xs ${
                   cantidad <= myApartado && myApartado > 0
                     ? 'bg-emerald-950/30 border-emerald-500/30 text-emerald-300'
@@ -1462,6 +1932,28 @@ export const MaterialDispatchModal: React.FC<MaterialDispatchModalProps> = ({
                   )}
                 </div>
               )}
+
+              {/* Chips Táctiles de Líderes de Planta (Samuel Plasencia, Pedro Herrero, etc.) */}
+              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                <span className="text-[10px] text-slate-400 font-semibold">Acceso Rápido:</span>
+                {QUICK_OPERARIOS.map(name => {
+                  const isSelected = operarioReceptor.trim().toLowerCase() === name.toLowerCase();
+                  return (
+                    <button
+                      key={name}
+                      type="button"
+                      onClick={() => handleSelectOperario(name)}
+                      className={`px-2 py-0.5 rounded-lg text-[11px] font-medium transition border ${
+                        isSelected
+                          ? 'bg-brand-500/20 text-brand-300 border-brand-500/50 font-bold shadow-sm'
+                          : 'bg-surface hover:bg-surfaceHighest text-slate-300 border-borderSubtle hover:text-white'
+                      }`}
+                    >
+                      {name}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             <div className="space-y-1.5">
@@ -1538,6 +2030,7 @@ export const MaterialDispatchModal: React.FC<MaterialDispatchModalProps> = ({
               disabled={
                 isSubmitting || 
                 !selectedItem || 
+                currentStock <= 0 ||
                 isStockInsufficient || 
                 !operarioReceptor.trim() || 
                 (selectedOrder?.estado === 'Cerrado' && !isSupervisorBypassed) ||
@@ -1545,9 +2038,11 @@ export const MaterialDispatchModal: React.FC<MaterialDispatchModalProps> = ({
                 (isBlockedByOtherStores && (!isEmergencyLoanActive || !emergencyPinVerified || motivoEmergencia.trim().length < 15))
               }
               className={`flex items-center gap-2 px-6 py-2.5 text-xs font-bold rounded-xl transition disabled:opacity-50 shadow-lg active:scale-95 cursor-pointer disabled:cursor-not-allowed ${
-                isEmergencyLoanActive
-                  ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold shadow-amber-950/50'
-                  : 'bg-rose-500 hover:bg-rose-600 text-white'
+                currentStock <= 0
+                  ? 'bg-slate-800 text-slate-400 border border-slate-700'
+                  : isEmergencyLoanActive
+                    ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold shadow-amber-950/50'
+                    : 'bg-rose-500 hover:bg-rose-600 text-white'
               }`}
             >
               {isSubmitting ? (
@@ -1558,9 +2053,11 @@ export const MaterialDispatchModal: React.FC<MaterialDispatchModalProps> = ({
                 <ArrowUpRight className="w-4 h-4" />
               )}
               <span>
-                {isEmergencyLoanActive
-                  ? 'Autorizar Préstamo de Urgencia y Despachar'
-                  : 'Confirmar Salida Física (Asentar en Kardex)'
+                {currentStock <= 0
+                  ? 'Stock Físico Insuficiente en Almacén'
+                  : isEmergencyLoanActive
+                    ? 'Autorizar Préstamo de Urgencia y Despachar'
+                    : 'Confirmar Salida Física (Asentar en Kardex)'
                 }
               </span>
             </button>

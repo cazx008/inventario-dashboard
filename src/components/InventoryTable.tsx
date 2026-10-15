@@ -22,6 +22,8 @@ interface InventoryTableProps {
   onOpenStoreAllocations?: (item?: InventoryItem, alloc?: StoreAllocation) => void;
   onOpenDirectAllocate?: (item: InventoryItem) => void;
   onOpenReassignAlloc?: (alloc: StoreAllocation, item: InventoryItem) => void;
+  onDispatchAlloc?: (alloc: StoreAllocation, item: InventoryItem) => void;
+  onOpenRampaForAlloc?: (alloc: StoreAllocation, item: InventoryItem) => void;
   onReprintLabel?: (alloc: StoreAllocation, item: InventoryItem) => void;
   loading?: boolean;
   loadError?: boolean;
@@ -47,6 +49,8 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({
   onOpenStoreAllocations,
   onOpenDirectAllocate,
   onOpenReassignAlloc,
+  onDispatchAlloc,
+  onOpenRampaForAlloc,
   onReprintLabel,
   loading = false,
   loadError = false,
@@ -55,6 +59,7 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({
 }) => {
   const [collapsedGroups, setCollapsedGroups] = useState<string[]>([]);
   const [activePopoverId, setActivePopoverId] = useState<string | null>(null);
+  const [activePopoverRect, setActivePopoverRect] = useState<DOMRect | null>(null);
 
   const toggleGroupCollapse = (label: string) => {
     setCollapsedGroups(prev =>
@@ -203,7 +208,13 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  setActivePopoverId(isPopoverOpen ? null : row.id);
+                  if (isPopoverOpen) {
+                    setActivePopoverId(null);
+                    setActivePopoverRect(null);
+                  } else {
+                    setActivePopoverRect(e.currentTarget.getBoundingClientRect());
+                    setActivePopoverId(row.id);
+                  }
                 }}
                 className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-400 hover:text-amber-300 transition flex items-center gap-1 active:scale-95 shadow-sm"
                 title={`Ver reservas de tiendas para ${row.nombre}`}
@@ -219,7 +230,13 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  setActivePopoverId(isPopoverOpen ? null : row.id);
+                  if (isPopoverOpen) {
+                    setActivePopoverId(null);
+                    setActivePopoverRect(null);
+                  } else {
+                    setActivePopoverRect(e.currentTarget.getBoundingClientRect());
+                    setActivePopoverId(row.id);
+                  }
                 }}
                 className="font-mono text-slate-500 hover:text-slate-300 text-xs px-1.5 py-0.5 rounded hover:bg-slate-800 transition"
                 title="Sin reservas activas (clic para apartar)"
@@ -234,23 +251,41 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({
                 codigo={row.codigo}
                 stockBase={row.stockBase}
                 summary={sum}
+                anchorRect={activePopoverRect}
                 onOpenPanoramic={() => {
                   setActivePopoverId(null);
+                  setActivePopoverRect(null);
                   onOpenStoreAllocations?.(row);
                 }}
                 onDirectAllocate={() => {
                   setActivePopoverId(null);
+                  setActivePopoverRect(null);
                   onOpenDirectAllocate?.(row);
+                }}
+                onDispatchAlloc={(alloc) => {
+                  setActivePopoverId(null);
+                  setActivePopoverRect(null);
+                  onDispatchAlloc?.(alloc, row);
+                }}
+                onOpenRampaForAlloc={(alloc) => {
+                  setActivePopoverId(null);
+                  setActivePopoverRect(null);
+                  onOpenRampaForAlloc?.(alloc, row);
                 }}
                 onReassign={(alloc) => {
                   setActivePopoverId(null);
+                  setActivePopoverRect(null);
                   onOpenReassignAlloc?.(alloc, row);
                 }}
                 onReprintLabel={(alloc) => {
                   setActivePopoverId(null);
+                  setActivePopoverRect(null);
                   onReprintLabel?.(alloc, row);
                 }}
-                onClose={() => setActivePopoverId(null)}
+                onClose={() => {
+                  setActivePopoverId(null);
+                  setActivePopoverRect(null);
+                }}
               />
             )}
           </div>

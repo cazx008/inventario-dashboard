@@ -111,9 +111,10 @@ export async function loadInventoryData(): Promise<InventoryDataResponse> {
   let lastSyncDisplay = '—';
 
   try {
-    const [invRes, metaRes] = await Promise.all([
+    const [invRes, metaRes, catalogRes] = await Promise.all([
       fetch(`data/inventory.json?t=${ts}`).catch(() => null),
       fetch(`data/meta.json?t=${ts}`).catch(() => null),
+      fetch(`/api/catalog/items?t=${ts}`).catch(() => null),
     ]);
 
     if (invRes && invRes.ok) {
@@ -131,9 +132,94 @@ export async function loadInventoryData(): Promise<InventoryDataResponse> {
         lastSyncDisplay = new Date(metaData.lastSync).toLocaleString('es-VE');
       }
     }
+
+    // Hidratación Dinámica en Edge (PLAN-013 / Decisión 1 - Ruta A):
+    // Inyectar insumos de Notion no presentes en el snapshot estático (441+ items)
+    if (catalogRes && catalogRes.ok) {
+      try {
+        const catData = await catalogRes.json();
+        const catItems = Array.isArray(catData.items) ? catData.items : [];
+        if (catItems.length > 0) {
+          const itemKeyMap = new Map<string, InventoryItem>();
+          items.forEach(it => {
+            if (it.id) itemKeyMap.set(it.id, it);
+            if (it.insumoId) itemKeyMap.set(it.insumoId, it);
+            if (it.codigo) itemKeyMap.set(it.codigo.toUpperCase().trim(), it);
+            if (it.nombre) itemKeyMap.set(it.nombre.toLowerCase().trim(), it);
+          });
+
+          for (const cItem of catItems) {
+            const cSku = (cItem.codigo || '').toUpperCase().trim();
+            const cNom = (cItem.nombre || '').toLowerCase().trim();
+            const match = (cItem.id && itemKeyMap.get(cItem.id)) ||
+                          (cItem.insumoId && itemKeyMap.get(cItem.insumoId)) ||
+                          (cSku && itemKeyMap.get(cSku)) ||
+                          (cNom && itemKeyMap.get(cNom));
+
+            if (match) {
+              if (cItem.stockBase !== undefined && cItem.stockBase !== null) {
+                if (match.stockBase === 0 && cItem.stockBase > 0) {
+                  match.stockBase = cItem.stockBase;
+                }
+              }
+              if (cItem.costoUnitarioUSD && (!match.costoUnitarioUSD || match.costoUnitarioUSD <= 0)) {
+                match.costoUnitarioUSD = cItem.costoUnitarioUSD;
+              }
+              if (cItem.codigo && !match.codigo) match.codigo = cItem.codigo;
+              if (cItem.insumoId && !match.insumoId) match.insumoId = cItem.insumoId;
+              if (cItem.dashboardId && !match.dashboardId) match.dashboardId = cItem.dashboardId;
+            } else if (cItem.nombre && cItem.nombre !== 'Insumo sin Nombre') {
+              const baseStk = cItem.stockBase || 0;
+              const minStk = cItem.stockMinimo || 0;
+              const def = Math.max(0, minStk - baseStk);
+              const estStk = cItem.estadoStock || (baseStk === 0 ? 'Sin Stock' : (baseStk < minStk ? 'Bajo Mínimo' : 'En Stock'));
+
+              const mapped: InventoryItem = {
+                id: cItem.dashboardId || cItem.id,
+                insumoId: cItem.insumoId || cItem.id,
+                dashboardId: cItem.dashboardId || cItem.id,
+                nombre: cItem.nombre,
+                codigo: cItem.codigo || '',
+                marca: cItem.marca || '',
+                categoriaMaterial: cItem.categoria || 'General',
+                rolMaterial: cItem.rolMaterial || 'Materia Prima',
+                unidad: cItem.unidad || 'UND',
+                stockBase: baseStk,
+                stockMinimo: minStk,
+                deficit: def,
+                estadoStock: estStk,
+                estadoStockColor: estStk === 'Sin Stock' ? 'red' : (estStk === 'Bajo Mínimo' ? 'orange' : 'green'),
+                prioridad: baseStk < minStk ? 'Alta' : 'Media',
+                prioridadColor: 'orange',
+                costoUnitarioUSD: cItem.costoUnitarioUSD || 0,
+                color: cItem.color || '',
+                dimensiones: cItem.dimensiones || '',
+                enTransitoOAB: 0,
+                stockProyectado: baseStk,
+                stockApartado: 0,
+                stockLibre: baseStk,
+                contando: cItem.contando,
+                ubicacion: cItem.ubicacion || '',
+                isOptimisticSync: false
+              };
+              items.push(mapped);
+              if (mapped.id) itemKeyMap.set(mapped.id, mapped);
+              if (mapped.insumoId) itemKeyMap.set(mapped.insumoId, mapped);
+              if (cSku) itemKeyMap.set(cSku, mapped);
+              if (cNom) itemKeyMap.set(cNom, mapped);
+            }
+          }
+        }
+      } catch (catErr) {
+        console.warn('Error procesando catálogo maestro en loadInventoryData:', catErr);
+      }
+    }
   } catch (err) {
     console.warn('Fallo cargando data estática local:', err);
   }
+
+  // Actualizar KPI total con la cantidad real de ítems
+  kpis.total = items.length;
 
   // Leer sobreescrituras locales recientes de ajustes físicos y costos (Fase 9H/9I - Decisión D5)
   const overrides = typeof window !== 'undefined' ? getStockOverrides() : {};
@@ -384,8 +470,12 @@ export interface StoreAllocation {
   dashboardId: string;
   insumoId: string;
   insumoNombre: string;
+  materialNombre?: string;
   codigo: string;
+  pedidoId?: string;
+  pedidoCodigo?: string;
   proyectoId: string;
+  proyectoCodigo?: string;
   proyectoNombre: string;
   cantidadApartada: number;
   cantidadTransito: number;
@@ -396,6 +486,8 @@ export interface StoreAllocation {
   desgloseBultos?: number[];
   bultos?: number;
   cantEnBulto?: number;
+  estado?: 'ACTIVA' | 'CONCLUIDA';
+  archived?: boolean;
   updatedAt: number;
 }
 
@@ -555,5 +647,26 @@ export async function reconcileAllocations(applyFix: boolean = false, token?: st
 
   return res.json();
 }
+
+/**
+ * Invalida de forma atómica la caché de Edge KV y sincroniza datos en caliente (PLAN-013 - Decisión 3)
+ */
+export async function forceRevalidateNotion(): Promise<{ ok: boolean; message?: string }> {
+  try {
+    const res = await fetch('/api/inventory/revalidate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
+    const data = await res.json();
+    return { ok: true, message: data.message };
+  } catch (err: any) {
+    console.warn('Error revalidando inventario en caliente:', err);
+    return { ok: false, message: err.message || 'Error de conexión al revalidar' };
+  }
+}
+
 
 

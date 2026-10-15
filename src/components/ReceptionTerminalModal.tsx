@@ -15,7 +15,13 @@ import {
   Search,
   Plus,
   Tag,
-  FolderKanban
+  FolderKanban,
+  Scissors,
+  ShieldAlert,
+  KeyRound,
+  Loader2,
+  Package,
+  AlertTriangle
 } from 'lucide-react';
 import { OABLineItem, OrderReference } from '../types/oab';
 import { OrderSearchModal } from './OrderSearchModal';
@@ -84,6 +90,15 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
   const [isOrderSearchOpen, setIsOrderSearchOpen] = useState<boolean>(false);
   const [drawerOpen, setDrawerOpen] = useState<boolean>(false);
   const [activeDrawerItemIdx, setActiveDrawerItemIdx] = useState<number | null>(null);
+
+  // Estados para Rectificación y Autorización PIN de Supervisor (PLAN-012)
+  const [showSupervisorAuthModal, setShowSupervisorAuthModal] = useState<boolean>(false);
+  const [supervisorEmployees, setSupervisorEmployees] = useState<any[]>([]);
+  const [selectedSupervisorId, setSelectedSupervisorId] = useState<string>('');
+  const [supervisorPinInput, setSupervisorPinInput] = useState<string>('');
+  const [supervisorAuthError, setSupervisorAuthError] = useState<string | null>(null);
+  const [isVerifyingSupervisorPin, setIsVerifyingSupervisorPin] = useState<boolean>(false);
+  const [verifiedSupervisorData, setVerifiedSupervisorData] = useState<{ id: string; name: string } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -161,9 +176,107 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
     }).catch(() => {
       setSelectedFolio('');
       setSelectedOabId(undefined);
-      setItemsToReceive([]);
     });
+    setShowSupervisorAuthModal(false);
+    setSelectedSupervisorId('');
+    setSupervisorPinInput('');
+    setSupervisorAuthError(null);
+    setVerifiedSupervisorData(null);
   }, [isOpen]);
+
+  // Cargar catálogo de supervisores para autorización de cambios en rampa
+  useEffect(() => {
+    if (showSupervisorAuthModal && supervisorEmployees.length === 0) {
+      fetch('/api/auth/employees')
+        .then(r => r.json())
+        .then(data => {
+          if (data.status === 'success' && data.employees) {
+            setSupervisorEmployees(data.employees);
+            const defaultSup = data.employees.find((e: any) => e.name.toLowerCase().includes('mikel') && e.hasPin) ||
+                               data.employees.find((e: any) => e.hasPin);
+            if (defaultSup) setSelectedSupervisorId(defaultSup.id);
+            else if (data.employees.length > 0) setSelectedSupervisorId(data.employees[0].id);
+          }
+        })
+        .catch(err => console.warn('Error cargando supervisores:', err));
+    }
+  }, [showSupervisorAuthModal, supervisorEmployees.length]);
+
+  // Funciones de Rectificación de Destinos y Split en Rampa (PLAN-012)
+  const isLineRectified = (item: OABLineItem): boolean => {
+    if (item.isSplitChild) return true;
+    const orig = (item.originalProyectoNombre || '').trim().toLowerCase();
+    const curr = (item.proyectoNombre || '').trim().toLowerCase();
+    const isOrigStk = !orig || orig.includes('stock general') || orig.includes('stock fábrica') || orig.includes('stock fabrica');
+    const isCurrStk = !curr || curr.includes('stock general') || curr.includes('stock fábrica') || curr.includes('stock fabrica');
+    if (isOrigStk && isCurrStk) return false;
+    return orig !== curr;
+  };
+
+  const rectifiedItems = itemsToReceive.filter(isLineRectified);
+  const hasRectifications = rectifiedItems.length > 0;
+
+  // Fraccionar destino de una línea recibida (PLAN-012)
+  const handleSplitDestination = (idx: number) => {
+    const item = itemsToReceive[idx];
+    const currentQty = item.cantidadRecibidaHoy ?? item.cantidadRecibida ?? 1;
+    if (currentQty <= 1) {
+      alert(`Para dividir el destino de "${item.nombre}", la cantidad recibida debe ser mayor a 1 (actual: ${currentQty}).`);
+      return;
+    }
+
+    const half = Math.floor(currentQty / 2);
+    const splitQtyInput = prompt(
+      `Dividir destino para: ${item.nombre}\nCantidad actual recibida: ${currentQty} ${item.unidadMedida || 'und'}\n\nIndica cuántas unidades separar para el nuevo renglón hijo:`,
+      String(half)
+    );
+
+    if (!splitQtyInput) return;
+    const splitQty = parseInt(splitQtyInput, 10);
+    if (isNaN(splitQty) || splitQty <= 0 || splitQty >= currentQty) {
+      alert(`La cantidad a separar debe ser un número entero entre 1 y ${currentQty - 1}.`);
+      return;
+    }
+
+    const remainingQty = currentQty - splitQty;
+
+    const updatedParent: OABLineItem = {
+      ...item,
+      cantidadRecibida: remainingQty,
+      cantidadRecibidaHoy: remainingQty,
+      cantEnBulto: Math.max(1, Math.min(item.cantEnBulto || remainingQty, remainingQty)),
+      subtotalUSD: remainingQty * (item.costoUnitarioUSD || 0)
+    };
+
+    const newChild: OABLineItem = {
+      ...item,
+      id: `${item.id || 'split'}_child_${Date.now()}`,
+      cantidadRecibida: splitQty,
+      cantidadRecibidaHoy: splitQty,
+      cantidadAprobada: splitQty,
+      cantidadSolicitada: splitQty,
+      bultos: 1,
+      cantEnBulto: splitQty,
+      subtotalUSD: splitQty * (item.costoUnitarioUSD || 0),
+      isSplitChild: true,
+      originalProyectoNombre: item.originalProyectoNombre || item.proyectoNombre,
+      originalPedidoId: item.originalPedidoId || item.pedidoId,
+      pedidoId: undefined,
+      proyectoId: undefined,
+      proyectoNombre: undefined,
+      rotularEtiqueta: true
+    };
+
+    setItemsToReceive(prev => {
+      const copy = [...prev];
+      copy[idx] = updatedParent;
+      copy.splice(idx + 1, 0, newChild);
+      return copy;
+    });
+
+    setActiveLineIdxForOrder(idx + 1);
+    setIsOrderSearchOpen(true);
+  };
 
   const handleSelectOAB = async (folio: string) => {
     setSelectedFolio(folio);
@@ -212,7 +325,7 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
         prioridad: item.prioridad || 'Media',
         codigo: item.codigo,
         categoriaMaterial: item.categoriaMaterial,
-        rotularEtiqueta: false,
+        rotularEtiqueta: true,
         bultos: 1,
         cantEnBulto: 1
       };
@@ -276,7 +389,9 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
             pedidoId: line.pedidoId,
             proyectoId: line.proyectoId,
             proyectoNombre: line.proyectoNombre,
-            rotularEtiqueta: Boolean(line.proyectoNombre && !line.proyectoNombre.toLowerCase().includes('stock general') && !line.proyectoNombre.toLowerCase().includes('stock fábrica') && !line.proyectoNombre.toLowerCase().includes('stock fabrica')),
+            originalPedidoId: line.pedidoId,
+            originalProyectoNombre: line.proyectoNombre,
+            rotularEtiqueta: true,
             bultos: 1,
             cantEnBulto: pendingBalance > 0 ? pendingBalance : 1
           };
@@ -412,11 +527,11 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
     });
   };
 
-  // Handlers ergonómicos de rotulado y bultos (Micro-Fase 10B)
+  // Handlers ergonómicos de rotulado y bultos (Micro-Fase 10B / PLAN-012)
   const handleToggleRotulado = (idx: number) => {
     setItemsToReceive(prev => {
       const copy = [...prev];
-      const current = copy[idx].rotularEtiqueta ?? Boolean(copy[idx].proyectoNombre);
+      const current = copy[idx].rotularEtiqueta !== false;
       copy[idx] = { ...copy[idx], rotularEtiqueta: !current };
       return copy;
     });
@@ -504,12 +619,12 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
     });
   };
 
-  // Helper para construir la lista de etiquetas a partir de los ítems actuales
+  // Helper para construir la lista de etiquetas a partir de los ítems actuales (Rotulado Universal PLAN-012)
   const buildLabelsFromCurrentItems = (): ProjectLabelItem[] => {
     const activeFolio = selectedFolio || manualFolioInput || `RAMPA-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}`;
     const generatedLabels: ProjectLabelItem[] = [];
     itemsToReceive.forEach(l => {
-      const isRotular = l.rotularEtiqueta ?? Boolean(l.proyectoNombre);
+      const isRotular = l.rotularEtiqueta !== false;
       const receivedToday = l.cantidadRecibidaHoy ?? l.cantidadRecibida ?? 0;
       if (isRotular && receivedToday > 0) {
         const approved = l.cantidadAprobada || l.cantidadSolicitada || receivedToday;
@@ -529,7 +644,7 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
           categoria: l.categoriaMaterial,
           folioOAB: activeFolio,
           fechaRecepcion,
-          proyectoNombre: l.proyectoNombre || 'Stock Fábrica',
+          proyectoNombre: l.proyectoNombre || '📦 STOCK GENERAL / FÁBRICA',
           cantidadRecibidaHoy: receivedToday,
           cantidadTotalAprobada: approved,
           backorderPendiente: pending,
@@ -555,25 +670,15 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
     setShowLabelModal(true);
   };
 
-  // Confirmar recepción con tolerancia a fallas y soporte offline
-  const handleConfirmReception = async () => {
-    if (!notaEntrega.trim()) {
-      setValidationError('Por favor indica el Número de Nota de Entrega física o pulsa el botón [Sin Guía (S/N)].');
-      return;
-    }
-
-    if (itemsToReceive.length === 0) {
-      setValidationError('Debe haber al menos un material activo para asentar la recepción.');
-      return;
-    }
-    setValidationError(null);
-
+  // Ejecución atómica de confirmación de recepción con tolerancia a fallas y soporte offline
+  const executeConfirmReception = async (supervisorAuthData?: { id: string; name: string }) => {
     setIsProcessing(true);
     setErrorMessage(null);
 
     const activeFolio = selectedFolio || manualFolioInput || `RAMPA-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}`;
     const cleanNota = notaEntrega.trim();
     const isDeviceOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
+    
     // Subida pericial a Cloudflare R2 con backoff exponencial si estamos online y hay captura de foto
     let r2EvidenceUrl: string | undefined = undefined;
     let fotoPendienteSync = false;
@@ -593,6 +698,13 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
       }
     }
 
+    const authToUse = supervisorAuthData || verifiedSupervisorData;
+    const formattedSupervisorAuth = authToUse ? {
+      supervisorId: authToUse.id,
+      supervisorName: authToUse.name,
+      authorizedAt: new Date().toISOString()
+    } : undefined;
+
     const payload: RegisterReceptionPayload = {
       folioOAB: activeFolio,
       oabId: selectedOabId,
@@ -604,6 +716,7 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
       numeroFacturaFiscal: numeroFacturaFiscal.trim() || undefined,
       numeroControlFiscal: numeroControlFiscal.trim() || undefined,
       fotoPendienteSync: fotoPendienteSync || undefined,
+      supervisorAuth: formattedSupervisorAuth,
       items: itemsToReceive.map(l => ({
         solicitudId: l.id,
         dashboardId: l.dashboardId,
@@ -622,13 +735,16 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
         pedidoId: l.pedidoId,
         proyectoId: l.proyectoId,
         proyectoNombre: l.proyectoNombre,
+        originalProyectoNombre: l.originalProyectoNombre,
+        originalPedidoId: l.originalPedidoId,
+        isSplitChild: l.isSplitChild,
         bultos: l.bultos,
         cantEnBulto: l.cantEnBulto,
         desgloseBultos: l.desgloseBultos
       }))
     };
 
-    // Preparar etiquetas físicas para impresión (Micro-Fase 10B)
+    // Preparar etiquetas físicas universales para impresión (Micro-Fase 10B / PLAN-012)
     const generatedLabels = buildLabelsFromCurrentItems();
     setLabelsToPrint(generatedLabels);
 
@@ -674,6 +790,78 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
       }
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  // Compuerta previa: Si hay rectificaciones de destino respecto a la OAB original, exige PIN de supervisor
+  const handlePreConfirmReception = () => {
+    if (!notaEntrega.trim()) {
+      setValidationError('Por favor indica el Número de Nota de Entrega física o pulsa el botón [Sin Guía (S/N)].');
+      return;
+    }
+
+    if (itemsToReceive.length === 0) {
+      setValidationError('Debe haber al menos un material activo para asentar la recepción.');
+      return;
+    }
+    setValidationError(null);
+
+    // Si existen rectificaciones de destino y aún no han sido autorizadas por supervisor con PIN
+    if (hasRectifications && !verifiedSupervisorData) {
+      setShowSupervisorAuthModal(true);
+      return;
+    }
+
+    executeConfirmReception();
+  };
+
+  // Verificación de PIN de supervisor en /api/auth/pin-verify (PLAN-012)
+  const handleVerifySupervisorPinAndSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!selectedSupervisorId) {
+      setSupervisorAuthError('Por favor selecciona el supervisor que autoriza.');
+      return;
+    }
+    if (!supervisorPinInput || supervisorPinInput.trim().length < 4) {
+      setSupervisorAuthError('Ingresa el PIN numérico de 4 dígitos del supervisor.');
+      return;
+    }
+
+    setIsVerifyingSupervisorPin(true);
+    setSupervisorAuthError(null);
+
+    try {
+      const res = await fetch('/api/auth/pin-verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          employeeId: selectedSupervisorId,
+          pin: supervisorPinInput.trim()
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok || data.status !== 'authenticated') {
+        setSupervisorAuthError(data.error || 'PIN incorrecto o supervisor no autorizado.');
+        setIsVerifyingSupervisorPin(false);
+        return;
+      }
+
+      const supData = {
+        id: data.employee.id,
+        name: data.employee.name
+      };
+
+      setVerifiedSupervisorData(supData);
+      setShowSupervisorAuthModal(false);
+      setIsVerifyingSupervisorPin(false);
+      setSupervisorPinInput('');
+
+      // Proceder con el asiento inmediato pasando la autorización confirmada
+      await executeConfirmReception(supData);
+    } catch (err: any) {
+      setSupervisorAuthError(`Error verificando PIN con el servidor: ${err.message}`);
+      setIsVerifyingSupervisorPin(false);
     }
   };
 
@@ -1238,13 +1426,13 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
                       </div>
                     </div>
 
-                    {/* Barra Ergonómica de Rotulado de Proyecto / Bultos (Micro-Fase 10B / Fase 11.3) */}
+                    {/* Barra Ergonómica de Rotulado de Proyecto / Bultos y Rectificación en Rampa (PLAN-012) */}
                     <div className="mt-2.5 pt-2 border-t border-borderSubtle/60 flex flex-wrap items-center justify-between gap-2 bg-surface/50 p-2 rounded">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-slate-200">
                           <input
                             type="checkbox"
-                            checked={item.rotularEtiqueta ?? Boolean(item.proyectoNombre && !item.proyectoNombre.toLowerCase().includes('stock general') && !item.proyectoNombre.toLowerCase().includes('stock fábrica') && !item.proyectoNombre.toLowerCase().includes('stock fabrica'))}
+                            checked={item.rotularEtiqueta !== false}
                             onChange={() => handleToggleRotulado(idx)}
                             className="rounded border-borderSubtle text-brand-500 focus:ring-0"
                           />
@@ -1252,7 +1440,7 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
                           <span>Rotular Etiqueta</span>
                         </label>
                         {item.proyectoNombre && !item.proyectoNombre.toLowerCase().includes('stock general') && !item.proyectoNombre.toLowerCase().includes('stock fábrica') && !item.proyectoNombre.toLowerCase().includes('stock fabrica') ? (
-                          <div className="flex items-center gap-1 bg-brand-500/20 text-brand-300 border border-brand-500/30 px-2 py-0.5 rounded font-mono text-[10px] font-bold">
+                          <div className="flex items-center gap-1.5 bg-brand-500/20 text-brand-300 border border-brand-500/30 px-2 py-0.5 rounded font-mono text-[10px] font-bold">
                             <span>Obra: {item.proyectoNombre}</span>
                             <button
                               type="button"
@@ -1260,31 +1448,83 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
                                 setActiveLineIdxForOrder(idx);
                                 setIsOrderSearchOpen(true);
                               }}
-                              className="p-0.5 text-slate-300 hover:text-white rounded hover:bg-brand-500/30 transition"
-                              title="Cambiar o reasignar obra en rampa"
+                              className="px-1 py-0.5 text-slate-300 hover:text-white rounded hover:bg-brand-500/30 transition flex items-center gap-1"
+                              title="Cambiar o reasignar destino en rampa"
                             >
-                              <FolderKanban className="w-3.5 h-3.5 text-brand-300" />
+                              <FolderKanban className="w-3 h-3 text-brand-300" />
+                              <span className="text-[9px]">Cambiar</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setItemsToReceive(prev => {
+                                  const copy = [...prev];
+                                  copy[idx] = {
+                                    ...copy[idx],
+                                    proyectoNombre: undefined,
+                                    pedidoId: undefined,
+                                    proyectoId: undefined,
+                                    rotularEtiqueta: true
+                                  };
+                                  return copy;
+                                });
+                              }}
+                              className="p-0.5 text-red-400 hover:text-red-200 rounded hover:bg-red-500/20 transition"
+                              title="Quitar obra y reclasificar a Stock General (MTS)"
+                            >
+                              <X className="w-3 h-3" />
                             </button>
                           </div>
                         ) : (
-                          <div className="flex items-center gap-1.5 bg-slate-800 text-slate-400 border border-slate-700 px-2 py-0.5 rounded font-mono text-[10px]">
-                            <span>📦 Stock Fábrica</span>
+                          <div className="flex items-center gap-1.5 bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded font-mono text-[10px]">
+                            <Package className="w-3 h-3 text-emerald-400" />
+                            <span className="font-semibold text-emerald-300">📦 Stock General (MTS)</span>
                             <button
                               type="button"
                               onClick={() => {
                                 setActiveLineIdxForOrder(idx);
                                 setIsOrderSearchOpen(true);
                               }}
-                              className="px-1.5 py-0.5 text-[9px] text-brand-400 hover:text-brand-300 rounded border border-brand-500/30 bg-brand-500/10 transition"
+                              className="px-1.5 py-0.5 text-[9px] text-brand-300 hover:text-white rounded border border-brand-500/30 bg-brand-500/10 hover:bg-brand-500/20 transition"
                               title="Asignar a una obra o pedido antes de recibir"
                             >
                               + Asignar Obra
                             </button>
                           </div>
                         )}
+
+                        {/* Badges de Rectificación y Split (PLAN-012) */}
+                        {isLineRectified(item) && (
+                          <span
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                            title={`Destino modificado en rampa. Original: ${item.originalProyectoNombre || 'Stock General (MTS)'}`}
+                          >
+                            <AlertTriangle className="w-2.5 h-2.5 text-amber-400" />
+                            <span>Rectificado</span>
+                          </span>
+                        )}
+                        {item.isSplitChild && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40">
+                            <Scissors className="w-2.5 h-2.5 text-purple-400" />
+                            <span>Fracción</span>
+                          </span>
+                        )}
+
+                        {/* Botón Fraccionar / Split Destino (PLAN-012) */}
+                        {(item.cantidadRecibidaHoy ?? item.cantidadRecibida ?? 1) > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleSplitDestination(idx)}
+                            className="flex items-center gap-1 px-2 py-0.5 text-[9px] font-bold text-purple-300 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 rounded transition active:scale-95"
+                            title="Dividir cantidad entre dos obras o entre obra y Stock General"
+                          >
+                            <Scissors className="w-3 h-3 text-purple-400" />
+                            <span>Dividir Destino</span>
+                          </button>
+                        )}
                       </div>
 
-                      {(item.rotularEtiqueta ?? Boolean(item.proyectoNombre)) && (() => {
+                      {(item.rotularEtiqueta !== false) && (() => {
                         const received = item.cantidadRecibidaHoy ?? item.cantidadRecibida ?? 1;
                         const std = Math.max(1, item.cantEnBulto || Math.ceil(received / (item.bultos || 1)));
                         const hasCustomDesglose = Boolean(item.desgloseBultos && item.desgloseBultos.length > 0);
@@ -1408,7 +1648,17 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {hasRectifications && (
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-300">
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <span>
+                      {verifiedSupervisorData
+                        ? `✓ Autorizado por: ${verifiedSupervisorData.name}`
+                        : `⚠️ ${rectifiedItems.length} destino(s) rectificado(s) — Requiere PIN`}
+                    </span>
+                  </div>
+                )}
                 <button
                   type="button"
                   onClick={onClose}
@@ -1416,12 +1666,12 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
                 >
                   Cancelar
                 </button>
-                {itemsToReceive.some(l => l.rotularEtiqueta || l.proyectoNombre) && (
+                {itemsToReceive.some(l => l.rotularEtiqueta !== false) && (
                   <button
                     type="button"
                     onClick={handlePreviewLabels}
                     className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-brand-300 bg-brand-500/10 hover:bg-brand-500/20 border border-brand-500/30 rounded-lg transition active:scale-95"
-                    title="Previsualizar e imprimir etiquetas físicas MTO antes de asentar"
+                    title="Previsualizar e imprimir etiquetas físicas universales antes de asentar"
                   >
                     <Tag className="w-3.5 h-3.5 text-brand-400" />
                     <span>Previsualizar Etiquetas</span>
@@ -1429,7 +1679,7 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
                 )}
                 <button
                   type="button"
-                  onClick={handleConfirmReception}
+                  onClick={handlePreConfirmReception}
                   disabled={isProcessing || itemsToReceive.length === 0}
                   className="flex items-center gap-2 px-5 py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold rounded-lg text-xs transition shadow active:scale-95 disabled:opacity-50"
                 >
@@ -1437,8 +1687,16 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
                     <span>Procesando entrada...</span>
                   ) : (
                     <>
-                      <Check className="w-4 h-4" />
-                      <span>Confirmar Recepción y Asentar en Kardex</span>
+                      {hasRectifications && !verifiedSupervisorData ? (
+                        <ShieldAlert className="w-4 h-4 text-emerald-950" />
+                      ) : (
+                        <Check className="w-4 h-4" />
+                      )}
+                      <span>
+                        {hasRectifications && !verifiedSupervisorData
+                          ? 'Autorizar Cambios y Asentar en Kardex'
+                          : 'Confirmar Recepción y Asentar en Kardex'}
+                      </span>
                     </>
                   )}
                 </button>
@@ -1467,6 +1725,16 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
             if (activeLineIdxForOrder !== null) {
               setItemsToReceive(prev => prev.map((it, idx) => {
                 if (idx === activeLineIdxForOrder) {
+                  const isStk = !order.id || order.codigo === 'STK' || (order.proyecto && order.proyecto.toLowerCase().includes('stock general'));
+                  if (isStk) {
+                    return {
+                      ...it,
+                      pedidoId: undefined,
+                      proyectoId: undefined,
+                      proyectoNombre: undefined,
+                      rotularEtiqueta: true
+                    };
+                  }
                   return {
                     ...it,
                     pedidoId: order.id,
@@ -1499,6 +1767,149 @@ export const ReceptionTerminalModal: React.FC<ReceptionTerminalModalProps> = ({
           initialDesglose={itemsToReceive[activeDrawerItemIdx].desgloseBultos}
           onApplyDesglose={handleApplyDesglose}
         />
+      )}
+
+      {/* Modal de Autorización por PIN de Supervisor para Rectificación en Rampa (PLAN-012) */}
+      {showSupervisorAuthModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85 backdrop-blur-sm p-4">
+          <div className="bg-surfaceHigh border border-amber-500/40 rounded-xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
+            {/* Cabecera */}
+            <div className="px-5 py-3.5 bg-amber-500/10 border-b border-amber-500/20 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                  <ShieldAlert className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
+                    <span>Autorización de Supervisor Requerida</span>
+                  </h3>
+                  <p className="text-[11px] text-amber-300/90 font-mono">
+                    Rectificación de destinos / Fraccionamiento en Rampa
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSupervisorAuthModal(false);
+                  setSupervisorAuthError(null);
+                  setSupervisorPinInput('');
+                }}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-surface transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Contenido */}
+            <div className="p-5 space-y-4">
+              <div className="p-3 bg-surface border border-borderSubtle rounded-lg text-xs text-slate-300 space-y-1.5">
+                <p className="font-semibold text-amber-300 flex items-center gap-1.5">
+                  <AlertTriangle className="w-4 h-4 text-amber-400" />
+                  <span>Desviación detectada respecto a la OAB original:</span>
+                </p>
+                <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1 font-mono text-[11px]">
+                  {rectifiedItems.map((ritem, rIdx) => {
+                    const orig = ritem.originalProyectoNombre || 'Stock General (MTS)';
+                    const curr = ritem.proyectoNombre || 'Stock General (MTS)';
+                    return (
+                      <div key={rIdx} className="p-1.5 rounded bg-surfaceHigh border border-borderSubtle flex items-center justify-between gap-2">
+                        <span className="text-slate-200 font-sans font-medium truncate">{ritem.nombre}</span>
+                        <div className="flex items-center gap-1.5 text-[10px] shrink-0">
+                          <span className="text-slate-400">{orig}</span>
+                          <ArrowRight className="w-3 h-3 text-amber-400" />
+                          <span className="text-emerald-300 font-bold">{curr}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <form onSubmit={handleVerifySupervisorPinAndSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Supervisor que autoriza:
+                  </label>
+                  <select
+                    value={selectedSupervisorId}
+                    onChange={(e) => setSelectedSupervisorId(e.target.value)}
+                    className="w-full px-3 py-2 text-xs bg-surface border border-borderSubtle rounded-lg text-slate-100 focus:outline-none focus:border-amber-400"
+                  >
+                    {supervisorEmployees.length === 0 ? (
+                      <option value="">Cargando supervisores...</option>
+                    ) : (
+                      supervisorEmployees.map((emp) => (
+                        <option key={emp.id} value={emp.id}>
+                          {emp.name} {emp.puesto ? `(${emp.puesto})` : ''}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center justify-between">
+                    <span>PIN de Autorización (4 dígitos):</span>
+                    <span className="text-[10px] text-slate-500 font-mono">Confidencial</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={4}
+                      autoFocus
+                      placeholder="••••"
+                      value={supervisorPinInput}
+                      onChange={(e) => setSupervisorPinInput(e.target.value.replace(/[^0-9]/g, '').slice(0, 4))}
+                      className="w-full text-center tracking-[0.5em] font-mono text-xl py-2 px-3 bg-surface border border-borderSubtle rounded-lg text-amber-300 focus:outline-none focus:border-amber-400 placeholder-slate-600"
+                    />
+                    <KeyRound className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                  </div>
+                </div>
+
+                {supervisorAuthError && (
+                  <div className="p-2.5 rounded bg-red-500/10 border border-red-500/30 text-xs text-red-300 flex items-center gap-2">
+                    <AlertOctagon className="w-4 h-4 text-red-400 shrink-0" />
+                    <span>{supervisorAuthError}</span>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-end gap-2.5 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowSupervisorAuthModal(false);
+                      setSupervisorAuthError(null);
+                      setSupervisorPinInput('');
+                    }}
+                    className="px-3 py-2 text-xs text-slate-400 hover:text-slate-200 transition rounded"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isVerifyingSupervisorPin || supervisorPinInput.length < 4}
+                    className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-lg text-xs transition shadow active:scale-95 disabled:opacity-50"
+                  >
+                    {isVerifyingSupervisorPin ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Verificando PIN...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4" />
+                        <span>Autorizar y Asentar Kardex</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

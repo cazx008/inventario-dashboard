@@ -190,7 +190,16 @@ export async function onRequest(context) {
       let matchedMat = dashRel ? dashboardToMat[dashRel] : null;
 
       if (!matchedMat) {
-        // Fallback por código interno en descripción o detalle
+        // 1. Fallback prioritario por etiqueta estructurada [SKU:...]
+        const skuMatch = (detalle + ' ' + descTitle).match(/\[SKU:\s*([^\]]+)\]/i);
+        if (skuMatch && skuMatch[1]) {
+          const rawSku = skuMatch[1].trim().toUpperCase();
+          matchedMat = codeToMat[rawSku] || (bomIndex.insumos && bomIndex.insumos[rawSku] ? rawSku : null);
+        }
+      }
+
+      if (!matchedMat) {
+        // 2. Fallback por código interno en descripción o detalle
         for (const [iCode, vCode] of Object.entries(codeToMat)) {
           if (descTitle.toUpperCase().includes(iCode) || detalle.toUpperCase().includes(iCode)) {
             matchedMat = vCode;

@@ -8,6 +8,13 @@ interface PrintSheetOABProps {
   header: OABHeader;
   lineas: OABLineItem[];
   onClose: () => void;
+  isApprovedVersion?: boolean;
+  approvedDetails?: {
+    proveedor?: string;
+    cotizacion?: string;
+    fechaEstimadaEntrega?: string;
+    notasCompras?: string;
+  };
 }
 
 type PriorityType = 'Urgente' | 'Alta' | 'Media' | 'Baja' | 'Por Pedido';
@@ -79,7 +86,9 @@ const PRIORITY_META: Record<PriorityType, {
 export const PrintSheetOAB: React.FC<PrintSheetOABProps> = ({
   header,
   lineas,
-  onClose
+  onClose,
+  isApprovedVersion = false,
+  approvedDetails
 }) => {
   const [qrUrl, setQrUrl] = useState<string>('');
   const printSheetRef = useRef<HTMLDivElement>(null);
@@ -176,7 +185,7 @@ export const PrintSheetOAB: React.FC<PrintSheetOABProps> = ({
       <html lang="es">
         <head>
           <meta charset="UTF-8" />
-          <title>Hoja Viajera OAB - ${header.folio}</title>
+          <title>Hoja Viajera OAB - ${header.folio}${isApprovedVersion ? ' (Aprobada)' : ''}</title>
           <script src="https://cdn.tailwindcss.com"></script>
           <style>
             @page {
@@ -237,6 +246,15 @@ export const PrintSheetOAB: React.FC<PrintSheetOABProps> = ({
           <div className="flex items-center gap-2">
             <span className="text-sm font-bold font-mono text-brand-400">{header.folio}</span>
             <span className="text-xs text-slate-400 hidden sm:inline">— Hoja Viajera Carta (Letter 8.5" x 11")</span>
+            {isApprovedVersion ? (
+              <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded font-bold uppercase tracking-wider">
+                ✓ Versión Aprobada
+              </span>
+            ) : (
+              <span className="text-[10px] bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded font-medium">
+                Versión Original en Blanco
+              </span>
+            )}
           </div>
 
           {/* Selector de orden dinámico */}
@@ -298,16 +316,21 @@ export const PrintSheetOAB: React.FC<PrintSheetOABProps> = ({
         <div ref={printSheetRef} className="p-6 sm:p-8 print:p-0 text-xs font-sans w-full max-w-[215.9mm] mx-auto">
           
           {/* Header Formal */}
-          <div className="flex items-start justify-between border-b-2 border-slate-900 pb-3 mb-3 avoid-break">
+          <div className="flex items-start justify-between border-b-2 border-slate-900 pb-3 mb-2 avoid-break">
             <div>
               <div className="flex items-center gap-3">
                 <span className="text-xl font-black tracking-widest text-slate-950">SANESCA EXHIBIDORES</span>
                 <span className="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded border border-slate-700 font-bold">
                   PLANTA INDUSTRIAL
                 </span>
+                {isApprovedVersion && (
+                  <span className="text-[9px] font-mono uppercase px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300 font-black">
+                    ✓ VERSIÓN APROBADA
+                  </span>
+                )}
               </div>
               <h1 className="text-sm font-extrabold text-slate-800 uppercase tracking-tight mt-1">
-                Hoja Viajera de Abastecimiento & Compras (OAB)
+                Hoja Viajera de Abastecimiento & Compras (OAB) {isApprovedVersion && '— Versión Aprobada'}
               </h1>
               <p className="text-[10px] text-slate-600 mt-0.5">
                 Flujo Operativo Integrado: Inventario ➔ Gerencia ➔ Compras ➔ Rampa de Recepción
@@ -331,6 +354,36 @@ export const PrintSheetOAB: React.FC<PrintSheetOABProps> = ({
             </div>
           </div>
 
+          {/* Banner de Adjudicación Gerencial y Datos de Cotización (solo en Versión Aprobada) */}
+          {isApprovedVersion && (
+            <div className="bg-emerald-50 border border-emerald-300 rounded p-2 mb-2 flex flex-wrap items-center justify-between gap-2 text-[9px] text-emerald-950 avoid-break">
+              <div>
+                <span className="font-bold uppercase text-[7.5px] text-emerald-700 block">Proveedor Adjudicado</span>
+                <span className="font-bold text-slate-900 text-[10px]">{approvedDetails?.proveedor || header.proveedor || 'Sin especificar'}</span>
+              </div>
+              <div>
+                <span className="font-bold uppercase text-[7.5px] text-emerald-700 block">N° Cotización / Factura</span>
+                <span className="font-mono text-slate-900 font-bold">{approvedDetails?.cotizacion || header.cotizacion || 'S/N'}</span>
+              </div>
+              <div>
+                <span className="font-bold uppercase text-[7.5px] text-emerald-700 block">Fecha Est. Entrega</span>
+                <span className="font-mono text-slate-900 font-semibold">{approvedDetails?.fechaEstimadaEntrega || header.fechaEstimadaEntrega || 'No especificada'}</span>
+              </div>
+              <div>
+                <span className="font-bold uppercase text-[7.5px] text-emerald-700 block">Estado Operativo</span>
+                <span className="font-bold font-mono px-1.5 py-0.5 rounded bg-emerald-200 text-emerald-900 border border-emerald-300">
+                  {header.estadoGeneral || 'En Compra'}
+                </span>
+              </div>
+              {(approvedDetails?.notasCompras || header.notasCompras) && (
+                <div className="w-full pt-1 border-t border-emerald-200 text-[8.5px] text-slate-700">
+                  <span className="font-bold text-emerald-800">Notas de Compras: </span>
+                  <span>{approvedDetails?.notasCompras || header.notasCompras}</span>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Subcintillo de Auditoría y Metadatos de Ordenamiento */}
           <div className="flex items-center justify-between text-[8px] text-slate-600 font-mono mb-2 pb-1 border-b border-slate-200 avoid-break">
             <span>Agrupación: Prioridad Operativa (Urgente ➔ Alta ➔ Media ➔ Baja)</span>
@@ -353,7 +406,15 @@ export const PrintSheetOAB: React.FC<PrintSheetOABProps> = ({
                 <th className="border border-slate-400 p-1 text-right w-14">P. Unit ($)</th>
                 <th className="border border-slate-400 p-1 text-right w-14">Subtotal ($)</th>
                 <th className="border border-slate-400 p-1 text-center w-24 bg-blue-50">
-                  Gerencia Magaly<br/><span className="text-[7px] font-normal">[ ] Aprobado / Cant</span>
+                  {isApprovedVersion ? (
+                    <>
+                      Gerencia Magaly<br/><span className="text-[7.5px] font-bold text-blue-900">Cant. Aprobada</span>
+                    </>
+                  ) : (
+                    <>
+                      Gerencia Magaly<br/><span className="text-[7px] font-normal">[ ] Aprobado / Cant</span>
+                    </>
+                  )}
                 </th>
                 <th className="border border-slate-400 p-1 text-center w-28 bg-emerald-50">
                   Gestión Compras<br/><span className="text-[7px] font-normal">Proveedor / Factura</span>
@@ -418,17 +479,30 @@ export const PrintSheetOAB: React.FC<PrintSheetOABProps> = ({
                           ${linea.subtotalUSD.toFixed(2)}
                         </td>
                         
-                        {/* Casilla Manuscrita Magaly */}
+                        {/* Casilla Gerencia Magaly */}
                         <td className="border border-slate-300 p-0.5 sm:p-1 text-center bg-blue-50/20">
-                          <div className="flex items-center justify-center gap-1">
-                            <div className="w-2.5 h-2.5 border border-slate-600 rounded-sm"></div>
-                            <span className="text-slate-400 text-[8px]">_______</span>
-                          </div>
+                          {isApprovedVersion ? (
+                            <div className="font-mono font-black text-blue-950 text-[9px] bg-blue-100 py-0.5 px-1 rounded border border-blue-300 inline-block min-w-[28px]">
+                              ✓ {linea.cantidadAprobada !== undefined && linea.cantidadAprobada !== null ? linea.cantidadAprobada : linea.cantidadSolicitada}
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-center gap-1">
+                              <div className="w-2.5 h-2.5 border border-slate-600 rounded-sm"></div>
+                              <span className="text-slate-400 text-[8px]">_______</span>
+                            </div>
+                          )}
                         </td>
 
-                        {/* Casilla Manuscrita Compras */}
-                        <td className="border border-slate-300 p-0.5 sm:p-1 text-center bg-emerald-50/20 text-[8px] text-slate-400">
-                          <div className="h-3 border-b border-dotted border-slate-400"></div>
+                        {/* Casilla Gestión Compras */}
+                        <td className="border border-slate-300 p-0.5 sm:p-1 text-center bg-emerald-50/20 text-[8px] text-slate-600">
+                          {isApprovedVersion && (approvedDetails?.proveedor || header.proveedor) ? (
+                            <div className="leading-tight font-medium text-[8px] text-emerald-950">
+                              <span className="block font-semibold truncate max-w-[100px] mx-auto">{approvedDetails?.proveedor || header.proveedor}</span>
+                              <div className="h-2 border-b border-dotted border-slate-400 mt-0.5"></div>
+                            </div>
+                          ) : (
+                            <div className="h-3 border-b border-dotted border-slate-400"></div>
+                          )}
                         </td>
 
                         {/* Casilla Manuscrita Rampa */}

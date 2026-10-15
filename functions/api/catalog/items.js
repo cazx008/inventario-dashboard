@@ -13,7 +13,6 @@ import { getLiveCatalogAdditions } from '../_kv.js';
 import { toDisplayUoM } from './_uomMap.js';
 
 const CATALOGO_INSUMOS_DB_ID = '26286805-4e27-8067-8847-d39de1bf0bde';
-const CONTROL_STOCK_DB_ID = '2b586805-4e27-80fe-b6e8-e4c6dc325696';
 
 function extractPlainText(prop) {
   if (!prop) return '';
@@ -101,36 +100,23 @@ export async function onRequest(context) {
   };
 
   try {
-    // 1. Consultar de forma paralela el Catálogo de Insumos y Control de Stock con paginación completa
-    const [catalogPages, stockPages, liveAdditions] = await Promise.all([
+    // 1. Consultar directamente el Catálogo Maestro de Insumos (Tabla Unificada PLAN-016)
+    const [catalogPages, liveAdditions] = await Promise.all([
       fetchAllPages(CATALOGO_INSUMOS_DB_ID, notionHeaders, 10),
-      fetchAllPages(CONTROL_STOCK_DB_ID, notionHeaders, 10),
       getLiveCatalogAdditions(env)
     ]);
 
-    // 2. Mapear existencias físicas por relación "Producto"
-    const stockMapByInsumoId = new Map();
-    for (const page of stockPages) {
-      const p = page.properties;
-      const insumoRel = p['Producto']?.relation || p['Insumos']?.relation || [];
-      const insumoId = insumoRel[0]?.id;
-      if (insumoId) {
-        stockMapByInsumoId.set(insumoId, {
-          dashboardId: page.id,
-          stockBase: p['Stock (base)']?.number ?? 0,
-          stockMinimo: p['Stock mínimo']?.number ?? 0,
-          estadoStock: p['Estado de Stock']?.select?.name || 'En Stock',
-          contando: p['Contando']?.checkbox ?? true,
-          ubicacion: extractPlainText(p['Ubicación'] || p['Pasillo'] || p['Estante'])
-        });
-      }
-    }
-
-    // 3. Procesar resultados del Catálogo Maestro
+    // 2. Procesar resultados del Catálogo Maestro Unificado
     const items = [];
 
     for (const page of catalogPages) {
       const p = page.properties;
+
+      const stockBase = typeof p['Stock (base)']?.number === 'number' ? p['Stock (base)'].number : 0;
+      const stockMinimo = typeof p['Stock mínimo']?.number === 'number' ? p['Stock mínimo'].number : 0;
+      const estadoStock = p['Estado de Stock']?.select?.name || (stockBase <= 0 ? 'Sin Stock' : (stockMinimo > 0 && stockBase < stockMinimo ? 'Bajo Mínimo' : 'En Stock'));
+      const contando = p['Contando']?.checkbox ?? true;
+      const ubicacion = extractPlainText(p['Ubicación'] || p['Pasillo'] || p['Estante']);
 
       const nombre = extractPlainText(p['Nombre del producto']) ||
                      extractPlainText(p['Concepto']) ||
@@ -163,12 +149,9 @@ export async function onRequest(context) {
       if (espesor) dimParts.push(`${espesor}mm`);
       const dimensiones = dimParts.join(' × ');
 
-      // Cruzar con existencias físicas
-      const stockInfo = stockMapByInsumoId.get(page.id) || null;
-
-      const isDescontinuado = p['Activo']?.checkbox === false || p['Descontinuado']?.checkbox === true || (stockInfo && !stockInfo.contando);
-      const isHuerfano = !stockInfo;
+      const isDescontinuado = p['Activo']?.checkbox === false || p['Descontinuado']?.checkbox === true;
       const activo = !isDescontinuado;
+      const isHuerfano = false;
 
       // Filtros
       if (categoryFilter && categoria.toLowerCase() !== categoryFilter.toLowerCase()) continue;
@@ -185,7 +168,7 @@ export async function onRequest(context) {
       items.push({
         id: page.id,
         insumoId: page.id,
-        dashboardId: stockInfo?.dashboardId || null,
+        dashboardId: page.id, // Unificado: id, insumoId y dashboardId coinciden
         nombre,
         codigo,
         codigoValery,
@@ -201,14 +184,14 @@ export async function onRequest(context) {
         espesor,
         color,
         dimensiones,
-        stockBase: stockInfo?.stockBase ?? 0,
-        stockMinimo: stockInfo?.stockMinimo ?? 0,
-        estadoStock: stockInfo?.estadoStock || 'Sin Registro',
-        ubicacion: stockInfo?.ubicacion || '',
-        contando: stockInfo?.contando ?? true,
+        stockBase,
+        stockMinimo,
+        estadoStock,
+        ubicacion,
+        contando,
         activo,
         isDescontinuado: Boolean(isDescontinuado),
-        isHuerfano
+        isHuerfano: false
       });
     }
 

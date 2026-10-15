@@ -119,37 +119,20 @@ export async function onRequest(context) {
     }
 
     try {
-      // Consultar ambas bases de datos en paralelo
-      const [catalogPages, stockPages] = await Promise.all([
-        fetchAllNotionPages(CATALOGO_INSUMOS_DB_ID, notionHeaders),
-        fetchAllNotionPages(CONTROL_STOCK_DB_ID, notionHeaders)
-      ]);
+      // Consultar únicamente la Base de Datos Unificada de Catálogo (PLAN-016)
+      const catalogPages = await fetchAllNotionPages(CATALOGO_INSUMOS_DB_ID, notionHeaders);
 
-      // Mapear existencias por insumo vinculado (propiedad Producto o Insumos)
-      const stockByInsumoId = new Map();
-      for (const sp of stockPages) {
-        const p = sp.properties;
-        const rel = p['Producto']?.relation || p['Insumos']?.relation || [];
-        const insumoId = rel[0]?.id;
-        if (insumoId) {
-          stockByInsumoId.set(insumoId, {
-            stockPageId: sp.id,
-            stockBase: p['Stock (base)']?.number ?? 0,
-            stockMinimo: p['Stock mínimo']?.number ?? 0,
-            ubicacion: extractPlainText(p['Ubicación'] || p['Pasillo'] || p['Estante']),
-            contando: p['Contando']?.checkbox ?? true
-          });
-        }
-      }
-
-      // Analizar catálogo
+      // Analizar catálogo unificado
       const issues = [];
       const codeFrequency = new Map();
       const rawItems = [];
 
       for (const cp of catalogPages) {
         const p = cp.properties;
-        const nombre = extractPlainText(p['Nombre'] || p['Descripción'] || p['Material']);
+        const nombre = extractPlainText(p['Nombre del producto']) ||
+                       extractPlainText(p['Concepto']) ||
+                       extractPlainText(p['Nombre'] || p['Descripción'] || p['Material']) ||
+                       'Insumo sin Nombre';
         const codigo = extractPlainText(p['Codigo'] || p['Código']).toUpperCase().trim();
         const categoria = p['Categoría de material']?.select?.name || p['Categoría']?.select?.name || 'General';
         const conceptoRel = p['Diccionario de Conceptos']?.relation || [];
@@ -158,11 +141,14 @@ export async function onRequest(context) {
         const costo = Number(p['Costo_Unitario_Base_USD']?.number ?? p['Costo Unitario ($ USD)']?.number ?? p['Costo']?.number ?? 0);
         const activo = p['Activo']?.checkbox !== false && p['Descontinuado']?.checkbox !== true;
 
+        const stockBase = typeof p['Stock (base)']?.number === 'number' ? p['Stock (base)'].number : 0;
+        const stockMinimo = typeof p['Stock mínimo']?.number === 'number' ? p['Stock mínimo'].number : 0;
+        const contando = p['Contando']?.checkbox ?? true;
+        const ubicacion = extractPlainText(p['Ubicación'] || p['Pasillo'] || p['Estante']);
+
         if (codigo) {
           codeFrequency.set(codigo, (codeFrequency.get(codigo) || 0) + 1);
         }
-
-        const stockEntry = stockByInsumoId.get(cp.id);
 
         rawItems.push({
           id: cp.id,
@@ -173,10 +159,12 @@ export async function onRequest(context) {
           costo,
           activo,
           tieneConcepto,
-          hasStockRecord: Boolean(stockEntry),
-          stockRecordId: stockEntry?.stockPageId || null,
-          stockBase: stockEntry?.stockBase ?? 0,
-          ubicacion: stockEntry?.ubicacion || ''
+          hasStockRecord: true,
+          stockRecordId: cp.id,
+          stockBase,
+          stockMinimo,
+          contando,
+          ubicacion
         });
       }
 
@@ -188,8 +176,9 @@ export async function onRequest(context) {
       let countMissingConcept = 0;
 
       for (const it of rawItems) {
-        // 1. Huérfano (No existe en Control de Stock)
-        if (!it.hasStockRecord) {
+        // En la arquitectura unificada PLAN-016 no hay huérfanos ontológicos
+        // Solo alertar si el insumo está activo con stock positivo pero sin nombre
+        if (!it.nombre || it.nombre === 'Insumo sin Nombre') {
           countOrphans++;
           issues.push({
             id: `orphan-${it.id}`,
@@ -198,8 +187,8 @@ export async function onRequest(context) {
             codigo: it.codigo,
             categoria: it.categoria,
             severity: 'CRITICAL',
-            tipo: 'HUERFANO',
-            mensaje: 'El insumo no tiene ficha en BD_Control_Stock_Existencias.',
+            tipo: 'SIN_NOMBRE',
+            mensaje: 'El registro no posee Nombre del Producto ni Concepto asignado.',
             actionable: true,
             actionType: 'HEAL_ORPHAN'
           });
@@ -296,7 +285,7 @@ export async function onRequest(context) {
         healthStatus,
         kpis: {
           totalCatalogItems: totalItems,
-          totalStockRecords: stockPages.length,
+          totalStockRecords: totalItems,
           countOrphans,
           countZeroCost,
           countDuplicateCode,
@@ -375,20 +364,67 @@ export async function onRequest(context) {
         });
       }
 
+      // Pre-cargar existencias actuales para evitar duplicados y detectar homónimos existentes (Decisión D2 - Ruta B)
+      const existingStockPages = await fetchAllNotionPages(CONTROL_STOCK_DB_ID, notionHeaders, 5).catch(() => []);
+      const stockByName = new Map();
+      for (const sp of existingStockPages) {
+        const sNombre = extractPlainText(sp.properties['Nombre'] || sp.properties['Insumo']).toLowerCase().trim();
+        if (sNombre) {
+          stockByName.set(sNombre, sp);
+        }
+      }
+
       let healedCount = 0;
+      let linkedExistingCount = 0;
+      const collisions = [];
       const errors = [];
 
       for (const insumoId of orphanIds) {
         try {
-          // Obtener nombre del insumo
+          // Obtener datos del insumo rector en Catálogo
           const pageRes = await fetch(`https://api.notion.com/v1/pages/${insumoId}`, {
             headers: notionHeaders
           });
           if (!pageRes.ok) continue;
           const pageData = await pageRes.json();
-          const nombre = extractPlainText(pageData.properties['Nombre'] || pageData.properties['Material']) || 'Insumo Sin Nombre';
+          const p = pageData.properties;
+          const nombre = extractPlainText(p['Nombre del producto']) ||
+                         extractPlainText(p['Concepto']) ||
+                         extractPlainText(p['Nombre'] || p['Descripción'] || p['Material']) ||
+                         '';
+          const codigo = extractPlainText(p['Codigo'] || p['Código']).toUpperCase().trim();
 
-          // Crear ficha en BD_Control_Stock_Existencias con propiedad de título 'Nombre'
+          if (!nombre || nombre === 'Insumo Sin Nombre') {
+            errors.push(`Insumo ${insumoId} omitido: no posee Concepto ni Nombre válido en Catálogo.`);
+            continue;
+          }
+
+          const normName = nombre.toLowerCase().trim();
+          const existingStockPage = stockByName.get(normName);
+
+          // Si ya existe una ficha con el mismo nombre en existencias (ej. HER-006 con 187 und):
+          if (existingStockPage) {
+            // Reparar enlace relacional en la ficha existente en vez de crear duplicado
+            const updateRes = await fetch(`https://api.notion.com/v1/pages/${existingStockPage.id}`, {
+              method: 'PATCH',
+              headers: notionHeaders,
+              body: JSON.stringify({
+                properties: {
+                  'Producto': {
+                    relation: [{ id: insumoId }]
+                  }
+                }
+              })
+            });
+
+            if (updateRes.ok) {
+              healedCount++;
+              linkedExistingCount++;
+              continue;
+            }
+          }
+
+          // Si no existe, crear ficha nueva en BD_Control_Stock_Existencias con título extraído fielmente
           let stockRes = await fetch(`https://api.notion.com/v1/pages`, {
             method: 'POST',
             headers: notionHeaders,
@@ -410,7 +446,7 @@ export async function onRequest(context) {
             })
           });
 
-          // Fallback defensivo si el esquema de la base de datos estuviera configurado con 'Insumo'
+          // Fallback defensivo si el esquema de título fuera 'Insumo'
           if (!stockRes.ok) {
             stockRes = await fetch(`https://api.notion.com/v1/pages`, {
               method: 'POST',
@@ -434,10 +470,11 @@ export async function onRequest(context) {
             });
           }
 
-          if (stockRes.ok) healedCount++;
-          else {
+          if (stockRes.ok) {
+            healedCount++;
+          } else {
             const errTxt = await stockRes.text();
-            errors.push(`Error al sanar ${insumoId}: ${errTxt}`);
+            errors.push(`Error al sanar ${insumoId} (${nombre}): ${errTxt}`);
           }
         } catch (subErr) {
           errors.push(`Error de red al sanar ${insumoId}: ${subErr.message}`);
@@ -449,9 +486,46 @@ export async function onRequest(context) {
 
       return new Response(JSON.stringify({
         ok: true,
-        message: `Se repararon con éxito ${healedCount} de ${orphanIds.length} insumos huérfanos.`,
+        message: `Se repararon ${healedCount} huérfanos (${linkedExistingCount} vinculados a fichas existentes y ${healedCount - linkedExistingCount} nuevas).`,
         healedCount,
+        linkedExistingCount,
         errors
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+      });
+    }
+
+    // ACCIÓN: PURGE_UNNAMED (Limpieza de residuos espurios "Insumo Sin Nombre")
+    if (action === 'purge_unnamed') {
+      const stockPages = await fetchAllNotionPages(CONTROL_STOCK_DB_ID, notionHeaders, 10);
+      let purgedCount = 0;
+      const purgeErrors = [];
+
+      for (const sp of stockPages) {
+        const nom = extractPlainText(sp.properties['Nombre'] || sp.properties['Insumo']).trim().toLowerCase();
+        if (!nom || nom === 'insumo sin nombre' || nom === 'sin nombre' || nom === 'sin código') {
+          try {
+            const archRes = await fetch(`https://api.notion.com/v1/pages/${sp.id}`, {
+              method: 'PATCH',
+              headers: notionHeaders,
+              body: JSON.stringify({ archived: true })
+            });
+            if (archRes.ok) purgedCount++;
+            else purgeErrors.push(`Error al archivar ${sp.id}`);
+          } catch (e) {
+            purgeErrors.push(`Error archivando ${sp.id}: ${e.message}`);
+          }
+        }
+      }
+
+      await setCachedCatalogAudit(env, null);
+
+      return new Response(JSON.stringify({
+        ok: true,
+        purgedCount,
+        message: `Se purgaron ${purgedCount} registros corruptos de existencias en Notion.`,
+        errors: purgeErrors
       }), {
         status: 200,
         headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }

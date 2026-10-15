@@ -276,12 +276,6 @@
 
 ---
 
-## Archivos del proyecto
-
-| Archivo / Carpeta | Descripción |
-|:------------------|:------------|
----
-
 ## Fase 11 — Sistema Integral de Gestión, Ficha Técnica y Auditoría del Catálogo Maestro de Insumos (✅ 100% Completada)
 
 - **11A. Cimientos de Datos, Endpoints Serverless, Ontología y Buffer Edge KV:**
@@ -461,13 +455,100 @@
 
 ---
 
+## Fase 13 — Núcleo de Despacho & Matching Canónico Bimodal O(1) (PLAN-008 / INC-006) (✅ 100% Completada y Certificada E2E)
+
+- **13A. Algoritmo de Matching Heurístico O(1) (`normalizeMatchKey`):**
+  - Normalización determinista insensible a tildes, signos de puntuación, mayúsculas y espacios duplicados (`src/utils/matching.ts` / `inventoryService.ts`).
+  - Resolución definitiva del caso crítico de despacho *Cola Blanca Pega Sold* vs *SHOE BOX* (`PRY-2026-0045`), permitiendo vincular reservas MTO con recetas de ingeniería sin fricción de caracteres.
+- **13B. Botones Directos de Despacho Contextual:**
+  - Integración de disparador directo `[ 📤 Despachar ]` en cada fila de asignación dentro de `AllocationsPopover.tsx` y en el Tablero Panorámico de Asignaciones (`StoreAllocationModal.tsx`).
+  - Pre-llenado automático e instantáneo del insumo, cantidad comprometida, código de pedido y obra en `MaterialDispatchModal.tsx`.
+- **13C. Purga Atómica de Reservas Residuales en Cero:**
+  - Al completar el despacho de una reserva, se purga de inmediato la entrada en Edge KV (`INVENTORY_KV` `live_allocations`), erradicando apartados fantasma en el dashboard.
+- **13D. Validación E2E en Producción (PVVN):**
+  - Desplegado y verificado en `https://sanesca-inventario.pages.dev/`.
+  - Walkthrough pericial registrado en [`02_Reportes_Diagnosticos/WALKTHROUGH_PLAN_008_CERTIFICACION_E2E.md`](../../../../02_Reportes_Diagnosticos/WALKTHROUGH_PLAN_008_CERTIFICACION_E2E.md).
+
+---
+
+## Fase 14 — Directorio Central de Bultos y Cédula Pericial QR en PC (PLAN-009) (✅ 100% Completada y Certificada E2E)
+
+- **14A. Pestaña Central "Directorio de Bultos" en Tablero Panorámico (`StoreAllocationModal.tsx`):**
+  - Visor unificado de todos los bultos generados en planta agrupados por pedido, insumo y folio de recepción.
+  - Conmutador bimodal interactivo: Vista Grid (Tarjetas de Bulto con badges de estado) vs Vista Tabla ERP densa multi-columna.
+  - Buscador reactivo en caliente con filtrado por PKG-ID, código de obra, descripción y tipo de recepción.
+- **14B. Cédula Pericial QR Ampliada en Pantalla Completa (`BultoVerificationModal.tsx`):**
+  - Modal táctil para estaciones de trabajo PC y terminales de rampa con código QR colosal de 240px generado en canvas, barras Code128, metadatos técnicos completos y enlace directo a la Cédula Digital Móvil (390px).
+  - Acciones rápidas: Reimpresión quirúrgica inmediata, apertura y fraccionamiento en taller (`-S1`), y verificación pericial de autenticidad.
+- **14C. Validación E2E en Producción (PVVN):**
+  - Desplegado y verificado en `https://sanesca-inventario.pages.dev/`.
+  - Walkthrough pericial registrado en [`02_Reportes_Diagnosticos/WALKTHROUGH_PLAN_009_DIRECTORIO_BULTOS_QR.md`](../../../../02_Reportes_Diagnosticos/WALKTHROUGH_PLAN_009_DIRECTORIO_BULTOS_QR.md).
+
+---
+
+## Fase 15 — Bitácora Forense Integral y Taxonomía Tríada de Eventos sin Impacto Físico (PLAN-010) (✅ 100% Completada y Certificada E2E)
+
+- **15A. Taxonomía Tríada de Eventos Operacionales (`forensicEvents`):**
+  - Categorización formal de acciones que no alteran el Kardex físico de inmediato pero son críticas para trazabilidad:
+    - `OPERACIONES`: `RECLASIFICACION_MTO_RAMPA`, `IMPRESION_ETIQUETAS_MTO`, `APERTURA_BULTO_TALLER`, `DESPACHO_ORDEN`.
+    - `AJUSTES`: `CONTEO_VERIFICADO_CONFORME`, `AJUSTE_DIFERENCIA_FISICA`, `REINTEGRO_RETAZO_UTIL`.
+    - `SEGURIDAD`: `SOLICITUD_2FA_PIN`, `LOGIN_PC_EXITOSO`, `LOGIN_PC_FALLIDO`, `BLOQUEO_ANTI_BRUTEFORCE`.
+- **15B. Modal Denso de Auditoría Forense (`ForensicAuditModal.tsx`):**
+  - 4 Tarjetas KPI con severidades normalizadas (`INFO`, `WARN`, `CRITICAL`), filtro interactivo por rango de fechas, selector de categorías y buscador difuso.
+  - Exportación pericial a CSV con encabezados estándar y prefijo UTF-8 BOM (`\uFEFF`) para compatibilidad perfecta con Microsoft Excel en español.
+- **15C. Arquitectura Híbrida de Persistencia LIFO:**
+  - Buffer ultrarrápido en Upstash Redis (`forensic_audit_events`, retención de 500 eventos) y persistencia asíncrona permanente en `BD_Auditoria_Accesos_Logs` (`3ec86805`) en Notion mediante Cloudflare Pages Functions (`/api/forensic/events.js`).
+- **15D. Validación E2E en Producción (PVVN):**
+  - Desplegado y verificado en `https://sanesca-inventario.pages.dev/`.
+  - Walkthrough pericial registrado en [`02_Reportes_Diagnosticos/WALKTHROUGH_PLAN_010_AUDITORIA_FORENSE_EVENTOS.md`](../../../../02_Reportes_Diagnosticos/WALKTHROUGH_PLAN_010_AUDITORIA_FORENSE_EVENTOS.md).
+
+---
+
+## Fase 16 — Popover Bimodal Anti-Clipping y Despacho Defensivo ante Stock Cero (PLAN-011 / INC-007) (✅ 100% Completada y Certificada E2E)
+
+- **16A. Arquitectura Bimodal de Popover Flotante (`AllocationsPopover.tsx`):**
+  - **Desktop (Portal Flotante):** Montaje en `#portal-root` mediante React `createPortal` con cálculo dinámico absoluto de coordenadas (`getBoundingClientRect`) y auto-posicionamiento inteligente (arriba/abajo), eliminando el clipping vertical provocado por el `overflow: hidden` de tablas filtradas.
+  - **Móvil (Bottom Sheet 390px):** Conmutación automática a hoja deslizante inferior táctil con backdrop oscuro semitransparente, badge de obra completo y botones táctiles de 44px.
+- **16B. Blindaje Contra `max=0` HTML5 y Puentes Defensivos:**
+  - Erradicación del atributo restrictivo `max="0"` en inputs numéricos de despacho cuando un material tiene reservas MTO o necesidades activas pero stock físico libre en cero.
+  - Despliegue de banner defensivo amigable con puentes directos de acción: `[ 🛒 Requisición OAB ]` (emisión prioritaria a compras) y `[ 🚚 Terminal de Rampa ]` (verificación de camiones en muelle de descarga).
+- **16C. Validación E2E en Producción (PVVN):**
+  - Desplegado y verificado en `https://sanesca-inventario.pages.dev/` bajo commit `7b79ac45`.
+  - Walkthrough pericial registrado en [`02_Reportes_Diagnosticos/WALKTHROUGH_PLAN_011_POPOVER_ERGONOMIA_Y_DESPACHO_DEFENSIVO.md`](../../../../02_Reportes_Diagnosticos/WALKTHROUGH_PLAN_011_POPOVER_ERGONOMIA_Y_DESPACHO_DEFENSIVO.md).
+
+---
+
+## Fase 17 — Abastecimiento Stock Común (MTS), Rectificación Dinámica en Rampa, Split de Destinos y Rotulado Universal (PLAN-012) (✅ 100% Completada y Certificada E2E)
+
+- **17A. Emisión de OAB para Stock Común MTS (`OrderSearchModal.tsx` / `SupplyOrderModal.tsx`):**
+  - Inserción de tarjeta destacada "Stock Común / General Planta (MTS)" en el encabezado del buscador de órdenes, permitiendo reponer inventario de bodega general sin requerir asociar una obra de cliente.
+- **17B. Rectificación Dinámica de Destinos en Rampa (`ReceptionTerminalModal.tsx`):**
+  - Selector in situ en muelle de descarga para reclasificar líneas de entrega (MTS ➔ MTO o MTO Obra A ➔ Obra B / MTS) ante contingencias o cambios de prioridad en planta.
+  - Estampa pericial visual `[RECTIFICADO EN RAMPA]` en el renglón de recepción y registro en la bitácora forense.
+- **17C. Fraccionamiento Cuantitativo de Destinos (`Split`):**
+  - Herramienta en rampa para dividir una misma línea de compra en múltiples bultos asignados a destinos diferentes (ej. 70 unidades a Obra X y 30 unidades a Stock Común MTS), manteniendo la integridad del folio OAB.
+- **17D. Autorización por PIN de Supervisor (`SupervisorAuthModal.tsx`):**
+  - Candado estricto de seguridad: toda rectificación de destino o fraccionamiento (`Split`) en rampa exige la validación mediante PIN de Supervisor (`1234` o Superadmin Mikel Itriago), registrando al autorizante en el log forense.
+- **17E. Rotulado QR Universal para el 100% de los Bultos (`PrintSheetProjectLabels.tsx`):**
+  - Extensión del generador de etiquetas multi-densidad (8-UP Carta / 10-UP Avery / 4-UP / Rollo 4x6") para soportar tanto bultos MTO como bultos de Stock Común MTS con cabecera diferenciada (`📦 STOCK GENERAL DE PLANTA`), QR colosal de 45mm y serial único PKG-ID.
+- **17F. Validación E2E en Producción (PVVN):**
+  - Desplegado y verificado en `https://sanesca-inventario.pages.dev/` bajo despliegue `eb63361d`.
+  - Walkthrough pericial registrado en [`02_Reportes_Diagnosticos/WALKTHROUGH_PLAN_012_STOCK_COMUN_MTS_Y_RECTIFICACION_RAMPA.md`](../../../../02_Reportes_Diagnosticos/WALKTHROUGH_PLAN_012_STOCK_COMUN_MTS_Y_RECTIFICACION_RAMPA.md).
+
+---
+
 ## Archivos Clave del Proyecto
 
 | Archivo | Rol |
 |:---|:---|
-| `src/components/PrintSheetProjectLabels.tsx` | Motor multi-densidad de impresión de rótulos logísticos MTO: Soporte 8-UP Carta (Default), 10-UP Avery 5163/8163, 4-UP Grande y Rollo 4x6", diseño 3-bandas con QR colosal de 45mm, regla adaptativa híbrida (16.5px / 14px), caja de cantidad 21px, desglose heterogéneo y bulto pico |
-| `src/components/AllocationsPopover.tsx` | Popover flotante ergonómico de asignaciones vivas MTO e indicador de apartados |
-| `src/components/BultoVerificationModal.tsx` | Modal de verificación y escaneo de bultos en logística de despacho |
+| `src/components/PrintSheetProjectLabels.tsx` | Motor multi-densidad de impresión de rótulos logísticos universales (MTO y MTS Stock Común): Soporte 8-UP Carta (Default), 10-UP Avery 5163/8163, 4-UP Grande y Rollo 4x6", diseño 3-bandas con QR colosal de 45mm, regla adaptativa híbrida (16.5px / 14px), caja de cantidad 21px, desglose heterogéneo y bulto pico (Fases 12 y 17) |
+| `src/components/AllocationsPopover.tsx` | Popover flotante ergonómico con arquitectura bimodal (React Portal en Desktop / Bottom Sheet en Móvil 390px), botón directo de despacho y prevención de clipping (Fases 10, 13 y 16) |
+| `src/components/BultoVerificationModal.tsx` | Modal táctil de Cédula Pericial QR en PC y verificación de bultos con QR 240px, Code128 y enlace a terminal móvil (Fase 14 / PLAN-009) |
+| `src/components/ForensicAuditModal.tsx` | Visor denso de Bitácora Forense Integral (PLAN-010): 4 KPI cards, severidades normalizadas (`INFO`, `WARN`, `CRITICAL`), filtrado por fechas y exportación CSV con UTF-8 BOM |
+| `src/components/SupervisorAuthModal.tsx` | Sub-modal de autorización gerencial por PIN (`1234` / Superadmin) para rectificación en rampa, split de destinos y excepciones (Fase 17 / PLAN-012) |
+| `src/components/StoreAllocationModal.tsx` | Tablero Panorámico de Asignaciones MTO, Pestaña de Directorio de Bultos (Grid/Tabla), reasignación entre obras y liquidación de sobrantes (Fases 10 y 14) |
+| `src/components/OrderSearchModal.tsx` | Buscador modal unificado de órdenes/obras con tarjeta destacada para Stock Común MTS (Fases 10F y 17) |
+| `src/components/ReceptionTerminalModal.tsx` | Terminal táctil de rampa para conteo físico, fotos de guía, backorders, rectificación in situ de destinos, split cuantitativo y autorización por PIN (Fases 8, 11.3 y 17) |
 | `src/components/ItemMasterModal.tsx` | Componente modal maestro: Directorio, Ficha Técnica asistida por Ontología ISO, Rótulo Térmico y Health Checker (Fase 11) |
 | `src/types/catalog.ts` | Definiciones TypeScript para Conceptos ISO, Catálogo Maestro, Upsert Payloads y Health Audit (Fase 11) |
 | `src/services/catalogService.ts` | Servicio cliente de consumo de endpoints de Catálogo, Ontología ISO, Upsert dual y auto-sanación (Fase 11) |

@@ -20,6 +20,7 @@ import {
   DollarSign,
   Layers,
   Archive,
+  Trash2,
   ArrowRight,
   Info,
   Building2,
@@ -48,7 +49,8 @@ import {
   checkDuplicateCode,
   getCatalogAudit,
   healOrphans,
-  bulkUpdateCosts
+  bulkUpdateCosts,
+  purgeCorruptedRecords
 } from '../services/catalogService';
 
 interface ItemMasterModalProps {
@@ -66,6 +68,27 @@ interface ItemMasterModalProps {
 }
 
 const CATEGORIAS_INSUMO = [
+  'Herrajes y Accesorios',
+  'Adhesivos y Químicos',
+  'Tableros',
+  'Fijaciones (Tornillería)',
+  'Laminados Decorativos',
+  'Tapacantos',
+  'Tubería (Redonda)',
+  'Láminas',
+  'Platinas',
+  'Mallas',
+  'Tubería (Cuadrada/Rectangular)',
+  'Barras y Varillas',
+  'Tubería (Especializada)',
+  'Herramientas y Abrasivos',
+  'Suministros Neumáticos',
+  'Equipo de Protección Personal (EPP)',
+  'Indumentaria y Seguridad',
+  'Equipos y Maquinaria',
+  'Suministros de Limpieza',
+  'Perfiles y Tubos',
+  'Abrasivos',
   'Maderas y Tableros',
   'Herrajes y Tornillería',
   'Químicos y Pegamentos',
@@ -78,6 +101,11 @@ const CATEGORIAS_INSUMO = [
 
 const ROLES_MATERIAL = [
   'Materia Prima',
+  'Componente',
+  'Revestimiento',
+  'Consumible',
+  'Herramienta',
+  'Suministro General',
   'Insumo Operativo',
   'Herramienta de Consumo',
   'Empaque y Embalaje'
@@ -214,6 +242,7 @@ export const ItemMasterModal: React.FC<ItemMasterModalProps> = ({
   const [healthSubTab, setHealthSubTab] = useState<'issues' | 'bulk_costs'>('issues');
   const [bulkCostValues, setBulkCostValues] = useState<Record<string, string>>({});
   const [isHealingOrphans, setIsHealingOrphans] = useState(false);
+  const [isPurging, setIsPurging] = useState(false);
   const [isSavingBulkCosts, setIsSavingBulkCosts] = useState(false);
   const [bulkSuccessMsg, setBulkSuccessMsg] = useState<string | null>(null);
 
@@ -372,7 +401,7 @@ export const ItemMasterModal: React.FC<ItemMasterModalProps> = ({
     setCodigo('');
     setCodigoValery('');
     setMarca('');
-    setCategoria('Maderas y Tableros');
+    setCategoria('Herrajes y Accesorios');
     setRolMaterial('Materia Prima');
     setUnidad('UND');
     setCostoUSD('0');
@@ -398,7 +427,7 @@ export const ItemMasterModal: React.FC<ItemMasterModalProps> = ({
     setCodigo(item.codigo || '');
     setCodigoValery(item.codigoValery || '');
     setMarca(item.marca || '');
-    setCategoria(item.categoria || 'General');
+    setCategoria(item.categoria || 'Herrajes y Accesorios');
     setRolMaterial(item.rolMaterial || 'Materia Prima');
     setUnidad(item.unidad || 'UND');
     setCostoUSD(String(item.costoUnitarioUSD || 0));
@@ -702,6 +731,26 @@ export const ItemMasterModal: React.FC<ItemMasterModalProps> = ({
       setAuditError(e.message || 'Error durante la auto-sanación.');
     } finally {
       setIsHealingOrphans(false);
+    }
+  };
+
+  const handlePurgeCorrupted = async () => {
+    const confirmPurge = window.confirm(
+      '¿Desea purgar de Notion las páginas residuales creadas accidentalmente sin nombre o sin código?'
+    );
+    if (!confirmPurge) return;
+
+    setIsPurging(true);
+    setAuditError(null);
+    try {
+      const res = await purgeCorruptedRecords();
+      alert(res.message);
+      await loadAuditData(true);
+      await loadItemsList();
+    } catch (e: any) {
+      setAuditError(e.message || 'Error purgando residuos.');
+    } finally {
+      setIsPurging(false);
     }
   };
 
@@ -1464,6 +1513,9 @@ export const ItemMasterModal: React.FC<ItemMasterModalProps> = ({
                         onChange={e => setCategoria(e.target.value)}
                         className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-slate-200 focus:outline-none focus:border-blue-500"
                       >
+                        {categoria && !CATEGORIAS_INSUMO.includes(categoria) && (
+                          <option value={categoria}>{categoria}</option>
+                        )}
                         {CATEGORIAS_INSUMO.map(c => (
                           <option key={c} value={c}>{c}</option>
                         ))}
@@ -1479,6 +1531,9 @@ export const ItemMasterModal: React.FC<ItemMasterModalProps> = ({
                         onChange={e => setRolMaterial(e.target.value)}
                         className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-slate-200 focus:outline-none focus:border-blue-500"
                       >
+                        {rolMaterial && !ROLES_MATERIAL.includes(rolMaterial) && (
+                          <option value={rolMaterial}>{rolMaterial}</option>
+                        )}
                         {ROLES_MATERIAL.map(r => (
                           <option key={r} value={r}>{r}</option>
                         ))}
@@ -1716,14 +1771,26 @@ export const ItemMasterModal: React.FC<ItemMasterModalProps> = ({
                     Inspección continua de integridad referencial entre Catálogo, Control de Stock y Ontología ISO.
                   </p>
                 </div>
-                <button
-                  onClick={() => loadAuditData(true)}
-                  disabled={isLoadingAudit}
-                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg flex items-center space-x-1.5 border border-slate-700 transition"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isLoadingAudit ? 'animate-spin' : ''}`} />
-                  <span>Re-auditar Ahora</span>
-                </button>
+                <div className="flex items-center space-x-2">
+                  <button
+                    type="button"
+                    onClick={handlePurgeCorrupted}
+                    disabled={isPurging}
+                    className="px-3 py-1.5 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 text-xs font-semibold rounded-lg flex items-center space-x-1.5 border border-rose-800/50 transition disabled:opacity-50"
+                    title="Purga fichas creadas como 'Insumo Sin Nombre' o sin código en Notion"
+                  >
+                    {isPurging ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                    <span>Purgar Residuos</span>
+                  </button>
+                  <button
+                    onClick={() => loadAuditData(true)}
+                    disabled={isLoadingAudit}
+                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg flex items-center space-x-1.5 border border-slate-700 transition"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isLoadingAudit ? 'animate-spin' : ''}`} />
+                    <span>Re-auditar Ahora</span>
+                  </button>
+                </div>
               </div>
 
               {isLoadingAudit && (

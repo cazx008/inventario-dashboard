@@ -19,6 +19,8 @@ interface HeaderProps {
   onOpenAuditModal?: () => void;
   onRefresh: () => void;
   isRefreshing?: boolean;
+  onRevalidateNotion?: () => void;
+  isRevalidatingNotion?: boolean;
   profile?: UserProfile | null;
   onRefreshPermissions?: () => void;
   onChangePin?: () => void;
@@ -46,6 +48,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenAuditModal,
   onRefresh,
   isRefreshing = false,
+  onRevalidateNotion,
+  isRevalidatingNotion = false,
   profile,
   onRefreshPermissions,
   onChangePin,
@@ -213,16 +217,16 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           )}
 
-          {/* Action: Bitácora de Auditoría Forense (Exclusivo Superadmin) */}
-          {profile?.permissions?.includes('Superadmin') && onOpenAuditModal && (
+          {/* Action: Bitácora de Auditoría Forense (Exclusivo Superadmin o Auditoria_Kardex) */}
+          {(profile?.permissions?.includes('Superadmin') || profile?.permissions?.includes('Auditoria_Kardex')) && onOpenAuditModal && (
             <button
               onClick={onOpenAuditModal}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 hover:border-rose-500/60 transition active:scale-95 shadow-sm"
-              title="Visor Forense de Auditoría, Telemetría y Accesos (Superadmin)"
+              title="Bitácora Forense Integral: Operaciones MTO, Ajustes Físicos y Accesos"
             >
               <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
               <span className="hidden sm:inline">Auditoría</span>
-              <span>Accesos</span>
+              <span>Forense</span>
             </button>
           )}
 
@@ -265,6 +269,19 @@ export const Header: React.FC<HeaderProps> = ({
               <RefreshCw className={`w-3 h-3 ${isRefreshing ? 'animate-spin text-brand-400' : ''}`} />
             </button>
           </div>
+
+          {/* Botón Revalidar Notion (PLAN-013 - Decisión 3 / Ruta A) */}
+          {onRevalidateNotion && (
+            <button
+              onClick={onRevalidateNotion}
+              disabled={isRevalidatingNotion}
+              className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/40 hover:border-emerald-400 transition active:scale-95 shadow-sm shadow-emerald-500/10 disabled:opacity-50"
+              title="Purga la caché Edge KV y fuerza la consulta en vivo de Notion (detecta cambios en 'Contando', existencias y nuevos insumos)"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-emerald-400 ${isRevalidatingNotion ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">Revalidar</span> Notion
+            </button>
+          )}
 
           {/* Profile Identity Pill */}
           {profile && (

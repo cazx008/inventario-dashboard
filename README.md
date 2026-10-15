@@ -58,6 +58,10 @@ Sistema web industrial para la gestión integral de inventario, emisión de órd
                       │  • Catálogo Maestro & Health Checker │
                       │  • Rótulos MTO Multi-Densidad QR 45mm│
                       │  • Conteo Cíclico y Ajustes Odoo 18  │
+                      │  • Directorio Bultos & Cédula QR PC  │
+                      │  • Bitácora Forense & Taxonomía 3D   │
+                      │  • Popover Portal & Despacho Cero    │
+                      │  • Rampa MTS, Split & PIN Supervisor │
                       └──────────────────────────────────────┘
 ```
 
@@ -138,6 +142,36 @@ Sistema web industrial para la gestión integral de inventario, emisión de órd
 - Hardening mecánico para impresoras láser (HP LaserJet / EPSON / Brother): cota vertical de 254mm en hoja Carta con márgenes de 4mm, erradicando hojas en blanco por margen de agarre del rodillo.
 - Diseño logístico de 3 bandas: Cabecera negra 100% con código de obra y bulto; Cuerpo asimétrico 60/40 con regla tipográfica híbrida (16.5px $\le 45$ chars / 14px $>45$ chars, caja de cantidad en 21px bold monospace).
 - Código QR colosal de 45mm × 45mm (resolución nativa 200px) con alcance óptico de hasta 2.8m, origen de producción inmutable (`CANONICAL_ORIGIN`) y sufijos seriales dinámicos `-S1`/`-S2` para bultos fraccionados en taller.
+
+### 13. Núcleo de Despacho & Matching Canónico Bimodal O(1) (Fase 13 / PLAN-008)
+- Algoritmo de normalización léxica y matching heurístico $O(1)$ (`normalizeMatchKey`) insensible a acentos, diacríticos y variaciones de espaciado para enlazar insumos de catálogo con reservas de pedidos (Caso *Cola Blanca Pega Sold* / *SHOE BOX*).
+- Despacho contextual instantáneo: botones directos `[ 📤 Despachar ]` integrados en el Popover de asignaciones y en el Tablero Panorámico de Asignaciones con pre-llenado automático de obra y material.
+- Purga atómica de reservas residuales: eliminación automática de llaves con saldo cero en Cloudflare Edge KV (`INVENTORY_KV`).
+
+### 14. Directorio Central de Bultos y Cédula Pericial QR en Pantalla (Fase 14 / PLAN-009)
+- Pestaña central "Directorio de Bultos" integrada en el Tablero Panorámico (`StoreAllocationModal.tsx`) con vista bimodal conmutador Grid (Tarjetas de Bulto) vs Tabla ERP densa.
+- Motor de búsqueda reactiva por PKG-ID, código de pedido, descripción de insumo y tipo de bulto.
+- Modal de Cédula Pericial QR en pantalla completa para PC (`BultoVerificationModal.tsx` extendido) con código QR de 240px, código de barras Code128, detalles de ingeniería y deep-link a Cédula Digital Móvil (390px).
+
+### 15. Bitácora Forense Integral y Taxonomía Tríada de Eventos sin Impacto Físico (Fase 15 / PLAN-010)
+- Trazabilidad pericial y bitácora unificada de eventos operacionales que no alteran el Kardex físico de inmediato pero requieren auditoría estricta:
+  - `OPERACIONES`: `RECLASIFICACION_MTO_RAMPA`, `IMPRESION_ETIQUETAS_MTO`, `APERTURA_BULTO_TALLER`, `DESPACHO_ORDEN`.
+  - `AJUSTES`: `CONTEO_VERIFICADO_CONFORME`, `AJUSTE_DIFERENCIA_FISICA`, `REINTEGRO_RETAZO_UTIL`.
+  - `SEGURIDAD`: `SOLICITUD_2FA_PIN`, `LOGIN_PC_EXITOSO`, `LOGIN_PC_FALLIDO`, `BLOQUEO_ANTI_BRUTEFORCE`.
+- 4 Tarjetas analíticas KPI con severidades normalizadas (`INFO`, `WARN`, `CRITICAL`), búsqueda difusa multicampo y exportación pericial a CSV con UTF-8 BOM.
+- Buffer caliente LIFO en Upstash Redis y persistencia asíncrona permanente en `BD_Auditoria_Accesos_Logs` (`3ec86805`) en Notion mediante `ctx.waitUntil`.
+
+### 16. Popover Bimodal Anti-Clipping y Despacho Defensivo ante Stock Cero (Fase 16 / PLAN-011 / INC-007)
+- Arquitectura bimodal de popovers flotantes: React Portal (`createPortal`) montado en `#portal-root` con cálculo dinámico de coordenadas en Desktop (erradicando cualquier corte vertical por `overflow: hidden` en tablas filtradas) y Bottom Sheet táctil nativo en terminales móviles (390px).
+- Erradicación de `max=0` HTML5 nativo: prevención de bloqueos cuando un insumo posee apartado MTO pero stock físico libre en cero, desplegando puentes defensivos directos hacia Requisición de Compras (OAB) y Rampa de Recepción.
+- Paginación y scroll fluido con preservación estricta de contexto y badges de proyecto al filtrar inventario.
+
+### 17. Abastecimiento Stock Común (MTS), Rectificación Dinámica en Rampa, Split de Destinos y Rotulado Universal (Fase 17 / PLAN-012)
+- Emisión de OAB para Stock Común (MTS / General Planta) mediante tarjeta destacada en el buscador modal de pedidos (`OrderSearchModal.tsx`), erradicando la necesidad de asociar una obra de cliente para reposición de bodega general.
+- Rectificación dinámica en muelle de Rampa (`ReceptionTerminalModal.tsx`): reclasificación in situ del destino del material (MTS ➔ MTO o MTO Obra A ➔ Obra B / MTS) ante cambios de prioridad en planta, estampando el badge pericial `[RECTIFICADO EN RAMPA]` y emitiendo logs forenses.
+- Fraccionamiento cuantitativo (`Split`): división de una línea de compra en múltiples bultos con destinos disjuntos (ej. 70 unidades a Obra X y 30 unidades a Stock Común MTS) sin alterar la orden de compra original.
+- Autorización por PIN de Supervisor (`1234` / Superadmin) requerida para validar rectificaciones o split en rampa antes del cierre de recepción.
+- Rotulado QR Universal: generación de etiquetas industriales con QR colosal de 45mm y seriales PKG-ID para el 100% de los bultos descargados, cubriendo tanto pedidos MTO como insumos MTS para bodega general.
 
 ---
 

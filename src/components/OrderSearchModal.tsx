@@ -1,6 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Search, X, FolderKanban, Check, Building2, Calendar, FileText, RefreshCw } from 'lucide-react';
+import { Search, X, FolderKanban, Check, Building2, Calendar, FileText, RefreshCw, Package } from 'lucide-react';
 import { OrderReference } from '../types/oab';
+
+export const STOCK_GENERAL_ORDER: OrderReference = {
+  id: '',
+  codigo: 'STK',
+  cliente: 'Sanesca (Almacén General)',
+  proyecto: 'Stock General / Fondo Común (MTS)',
+  tipo: 'PED',
+  fecha: new Date().toISOString().slice(0, 10),
+  proyectoId: undefined
+};
 
 interface OrderSearchModalProps {
   isOpen: boolean;
@@ -191,14 +201,58 @@ export const OrderSearchModal: React.FC<OrderSearchModalProps> = ({
         {/* Content Body: Two columns */}
         <div className="grid grid-cols-1 md:grid-cols-12 flex-1 overflow-hidden">
           {/* Left Column: Order List */}
-          <div className="md:col-span-7 border-r border-borderSubtle overflow-y-auto custom-scrollbar p-3 space-y-1.5 max-h-[50vh]">
+          <div className="md:col-span-7 border-r border-borderSubtle overflow-y-auto custom-scrollbar p-3 space-y-2 max-h-[50vh]">
+            {/* Tarjeta Fija Destacada: Stock General MTS */}
+            <div
+              onClick={() => setSelectedPreview(STOCK_GENERAL_ORDER)}
+              className={`p-2.5 rounded-xl border cursor-pointer transition flex items-center justify-between ${
+                selectedPreview?.codigo === 'STK'
+                  ? 'bg-amber-500/15 border-amber-500/70 shadow-sm ring-1 ring-amber-500/40'
+                  : 'bg-page/80 border-amber-500/30 hover:bg-amber-500/10'
+              }`}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="p-1.5 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/40 shrink-0">
+                  <Package className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-mono font-bold text-xs text-amber-300 truncate">
+                      📦 Stock General / Fondo Común
+                    </span>
+                    <span className="text-[9px] uppercase font-mono px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold shrink-0">
+                      MTS
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-300 truncate mt-0.5">
+                    Sin imputación a obra · Saldo libre en galpón
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelectOrder(STOCK_GENERAL_ORDER);
+                  onClose();
+                }}
+                className="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-md text-[11px] transition shadow shrink-0 ml-2"
+              >
+                Elegir MTS
+              </button>
+            </div>
+
+            <div className="text-[10px] uppercase font-mono text-slate-500 px-1 pt-1 font-semibold">
+              Órdenes de Producción / Clientes MTO:
+            </div>
+
             {loading ? (
               <div className="py-12 text-center text-slate-400 text-xs">Cargando órdenes de Notion...</div>
             ) : filteredOrders.length === 0 ? (
-              <div className="py-12 text-center text-slate-500 text-xs">No se encontraron órdenes.</div>
+              <div className="py-8 text-center text-slate-500 text-xs">No se encontraron órdenes para este filtro.</div>
             ) : (
               filteredOrders.map(order => {
-                const isSelected = selectedPreview?.id === order.id;
+                const isSelected = selectedPreview?.id === order.id && selectedPreview?.codigo !== 'STK';
                 return (
                   <div
                     key={order.id}
@@ -232,7 +286,34 @@ export const OrderSearchModal: React.FC<OrderSearchModalProps> = ({
 
           {/* Right Column: Preview & Confirm */}
           <div className="md:col-span-5 p-4 bg-page/50 flex flex-col justify-between">
-            {selectedPreview ? (
+            {selectedPreview?.codigo === 'STK' ? (
+              <div className="space-y-4">
+                <div className="border-b border-borderSubtle pb-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold">
+                      Reposición MTS
+                    </span>
+                    <span className="text-xs text-slate-400 font-mono">{selectedPreview.fecha}</span>
+                  </div>
+                  <h3 className="text-base font-bold font-mono text-amber-300 mt-2 flex items-center gap-2">
+                    <Package className="w-5 h-5 text-amber-400" />
+                    <span>Stock General / Fábrica</span>
+                  </h3>
+                  <p className="text-xs text-slate-300 font-medium mt-1">
+                    Fondo Común de Almacén (Sin asignación a cliente ni obra)
+                  </p>
+                </div>
+
+                <div className="space-y-2 text-xs">
+                  <div className="p-3 rounded-lg bg-surface border border-borderSubtle text-slate-300 text-[11px] leading-relaxed">
+                    ℹ️ <strong className="text-amber-300">Flujo Libre Make-to-Stock:</strong> Los materiales bajo esta modalidad ingresan directamente al saldo disponible de almacén. No generan compromisos ni apartados MTO en Edge KV y quedan 100% disponibles para cualquier consumo en taller o reposición general.
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px]">
+                    🏷️ <strong>Rotulado Físico:</strong> Se generarán etiquetas térmicas con rótulo <span className="font-mono font-bold">📦 STOCK GENERAL / FÁBRICA</span> y QR de bulto para trazabilidad pericial en estantería.
+                  </div>
+                </div>
+              </div>
+            ) : selectedPreview ? (
               <div className="space-y-4">
                 <div className="border-b border-borderSubtle pb-3">
                   <div className="flex items-center justify-between">
@@ -258,11 +339,14 @@ export const OrderSearchModal: React.FC<OrderSearchModalProps> = ({
                     <span className="text-slate-500 block text-[10px] uppercase">ID Transaccional:</span>
                     <span className="text-slate-400 font-mono text-[10px]">{selectedPreview.id}</span>
                   </div>
+                  <div className="p-2.5 rounded-lg bg-surface border border-borderSubtle text-slate-300 text-[11px]">
+                    🔒 <strong className="text-brand-400">Flujo Blindado Make-to-Order:</strong> Los materiales recibidos quedarán apartados exclusivamente para esta orden en el Tablero de Apartados.
+                  </div>
                 </div>
               </div>
             ) : (
               <div className="py-12 text-center text-slate-500 text-xs">
-                Selecciona una orden de la lista para ver sus detalles.
+                Selecciona una orden de la lista o elige Stock General para ver los detalles.
               </div>
             )}
 
@@ -281,10 +365,14 @@ export const OrderSearchModal: React.FC<OrderSearchModalProps> = ({
                     onClose();
                   }
                 }}
-                className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold rounded-lg bg-brand-500 hover:bg-brand-600 text-slate-950 transition disabled:opacity-50"
+                className={`flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold rounded-lg transition disabled:opacity-50 ${
+                  selectedPreview?.codigo === 'STK'
+                    ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold shadow'
+                    : 'bg-brand-500 hover:bg-brand-600 text-slate-950'
+                }`}
               >
                 <Check className="w-3.5 h-3.5" />
-                <span>Confirmar Selección</span>
+                <span>{selectedPreview?.codigo === 'STK' ? 'Confirmar Stock General' : 'Confirmar Selección'}</span>
               </button>
             </div>
           </div>
