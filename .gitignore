@@ -9,3 +9,4 @@ dist/
 *.bak
 .impeccable/
 .archify/
+graphify-out/
