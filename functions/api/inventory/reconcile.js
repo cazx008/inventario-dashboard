@@ -153,6 +153,8 @@ export async function onRequest(context) {
           ordersMapById.set(page.id, oObj);
           if (numDoc) ordersMapByCode.set(numDoc.toLowerCase(), oObj);
         }
+      }
+
       // 3.3 Catálogo Maestro de Insumos (PLAN-016)
       const catalogMapById = new Map();
       const catalogMapByCode = new Map();

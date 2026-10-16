@@ -318,7 +318,7 @@ export async function onRequest(context) {
       });
     }
 
-    const nuevoEstadoStockLimpio = updatedItem.estadoStock;
+    nuevoEstadoStockLimpio = updatedItem.estadoStock;
 
     // 7.1 Sincronización en Edge KV
     const kvPromise = setLiveStockDelta(env, itemActual.id, {
