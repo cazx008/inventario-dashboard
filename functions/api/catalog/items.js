@@ -5,7 +5,6 @@
  * Micro-Fase 11A — Arquitectura Industrial Sanesca PRO
  * 
  * Devuelve la lista unificada de insumos del Catálogo Maestro (BD_Catalogo_Insumos: 26286805)
- * cruzada con las fichas de existencias físicas (BD_Control_Stock_Existencias: 2b586805)
  * e hidratada en caliente con las adiciones de Edge KV (live_catalog_additions).
  */
 

@@ -25,7 +25,9 @@ function resolveNotionToken() {
 
   const candidateEnvPaths = [
     path.join(__dirname, '..', '.env'),
+    path.join(__dirname, '..', '..', 'apps', 'despacho', '.env'),
     path.join(__dirname, '..', '..', '..', 'apps', 'despacho', '.env'),
+    path.join(__dirname, '..', '..', '06_Scripts_Automatizacion', 'bot_produccion', '.env'),
     path.join(__dirname, '..', '..', '..', '06_Scripts_Automatizacion', 'bot_produccion', '.env')
   ];
 
@@ -45,7 +47,6 @@ function resolveNotionToken() {
 }
 
 const NOTION_TOKEN = resolveNotionToken();
-const DASHBOARD_DB_ID = process.env.NOTION_DASHBOARD_DB_ID || '2b586805-4e27-80fe-b6e8-e4c6dc325696';
 const CATALOGO_INSUMOS_DB_ID = process.env.NOTION_CATALOGO_INSUMOS_DB_ID || '26286805-4e27-8067-8847-d39de1bf0bde';
 
 const OUTPUT_DIRS = [
@@ -196,14 +197,14 @@ async function resolveRelationIds(ids) {
 
 // --- Database Query with Pagination ---
 
-async function queryDashboard() {
+async function queryCatalogo() {
   const allPages = [];
   let cursor = undefined;
 
-  console.log('📡 Consultando BD Dashboard en Notion (filtro: Contando = true)...');
+  console.log('📡 Consultando BD Catálogo de Insumos en Notion (filtro: Contando = true)...');
 
   do {
-    const res = await fetch(`https://api.notion.com/v1/databases/${DASHBOARD_DB_ID}/query`, {
+    const res = await fetch(`https://api.notion.com/v1/databases/${CATALOGO_INSUMOS_DB_ID}/query`, {
       method: 'POST',
       headers: NOTION_HEADERS,
       body: JSON.stringify({
@@ -216,14 +217,14 @@ async function queryDashboard() {
           },
         },
         sorts: [
-          { property: 'Nombre', direction: 'ascending' },
+          { property: 'Concepto', direction: 'ascending' },
         ],
       })
     });
 
     if (!res.ok) {
       const errText = await res.text();
-      throw new Error(`Error en query Notion Dashboard (${res.status}): ${errText}`);
+      throw new Error(`Error en query Notion Catálogo Insumos (${res.status}): ${errText}`);
     }
 
     const data = await res.json();
@@ -234,61 +235,8 @@ async function queryDashboard() {
     }
   } while (cursor);
 
-  console.log(`  ✅ ${allPages.length} ítems activos con Contando=true recuperados de Notion.`);
+  console.log(`  ✅ ${allPages.length} ítems activos con Contando=true recuperados de Catálogo Insumos.`);
   return allPages;
-}
-
-// --- Query BD_Catalogo_Insumos para extracción de Costos Base USD ---
-
-async function queryCatalogoInsumos() {
-  const costMapById = new Map();
-  const costMapByCode = new Map();
-  let cursor = undefined;
-
-  console.log('📡 Consultando BD Catálogo de Insumos en Notion (Costos Base USD)...');
-
-  do {
-    const res = await fetch(`https://api.notion.com/v1/databases/${CATALOGO_INSUMOS_DB_ID}/query`, {
-      method: 'POST',
-      headers: NOTION_HEADERS,
-      body: JSON.stringify({
-        start_cursor: cursor,
-        page_size: 100,
-      })
-    });
-
-    if (!res.ok) {
-      const errText = await res.text();
-      console.warn(`  ⚠️ Aviso en Catálogo Insumos (${res.status}): ${errText}`);
-      break;
-    }
-
-    const data = await res.json();
-    for (const page of data.results) {
-      const p = page.properties;
-      const cost = p['Costo_Unitario_Base_USD']?.number ?? p['Costo Unitario ($ USD)']?.number ?? p['Costo']?.number ?? 0;
-      costMapById.set(page.id, cost);
-
-      const codeProp = p['Codigo'] || p['Código'];
-      let code = null;
-      if (codeProp?.rich_text?.[0]?.plain_text) {
-        code = codeProp.rich_text[0].plain_text.trim();
-      } else if (codeProp?.title?.[0]?.plain_text) {
-        code = codeProp.title[0].plain_text.trim();
-      }
-      if (code) {
-        costMapByCode.set(code, cost);
-      }
-    }
-
-    cursor = data.has_more ? data.next_cursor : undefined;
-    if (cursor) {
-      await new Promise(r => setTimeout(r, 60));
-    }
-  } while (cursor);
-
-  console.log(`  ✅ Catálogo Insumos indexado: ${costMapById.size} IDs, ${costMapByCode.size} códigos.`);
-  return { costMapById, costMapByCode };
 }
 
 // --- Helper: Format dimensions (L × A × E) ---
@@ -319,124 +267,111 @@ function formatDimensiones(largo, ancho, espesor) {
 
 // --- Transform a Notion page into a normalized inventory item ---
 
-async function transformItem(page, costData = { costMapById: new Map(), costMapByCode: new Map() }) {
+// --- Transform a Notion page into a normalized inventory item ---
+
+async function transformItem(page) {
   const p = page.properties;
 
-  // --- Direct properties from Dashboard ---
-  const nombre = extractProperty(p['Nombre']);
+  // --- Propiedades primarias de BD_Catalogo_Insumos ---
+  const concepto = extractProperty(p['Concepto']);
+  const nombreProd = extractProperty(p['Nombre del producto']);
+  const nombre = concepto || nombreProd || extractProperty(p['Nombre']) || 'Insumo sin Nombre';
+
   const stockBase = extractProperty(p['Stock (base)']) ?? 0;
   const stockMinimo = extractProperty(p['Stock mínimo']) ?? 0;
-  const estadoStock = extractSelectWithColor(p['Estado de Stock']);
-  const prioridad = extractSelectWithColor(p['Prioridades']);
-  const origenConsumo = extractSelectWithColor(p['Origen de Consumo']);
-  const movimiento = extractProperty(p['Movimiento']);
-  const seReconto3D = extractProperty(p['Se recontó (3D)']);
-  const seRecontoHoy = extractProperty(p['Se recontó hoy']);
-  const contando = extractProperty(p['Contando']);
+  const estadoStockObj = extractSelectWithColor(p['Estado de Stock']);
+  const prioridadObj = extractSelectWithColor(p['Prioridad']) || extractSelectWithColor(p['Prioridades']);
+  const origenConsumoObj = extractSelectWithColor(p['Origen de Consumo']);
 
-  // --- Rollups from BSD via Producto relation ---
   const marca = extractProperty(p['Marca']);
-  const codigo = extractProperty(p['Codigo']);
-  const unidad = extractRollupSelect(p['Unidad']);
+  const codigoRaw = extractProperty(p['Código']) || extractProperty(p['Codigo']);
+  const codigo = typeof codigoRaw === 'string' ? codigoRaw.trim() : (Array.isArray(codigoRaw) ? codigoRaw[0]?.trim() : '');
+  const codigoValeryRaw = extractProperty(p['Código Valery']) || extractProperty(p['Codigo Valery']);
+  const codigoValery = typeof codigoValeryRaw === 'string' ? codigoValeryRaw.trim() : '';
+
+  const unidadObj = extractSelectWithColor(p['Unidad de medida']) || extractSelectWithColor(p['Unidad']);
+  const unidad = unidadObj?.name || 'UND';
+
   const color = extractProperty(p['Color']);
   const largo = extractProperty(p['Largo']);
   const ancho = extractProperty(p['Ancho']);
   const espesor = extractProperty(p['Espesor']);
-  const categoriaMaterial = extractRollupSelect(p['Categoría de material']);
-  const rolMaterial = extractRollupSelect(p['Rol del Material']);
+  const dimensionesFmt = formatDimensiones(largo, ancho, espesor);
 
-  // --- Rollups that need resolution ---
-  const grupoProceso = extractRollupSelect(p['Grupo de Proceso']);
-  const fechaReconteo = extractProperty(p['Fecha de Reconteo']);
+  const categoriaObj = extractSelectWithColor(p['Categoría de material']) || extractSelectWithColor(p['Categoria']);
+  const rolObj = extractSelectWithColor(p['Rol del Material']);
+  const ubicacion = extractProperty(p['Ubicación']) || '';
+  const costoUnitarioUSD = Number(extractProperty(p['Costo_Unitario_Base_USD'])) || 0;
+  const contando = extractProperty(p['Contando']) ?? true;
 
-  // --- Relations that need title resolution ---
+  // --- Relaciones que requieren resolución de títulos ---
   const departamentoIds = extractProperty(p['Departamentos']);
   const departamento = await resolveRelationIds(
     Array.isArray(departamentoIds) ? departamentoIds : (departamentoIds ? [departamentoIds] : [])
   );
-  const procesoIds = extractProperty(p['Proceso']);
+  const procesoIds = extractProperty(p['Diccionario de Conceptos']) || extractProperty(p['Proceso']);
   const proceso = await resolveRelationIds(
     Array.isArray(procesoIds) ? procesoIds : (procesoIds ? [procesoIds] : [])
   );
 
-  // --- Derived fields ---
+  // --- Campos derivados y semáforo ---
   const deficit = Math.max(0, stockMinimo - stockBase);
   const coberturaPct = stockMinimo > 0 ? Math.round((stockBase / stockMinimo) * 100) : (stockBase > 0 ? 999 : 0);
 
-  // Semáforo calculado
   let semaforo;
   if (stockBase === 0) semaforo = 'rojo';
   else if (stockBase < stockMinimo) semaforo = 'naranja';
   else semaforo = 'verde';
 
-  const dimensionesFmt = formatDimensiones(largo, ancho, espesor);
-
-  // Días desde último reconteo
-  let diasDesdeReconteo = null;
-  let ultimaFechaReconteo = null;
-  if (Array.isArray(fechaReconteo) && fechaReconteo.length > 0) {
-    const fechas = fechaReconteo
-      .filter(f => f != null)
-      .map(f => new Date(f))
-      .sort((a, b) => b - a);
-    if (fechas.length > 0) {
-      ultimaFechaReconteo = fechas[0].toISOString().split('T')[0];
-      diasDesdeReconteo = Math.floor((Date.now() - fechas[0].getTime()) / (1000 * 60 * 60 * 24));
-    }
-  } else if (typeof fechaReconteo === 'string') {
-    ultimaFechaReconteo = fechaReconteo;
-    diasDesdeReconteo = Math.floor((Date.now() - new Date(fechaReconteo).getTime()) / (1000 * 60 * 60 * 24));
+  let estadoStock = estadoStockObj?.name;
+  let estadoStockColor = estadoStockObj?.color;
+  if (!estadoStock) {
+    if (stockBase === 0) { estadoStock = 'Sin Stock'; estadoStockColor = 'red'; }
+    else if (stockBase < stockMinimo) { estadoStock = 'Bajo Mínimo'; estadoStockColor = 'orange'; }
+    else { estadoStock = 'En Stock'; estadoStockColor = 'green'; }
   }
 
-  const necesitaReconteo = diasDesdeReconteo !== null ? diasDesdeReconteo > 7 && !seReconto3D : null;
-
-  // Extracción y cruce de costos desde BD_Catalogo_Insumos
-  const insumoRelation = extractProperty(p['Producto']) || extractProperty(p['Insumos']) || [];
-  const insumoId = Array.isArray(insumoRelation) ? insumoRelation[0] : (typeof insumoRelation === 'string' ? insumoRelation : null);
-
-  const codigoClean = typeof codigo === 'string' ? codigo.trim() : (Array.isArray(codigo) ? codigo[0]?.trim() : null);
-
-  let costoUnitarioUSD = 0;
-  if (insumoId && costData?.costMapById?.has(insumoId)) {
-    costoUnitarioUSD = costData.costMapById.get(insumoId);
-  } else if (codigoClean && costData?.costMapByCode?.has(codigoClean)) {
-    costoUnitarioUSD = costData.costMapByCode.get(codigoClean);
-  }
+  let prioridad = prioridadObj?.name || (stockBase < stockMinimo ? 'Alta' : 'Media');
+  let prioridadColor = prioridadObj?.color || (stockBase < stockMinimo ? 'orange' : 'gray');
 
   return {
     id: page.id,
+    insumoId: page.id,
+    dashboardId: page.id,
     nombre,
-    codigo: typeof codigo === 'string' ? codigo : (Array.isArray(codigo) ? codigo[0] : null),
-    marca: typeof marca === 'string' ? marca : (Array.isArray(marca) ? marca[0] : null),
-    insumoId: insumoId || null,
-    costoUnitarioUSD: Number(costoUnitarioUSD) || 0,
+    codigo,
+    codigoValery,
+    marca: typeof marca === 'string' ? marca.trim() : (Array.isArray(marca) ? marca[0]?.trim() : ''),
+    costoUnitarioUSD,
     stockBase,
     stockMinimo,
     deficit,
     coberturaPct,
     semaforo,
-    estadoStock: estadoStock?.name || null,
-    estadoStockColor: estadoStock?.color || null,
-    prioridad: prioridad?.name || null,
-    prioridadColor: prioridad?.color || null,
-    origenConsumo: origenConsumo?.name || null,
-    origenConsumoColor: origenConsumo?.color || null,
-    categoriaMaterial: categoriaMaterial?.name || (typeof categoriaMaterial === 'string' ? categoriaMaterial : null),
-    categoriaMaterialColor: categoriaMaterial?.color || null,
-    rolMaterial: rolMaterial?.name || (typeof rolMaterial === 'string' ? rolMaterial : null),
-    rolMaterialColor: rolMaterial?.color || null,
-    unidad: unidad?.name || (typeof unidad === 'string' ? unidad : null),
+    estadoStock,
+    estadoStockColor,
+    prioridad,
+    prioridadColor,
+    origenConsumo: origenConsumoObj?.name || null,
+    origenConsumoColor: origenConsumoObj?.color || null,
+    categoriaMaterial: categoriaObj?.name || 'General',
+    categoriaMaterialColor: categoriaObj?.color || null,
+    rolMaterial: rolObj?.name || 'Materia Prima',
+    rolMaterialColor: rolObj?.color || null,
+    unidad,
     color: typeof color === 'string' ? color : (Array.isArray(color) ? color[0] : null),
     dimensiones: dimensionesFmt,
+    ubicacion,
+    contando,
     departamento: departamento || null,
     proceso: proceso || null,
-    grupoProceso: grupoProceso?.name || (typeof grupoProceso === 'string' ? grupoProceso : null),
-    grupoProcesoColor: grupoProceso?.color || null,
-    seReconto3D: seReconto3D || false,
-    seRecontoHoy: seRecontoHoy || false,
-    ultimaFechaReconteo,
-    diasDesdeReconteo,
-    necesitaReconteo,
+    grupoProceso: null,
+    grupoProcesoColor: null,
+    seReconto3D: false,
+    seRecontoHoy: false,
+    ultimaFechaReconteo: null,
+    diasDesdeReconteo: null,
+    necesitaReconteo: false,
   };
 }
 
@@ -485,20 +420,14 @@ async function main() {
 
   const startTime = Date.now();
 
-  const [pages, costData] = await Promise.all([
-    queryDashboard(),
-    queryCatalogoInsumos().catch(err => {
-      console.warn('  ⚠️ Error cargando Catálogo Insumos:', err);
-      return { costMapById: new Map(), costMapByCode: new Map() };
-    })
-  ]);
+  const pages = await queryCatalogo();
 
-  console.log('🔄 Transformando datos, cruzando costos y resolviendo relaciones...');
+  console.log('🔄 Transformando datos y resolviendo relaciones...');
   const items = [];
   const BATCH_SIZE = 10;
   for (let i = 0; i < pages.length; i += BATCH_SIZE) {
     const batch = pages.slice(i, i + BATCH_SIZE);
-    const batchItems = await Promise.all(batch.map(p => transformItem(p, costData)));
+    const batchItems = await Promise.all(batch.map(p => transformItem(p)));
     items.push(...batchItems);
     process.stdout.write(`  📦 ${items.length}/${pages.length} procesados...\r`);
     await new Promise(r => setTimeout(r, 40));
@@ -540,7 +469,9 @@ async function main() {
     if (!cfToken) {
       const candidatePaths = [
         path.join(__dirname, '..', '.env'),
+        path.join(__dirname, '..', '..', 'apps', 'despacho', '.env'),
         path.join(__dirname, '..', '..', '..', 'apps', 'despacho', '.env'),
+        path.join(__dirname, '..', '..', '06_Scripts_Automatizacion', 'bot_produccion', '.env'),
         path.join(__dirname, '..', '..', '..', '06_Scripts_Automatizacion', 'bot_produccion', '.env')
       ];
       for (const p of candidatePaths) {

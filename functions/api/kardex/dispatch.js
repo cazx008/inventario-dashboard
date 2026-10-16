@@ -21,9 +21,9 @@ import { requirePermission } from '../auth/_guard.js';
 import { executeRedis, recordAuditLog } from '../auth/_audit.js';
 import { sendTelegramAlert } from '../telegram/notify.js';
 import { setLiveStockDelta, getLiveAllocations, setLiveAllocations } from '../_kv.js';
+import { getInventoryItem, updatePhysicalStock } from '../_inventoryRepo.js';
 
 const KARDEX_DB_ID = '26286805-4e27-803b-91ce-ef8f121d622d';
-const DASHBOARD_DB_ID = '2b586805-4e27-80fe-b6e8-e4c6dc325696';
 const SOLICITUDES_DB_ID = '2bc86805-4e27-8036-ba88-d52ec84742ba';
 const PROYECTOS_DB_ID = '31e86805-4e27-80e0-8be5-f3d30532e900';
 
@@ -146,20 +146,19 @@ export async function onRequest(context) {
 
     const todayStr = fechaDespacho || new Date().toISOString().split('T')[0];
 
-    // 2. Consultar existencia y stock físico actual en BD_Control_Stock_Existencias (Dashboard)
-    const dashPageRes = await fetch(`https://api.notion.com/v1/pages/${dashboardId}`, { headers });
-    if (!dashPageRes.ok) {
-      const err = await dashPageRes.text();
-      return new Response(JSON.stringify({ error: `Insumo no encontrado en almacén: ${err}` }), {
+    // 2. Consultar existencia y stock físico actual en BD_Catalogo_Insumos (PLAN-017)
+    const targetInsumoId = insumoId || dashboardId;
+    const itemActual = await getInventoryItem(targetInsumoId, env);
+    if (!itemActual) {
+      return new Response(JSON.stringify({ error: `Insumo no encontrado en catálogo (${targetInsumoId})` }), {
         status: 404,
         headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
       });
     }
 
-    const dashPage = await dashPageRes.json();
-    const currentStock = dashPage.properties?.['Stock (base)']?.number || 0;
-    const itemActualName = dashPage.properties?.['Insumo']?.title?.[0]?.plain_text || materialNombre || 'Material';
-    const itemActualCode = codigo || dashPage.properties?.['Código']?.rich_text?.[0]?.plain_text || dashPage.properties?.['Codigo']?.rich_text?.[0]?.plain_text || dashPage.properties?.['SKU']?.rich_text?.[0]?.plain_text || '';
+    const currentStock = itemActual.stockBase;
+    const itemActualName = itemActual.nombre || materialNombre || 'Material';
+    const itemActualCode = itemActual.codigo || codigo || '';
 
     if (currentStock < qty) {
       return new Response(JSON.stringify({
@@ -182,7 +181,7 @@ export async function onRequest(context) {
     const targetPName = (proyectoNombre || pedidoCodigo || '').trim();
 
     // Buscar reservas existentes para este insumo
-    const itemAllocations = allocations.filter(a => a.dashboardId === dashboardId);
+    const itemAllocations = allocations.filter(a => a.insumoId === itemActual.id || a.dashboardId === itemActual.id || a.dashboardId === dashboardId);
     
     // Reserva de la obra destino
     let myAlloc = null;
@@ -420,16 +419,15 @@ export async function onRequest(context) {
         rich_text: [{ text: { content: detalleExtStr } }]
       },
       'Dashboard': {
-        relation: [{ id: dashboardId }]
+        relation: [{ id: itemActual.id }]
+      },
+      'Producto': {
+        relation: [{ id: itemActual.id }]
       },
       'Etiquetado/Entregado': {
         status: { name: 'Entregado' }
       }
     };
-
-    if (insumoId) {
-      kardexProps['Producto'] = { relation: [{ id: insumoId }] };
-    }
 
     if (resolvedProjId) {
       kardexProps['Proyectos'] = { relation: [{ id: resolvedProjId }] };
@@ -454,22 +452,14 @@ export async function onRequest(context) {
 
     const kardexData = await kardexRes.json();
 
-    // 6. Decremento Atómico en BD_Control_Stock_Existencias (Dashboard)
+    // 6. Decremento Atómico en BD_Catalogo_Insumos (PLAN-017)
     const newStock = Math.max(0, currentStock - qty);
-    const patchDashRes = await fetch(`https://api.notion.com/v1/pages/${dashboardId}`, {
-      method: 'PATCH',
-      headers,
-      body: JSON.stringify({
-        properties: {
-          'Stock (base)': { number: newStock }
-        }
-      })
-    });
+    try {
+      await updatePhysicalStock(itemActual.id, {
+        newStockBase: newStock
+      }, env);
 
-    if (!patchDashRes.ok) {
-      console.error('Alerta crítica: Se registró Kardex pero falló PATCH de stock en Dashboard:', await patchDashRes.text());
-    } else {
-      const kvPromise = setLiveStockDelta(env, dashboardId, {
+      const kvPromise = setLiveStockDelta(env, itemActual.id, {
         stock: newStock,
         source: 'DISPATCH'
       });
@@ -478,6 +468,8 @@ export async function onRequest(context) {
       } else {
         await kvPromise;
       }
+    } catch (patchErr) {
+      console.error('Alerta crítica: Se registró Kardex pero falló PATCH de stock en Catálogo:', patchErr);
     }
 
     // 7. Notificación Operativa en Telegram (Inactiva temporalmente según gobernanza)

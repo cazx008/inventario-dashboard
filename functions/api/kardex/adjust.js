@@ -18,9 +18,9 @@ import { requirePermission } from '../auth/_guard.js';
 import { recordAuditLog, executeRedis, getVzlaTime } from '../auth/_audit.js';
 import { sendTelegramAlert } from '../telegram/notify.js';
 import { setLiveStockDelta } from '../_kv.js';
+import { getInventoryItem, updatePhysicalStock } from '../_inventoryRepo.js';
 
 const KARDEX_DB_ID = '26286805-4e27-803b-91ce-ef8f121d622d';
-const DASHBOARD_DB_ID = '2b586805-4e27-80fe-b6e8-e4c6dc325696';
 const SUPERVISOR_PIN_DEFAULT = '1234';
 
 export async function onRequest(context) {
@@ -134,20 +134,19 @@ export async function onRequest(context) {
       }
     }
 
-    // 3. Consultar existencia actual en Notion (BD_Control_Stock_Existencias)
-    const dashRes = await fetch(`https://api.notion.com/v1/pages/${dashboardId}`, { headers });
-    if (!dashRes.ok) {
-      const errTxt = await dashRes.text();
-      return new Response(JSON.stringify({ error: `Material no encontrado en almacén: ${errTxt}` }), {
+    // 3. Consultar existencia actual en Notion (BD_Catalogo_Insumos - PLAN-017)
+    const targetInsumoId = insumoId || dashboardId;
+    const itemActual = await getInventoryItem(targetInsumoId, env);
+    if (!itemActual) {
+      return new Response(JSON.stringify({ error: `Material no encontrado en catálogo (${targetInsumoId})` }), {
         status: 404,
         headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
       });
     }
 
-    const dashPage = await dashRes.json();
-    const currentStock = dashPage.properties?.['Stock (base)']?.number ?? 0;
-    const stockMinimo = dashPage.properties?.['Stock mínimo']?.number ?? 0;
-    const itemActualName = dashPage.properties?.['Insumo']?.title?.[0]?.plain_text || nombre || 'Material';
+    const currentStock = itemActual.stockBase;
+    const stockMinimo = itemActual.stockMinimo;
+    const itemActualName = itemActual.nombre || nombre || 'Material';
 
     const physicalCount = Number(conteoFisico);
     const delta = Math.round((physicalCount - currentStock) * 100) / 100;
@@ -264,16 +263,15 @@ export async function onRequest(context) {
           rich_text: [{ text: { content: detalleExtStr } }]
         },
         'Dashboard': {
-          relation: [{ id: dashboardId }]
+          relation: [{ id: itemActual.id }]
+        },
+        'Producto': {
+          relation: [{ id: itemActual.id }]
         },
         'Etiquetado/Entregado': {
           status: { name: 'Entregado' }
         }
       };
-
-      if (insumoId) {
-        kardexProps['Producto'] = { relation: [{ id: insumoId }] };
-      }
 
       const kardexRes = await fetch('https://api.notion.com/v1/pages', {
         method: 'POST',
@@ -296,41 +294,27 @@ export async function onRequest(context) {
       kardexDataId = kData.id;
     }
 
-    // 6. Actualización Atómica en BD_Control_Stock_Existencias (Aplica para Δ = 0 y Δ != 0)
-    let nuevoEstadoStockLimpio = 'En Stock';
-    let nuevoEstadoStockConEmoji = '🟢 En Stock';
-    if (physicalCount === 0) {
-      nuevoEstadoStockLimpio = 'Sin Stock';
-      nuevoEstadoStockConEmoji = '🔴 Sin Stock';
-    } else if (physicalCount < stockMinimo) {
-      nuevoEstadoStockLimpio = 'Bajo Mínimo';
-      nuevoEstadoStockConEmoji = '🟠 Bajo Mínimo';
-    }
-
-    const patchDashRes = await fetch(`https://api.notion.com/v1/pages/${dashboardId}`, {
-      method: 'PATCH',
-      headers,
-      body: JSON.stringify({
-        properties: {
-          'Stock (base)': { number: physicalCount },
-          'Estado de Stock': { status: { name: nuevoEstadoStockLimpio } }
-        }
-      })
-    });
-
-    if (!patchDashRes.ok) {
-      const errTxt = await patchDashRes.text();
-      console.error('Alerta crítica: Falló PATCH de stock en Dashboard:', errTxt);
+    // 6. Actualización Atómica en BD_Catalogo_Insumos (PLAN-017)
+    let updatedItem = null;
+    try {
+      updatedItem = await updatePhysicalStock(itemActual.id, {
+        newStockBase: physicalCount,
+        stockMinimo
+      }, env);
+    } catch (patchErr) {
+      console.error('Alerta crítica: Falló PATCH de stock en Catálogo:', patchErr);
       return new Response(JSON.stringify({
-        error: `Error persistiendo saldo en Notion (BD_Control_Stock_Existencias): ${errTxt}`
+        error: `Error persistiendo saldo en Notion (BD_Catalogo_Insumos): ${patchErr.message}`
       }), {
         status: 502,
         headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
       });
     }
 
+    const nuevoEstadoStockLimpio = updatedItem.estadoStock;
+
     // 6.0 Sincronización Multi-Dispositivo en Edge KV (Zero-Quota, 100k reads/día gratis)
-    const kvPromise = setLiveStockDelta(env, dashboardId, {
+    const kvPromise = setLiveStockDelta(env, itemActual.id, {
       stock: physicalCount,
       estadoStock: nuevoEstadoStockLimpio,
       unitCost: unitCost,
@@ -342,27 +326,19 @@ export async function onRequest(context) {
       await kvPromise;
     }
 
-    // 6.1 Enriquecimiento Condicional de Catálogo Maestro (BD_Catalogo_Insumos) (Fase 9I - Decisión D4)
-    const targetInsumoId = insumoId || dashPage.properties?.['Producto']?.relation?.[0]?.id || dashPage.properties?.['Insumos']?.relation?.[0]?.id;
-    if (refCost > 0 && targetInsumoId) {
+    // 6.1 Enriquecimiento Condicional de Catálogo Maestro (BD_Catalogo_Insumos)
+    if (refCost > 0 && itemActual.costo <= 0) {
       const enrichCatalogPromise = (async () => {
         try {
-          const insumoRes = await fetch(`https://api.notion.com/v1/pages/${targetInsumoId}`, { headers });
-          if (insumoRes.ok) {
-            const insumoData = await insumoRes.json();
-            const currentMasterCost = insumoData.properties?.['Costo_Unitario_Base_USD']?.number || 0;
-            if (currentMasterCost <= 0) {
-              await fetch(`https://api.notion.com/v1/pages/${targetInsumoId}`, {
-                method: 'PATCH',
-                headers,
-                body: JSON.stringify({
-                  properties: {
-                    'Costo_Unitario_Base_USD': { number: refCost }
-                  }
-                })
-              });
-            }
-          }
+          await fetch(`https://api.notion.com/v1/pages/${itemActual.id}`, {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify({
+              properties: {
+                'Costo_Unitario_Base_USD': { number: refCost }
+              }
+            })
+          });
         } catch (enrichErr) {
           console.warn('Advertencia enriqueciendo costo base en BD_Catalogo_Insumos:', enrichErr);
         }

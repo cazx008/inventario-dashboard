@@ -16,6 +16,7 @@
 import { requirePermission } from '../auth/_guard.js';
 import { recordAuditLog, executeRedis, getVzlaTime } from '../auth/_audit.js';
 import { setLiveStockDelta } from '../_kv.js';
+import { getInventoryItem, updatePhysicalStock } from '../_inventoryRepo.js';
 
 const KARDEX_DB_ID = '26286805-4e27-803b-91ce-ef8f121d622d';
 const SUPERVISOR_PIN_DEFAULT = '1234';
@@ -168,13 +169,14 @@ export async function onRequest(context) {
     const unitCost = originalPage.properties?.['Costo Unitario ($ USD)']?.number ?? 0;
     const impactoUSD = Math.abs(invertedDelta) * unitCost;
 
-    // Relaciones
+    // Relaciones (PLAN-017)
     const dashboardId = originalPage.properties?.['Dashboard']?.relation?.[0]?.id;
     const insumoId = originalPage.properties?.['Producto']?.relation?.[0]?.id;
+    const effectiveInsumoId = insumoId || dashboardId;
 
-    if (!dashboardId) {
+    if (!effectiveInsumoId) {
       return new Response(JSON.stringify({
-        error: 'El movimiento de Kardex no tiene vinculación directa con un registro de existencia en BD_Control_Stock_Existencias.'
+        error: 'El movimiento de Kardex no tiene vinculación directa con un insumo del catálogo.'
       }), {
         status: 400,
         headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
@@ -196,22 +198,21 @@ export async function onRequest(context) {
       }
     }
 
-    // 5. Obtener saldo vivo actual en BD_Control_Stock_Existencias
-    const dashRes = await fetch(`https://api.notion.com/v1/pages/${dashboardId}`, { headers });
-    if (!dashRes.ok) {
+    // 5. Obtener saldo vivo actual en BD_Catalogo_Insumos (PLAN-017)
+    const itemActual = await getInventoryItem(effectiveInsumoId, env);
+    if (!itemActual) {
       return new Response(JSON.stringify({
-        error: `Error consultando existencias vivas en Notion (${dashboardId}).`
+        error: `Error consultando existencias vivas en Catálogo (${effectiveInsumoId}).`
       }), {
         status: 502,
         headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
       });
     }
 
-    const dashPage = await dashRes.json();
-    const currentStock = dashPage.properties?.['Stock (base)']?.number ?? 0;
-    const stockMinimo = dashPage.properties?.['Stock Mínimo']?.number ?? 0;
-    const itemActualName = dashPage.properties?.['Insumo']?.title?.[0]?.text?.content || glosaOriginal;
-    const targetInsumoId = insumoId || dashPage.properties?.['Producto']?.relation?.[0]?.id || dashPage.properties?.['Insumos']?.relation?.[0]?.id;
+    const currentStock = itemActual.stockBase;
+    const stockMinimo = itemActual.stockMinimo;
+    const itemActualName = itemActual.nombre || glosaOriginal;
+    const targetInsumoId = itemActual.id;
 
     // Compensación aditiva Odoo 18
     const newStock = Math.max(0, currentStock + invertedDelta);
@@ -269,16 +270,15 @@ export async function onRequest(context) {
         rich_text: [{ text: { content: detalleExtStr } }]
       },
       'Dashboard': {
-        relation: [{ id: dashboardId }]
+        relation: [{ id: itemActual.id }]
+      },
+      'Producto': {
+        relation: [{ id: itemActual.id }]
       },
       'Etiquetado/Entregado': {
         status: { name: 'Entregado' }
       }
     };
-
-    if (targetInsumoId) {
-      kardexProps['Producto'] = { relation: [{ id: targetInsumoId }] };
-    }
 
     const postKardexRes = await fetch('https://api.notion.com/v1/pages', {
       method: 'POST',
@@ -301,31 +301,27 @@ export async function onRequest(context) {
 
     const newKardexData = await postKardexRes.json();
 
-    // 7. Actualización Atómica en BD_Control_Stock_Existencias
-    const patchDashRes = await fetch(`https://api.notion.com/v1/pages/${dashboardId}`, {
-      method: 'PATCH',
-      headers,
-      body: JSON.stringify({
-        properties: {
-          'Stock (base)': { number: newStock },
-          'Estado de Stock': { status: { name: nuevoEstadoStockLimpio } }
-        }
-      })
-    });
-
-    if (!patchDashRes.ok) {
-      const patchErr = await patchDashRes.text();
-      console.error('Alerta crítica: Se creó contra-asiento pero falló el PATCH del saldo de existencias:', patchErr);
+    // 7. Actualización Atómica en BD_Catalogo_Insumos (PLAN-017)
+    let updatedItem = null;
+    try {
+      updatedItem = await updatePhysicalStock(itemActual.id, {
+        newStockBase: newStock,
+        stockMinimo
+      }, env);
+    } catch (patchErr) {
+      console.error('Alerta crítica: Se creó contra-asiento pero falló el PATCH del saldo en Catálogo:', patchErr);
       return new Response(JSON.stringify({
-        error: `Se creó contra-asiento (${folioReverso}) pero falló la actualización del saldo vivo: ${patchErr}`
+        error: `Se creó contra-asiento (${folioReverso}) pero falló la actualización del saldo vivo en Catálogo: ${patchErr.message}`
       }), {
         status: 502,
         headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
       });
     }
 
+    const nuevoEstadoStockLimpio = updatedItem.estadoStock;
+
     // 7.1 Sincronización en Edge KV
-    const kvPromise = setLiveStockDelta(env, dashboardId, {
+    const kvPromise = setLiveStockDelta(env, itemActual.id, {
       stock: newStock,
       estadoStock: nuevoEstadoStockLimpio,
       source: 'REVERSE'

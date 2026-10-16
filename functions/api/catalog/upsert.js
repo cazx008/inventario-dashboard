@@ -28,7 +28,6 @@ import {
 import { toNotionUoM, toDisplayUoM } from './_uomMap.js';
 
 const CATALOGO_INSUMOS_DB_ID = '26286805-4e27-8067-8847-d39de1bf0bde';
-const CONTROL_STOCK_DB_ID = '2b586805-4e27-80fe-b6e8-e4c6dc325696';
 const KARDEX_DB_ID = '26286805-4e27-803b-91ce-ef8f121d622d';
 const SOLICITUDES_DB_ID = '2bc86805-4e27-8036-ba88-d52ec84742ba';
 
@@ -338,28 +337,11 @@ export async function onRequest(context) {
       const reasons = [];
 
       try {
-        // A. Verificar Stock Físico en BD_Control_Stock_Existencias
-        if (dashboardId) {
-          const sRes = await fetch(`https://api.notion.com/v1/pages/${dashboardId}`, { headers: notionHeaders });
-          if (sRes.ok) {
-            const sPage = await sRes.json();
-            stockBase = sPage.properties?.['Stock (base)']?.number ?? 0;
-          }
-        } else {
-          const sRes = await fetch(`https://api.notion.com/v1/databases/${CONTROL_STOCK_DB_ID}/query`, {
-            method: 'POST',
-            headers: notionHeaders,
-            body: JSON.stringify({
-              filter: { property: 'Producto', relation: { contains: insumoId } },
-              page_size: 1
-            })
-          });
-          if (sRes.ok) {
-            const sData = await sRes.json();
-            if (sData.results && sData.results.length > 0) {
-              stockBase = sData.results[0].properties?.['Stock (base)']?.number ?? 0;
-            }
-          }
+        // A. Verificar Stock Físico en BD_Catalogo_Insumos
+        const sRes = await fetch(`https://api.notion.com/v1/pages/${insumoId}`, { headers: notionHeaders });
+        if (sRes.ok) {
+          const sPage = await sRes.json();
+          stockBase = sPage.properties?.['Stock (base)']?.number ?? 0;
         }
         if (stockBase > 0) {
           reasons.push(`posee ${stockBase} unidades en saldo físico activo`);
@@ -455,27 +437,9 @@ export async function onRequest(context) {
       });
     }
 
-    // 2.3 Mutación en BD_Control_Stock_Existencias (si dashboardId está presente)
-    if (dashboardId) {
-      const updateStockProps = {};
-      if (nombre) updateStockProps['Nombre'] = { title: [{ text: { content: nombre.trim() } }] };
-      if (typeof stockMinimo === 'number') updateStockProps['Stock mínimo'] = { number: stockMinimo };
-      if (ubicacion !== undefined) updateStockProps['Ubicación'] = { rich_text: [{ text: { content: (ubicacion || '').trim() } }] };
-      if (isDescontinuado !== undefined) {
-        updateStockProps['Contando'] = { checkbox: !isDescontinuado };
-        if (isDescontinuado) updateStockProps['Estado de Stock'] = { select: { name: 'Descontinuado' } };
-      }
-
-      await fetch(`https://api.notion.com/v1/pages/${dashboardId}`, {
-        method: 'PATCH',
-        headers: notionHeaders,
-        body: JSON.stringify({ properties: updateStockProps })
-      }).catch(err => console.warn('[upsert.js] Advertencia actualizando stock físico:', err));
-
-      // Actualizar delta de costo en KV si cambió
-      if (typeof costoUnitarioUSD === 'number' && costoUnitarioUSD > 0) {
-        context.waitUntil(setLiveStockDelta(env, dashboardId, { unitCost: Number(costoUnitarioUSD.toFixed(4)) }));
-      }
+    // 2.3 Actualizar delta de costo en KV si cambió
+    if (typeof costoUnitarioUSD === 'number' && costoUnitarioUSD > 0) {
+      context.waitUntil(setLiveStockDelta(env, insumoId, { unitCost: Number(costoUnitarioUSD.toFixed(4)) }));
     }
 
     // 2.4 Actualizar buffer de adiciones si aplica

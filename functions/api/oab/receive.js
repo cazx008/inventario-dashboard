@@ -9,7 +9,6 @@
  */
 
 const KARDEX_DB_ID = '26286805-4e27-803b-91ce-ef8f121d622d';
-const DASHBOARD_DB_ID = '2b586805-4e27-80fe-b6e8-e4c6dc325696';
 const SOLICITUDES_DB_ID = '2bc86805-4e27-8036-ba88-d52ec84742ba';
 const OAB_DB_ID = '3eb86805-4e27-81f9-860a-c51fc794ebb0';
 
@@ -17,6 +16,7 @@ import { sendTelegramAlert } from '../telegram/notify.js';
 import { requirePermission } from '../auth/_guard.js';
 import { recordAuditLog } from '../auth/_audit.js';
 import { setLiveStockDelta, getLiveAllocations, setLiveAllocations } from '../_kv.js';
+import { updatePhysicalStock } from '../_inventoryRepo.js';
 
 export async function onRequest(context) {
   const { request, env } = context;
@@ -482,50 +482,36 @@ export async function onRequest(context) {
                   ]
                 }
               } : {}),
-              ...(dashboardId ? { 'Dashboard': { relation: [{ id: dashboardId }] } } : {}),
-              ...(insumoId ? { 'Producto': { relation: [{ id: insumoId }] } } : {}),
+              ...(dashboardId || insumoId ? {
+                'Dashboard': { relation: [{ id: insumoId || dashboardId }] },
+                'Producto': { relation: [{ id: insumoId || dashboardId }] }
+              } : {}),
               ...(proveedorId ? { 'Proveedor': { relation: [{ id: proveedorId }] } } : {})
             }
           })
         });
       }
 
-      const effectiveStockId = dashboardId || insumoId;
+      const effectiveStockId = insumoId || dashboardId;
 
-      // 3. Incrementar Stock (base) en Catálogo Unificado (PLAN-016)
+      // 3. Incrementar Stock (base) en Catálogo Unificado (PLAN-017)
       if (effectiveStockId && receivedNum > 0) {
         try {
-          const dashPageRes = await fetch(`https://api.notion.com/v1/pages/${effectiveStockId}`, { headers });
-          if (dashPageRes.ok) {
-            const dashPage = await dashPageRes.json();
-            const currentStock = dashPage.properties?.['Stock (base)']?.number || 0;
-            const currentMin = dashPage.properties?.['Stock mínimo']?.number || 0;
-            const newStock = currentStock + receivedNum;
-            const estadoCalculado = newStock <= 0 ? 'Sin Stock' : (currentMin > 0 && newStock < currentMin ? 'Bajo Mínimo' : 'En Stock');
+          const updatedStockItem = await updatePhysicalStock(effectiveStockId, {
+            delta: receivedNum,
+            contando: true
+          }, env);
 
-            const patchDashRes = await fetch(`https://api.notion.com/v1/pages/${effectiveStockId}`, {
-              method: 'PATCH',
-              headers,
-              body: JSON.stringify({
-                properties: {
-                  'Stock (base)': { number: newStock },
-                  'Estado de Stock': { select: { name: estadoCalculado } },
-                  'Contando': { checkbox: true }
-                }
-              })
+          if (updatedStockItem) {
+            const kvPromise = setLiveStockDelta(env, effectiveStockId, {
+              stock: updatedStockItem.stockBase,
+              unitCost: unitCost > 0 ? unitCost : undefined,
+              source: 'RECEIVE_RAMP'
             });
-
-            if (patchDashRes.ok) {
-              const kvPromise = setLiveStockDelta(env, effectiveStockId, {
-                stock: newStock,
-                unitCost: unitCost > 0 ? unitCost : undefined,
-                source: 'RECEIVE_RAMP'
-              });
-              if (context?.waitUntil) {
-                context.waitUntil(kvPromise);
-              } else {
-                await kvPromise;
-              }
+            if (context?.waitUntil) {
+              context.waitUntil(kvPromise);
+            } else {
+              await kvPromise;
             }
           }
         } catch (stockErr) {
